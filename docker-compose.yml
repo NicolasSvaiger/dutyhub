@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   db:
     image: postgres:16-alpine
@@ -41,16 +39,16 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=plantonhub;Username=postgres;Password=postgres
-      - ConnectionStrings__Redis=plantonhub-redis:6379
-      - CacheSettings__InstancePrefix=plantonhub:
-      - CacheSettings__DefaultTtlMinutes=5
-      - JwtSettings__Secret=PlantonHubSuperSecretKeyForJwtTokenGeneration2024!
-      - JwtSettings__Issuer=PlantonHub
-      - JwtSettings__Audience=PlantonHubUsers
-      - JwtSettings__ExpirationMinutes=60
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:5000
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=plantonhub;Username=postgres;Password=postgres"
+      ConnectionStrings__Redis: "plantonhub-redis:6379"
+      CacheSettings__InstancePrefix: "plantonhub:"
+      CacheSettings__DefaultTtlMinutes: "5"
+      JwtSettings__Secret: "PlantonHubSuperSecretKeyForJwtTokenGeneration2024!"
+      JwtSettings__Issuer: "PlantonHub"
+      JwtSettings__Audience: "PlantonHubUsers"
+      JwtSettings__ExpirationMinutes: "60"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:5000"
     depends_on:
       db:
         condition: service_healthy
