@@ -1,0 +1,343 @@
+###############################################################################
+# PlantonHub MVP - API Request Examples
+# Formato: VS Code REST Client (.http)
+# Validates: Requirements 13.2
+#
+# Instruções:
+# 1. Inicie a API (docker-compose up ou dotnet run)
+# 2. Execute as requisições de login primeiro para obter tokens
+# 3. Copie o token retornado e cole nas variáveis abaixo
+# 4. Use os tokens para executar requisições autenticadas
+#
+# Dados do Seed:
+#   - admin@plantonhub.com / Admin@123 (AdminGlobal)
+#   - adminclinica@plantonhub.com / Teste@123 (AdminClinica)
+#   - medico@plantonhub.com / Teste@123 (Medico)
+#   - enfermeiro@plantonhub.com / Teste@123 (Enfermeiro)
+###############################################################################
+
+@baseUrl = http://localhost:5000/api
+
+# Copie os tokens retornados pelo login e cole aqui
+@adminToken = <paste_admin_token_here>
+@adminClinicaToken = <paste_adminclinica_token_here>
+@medicoToken = <paste_medico_token_here>
+
+# IDs retornados pelas operações (copie conforme necessário)
+@clinicId = <paste_clinic_id_here>
+@userId = <paste_user_id_here>
+@shiftId = <paste_shift_id_here>
+
+
+###############################################################################
+# AUTENTICAÇÃO
+###############################################################################
+
+### Login como AdminGlobal
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@plantonhub.com",
+  "password": "Admin@123"
+}
+
+### Login como AdminClinica
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "adminclinica@plantonhub.com",
+  "password": "Teste@123"
+}
+
+### Login como Médico
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "medico@plantonhub.com",
+  "password": "Teste@123"
+}
+
+### Login como Enfermeiro
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "enfermeiro@plantonhub.com",
+  "password": "Teste@123"
+}
+
+### Refresh Token (cole o refreshToken retornado pelo login)
+POST {{baseUrl}}/auth/refresh-token
+Content-Type: application/json
+
+{
+  "refreshToken": "<paste_refresh_token_here>"
+}
+
+
+###############################################################################
+# CLÍNICAS (requer AdminGlobal)
+###############################################################################
+
+### Listar todas as clínicas
+GET {{baseUrl}}/clinics
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+### Criar nova clínica
+POST {{baseUrl}}/clinics
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Clínica São Lucas",
+  "address": "Rua das Flores, 123 - Centro, São Paulo/SP",
+  "phone": "(11) 3456-7890"
+}
+
+### Criar outra clínica
+POST {{baseUrl}}/clinics
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Hospital Regional Norte",
+  "address": "Av. Brasil, 456 - Zona Norte, São Paulo/SP",
+  "phone": "(11) 2345-6789"
+}
+
+
+###############################################################################
+# USUÁRIOS (requer AdminGlobal)
+###############################################################################
+
+### Listar todos os usuários
+GET {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+### Criar novo usuário
+POST {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Dr. Carlos Silva",
+  "email": "carlos.silva@plantonhub.com",
+  "password": "Teste@123"
+}
+
+### Criar outro usuário (enfermeiro)
+POST {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Enf. Maria Santos",
+  "email": "maria.santos@plantonhub.com",
+  "password": "Teste@123"
+}
+
+### Atribuir perfil Médico ao usuário em uma clínica
+# Substitua {userId} pelo ID retornado na criação do usuário
+# Substitua clinicId pelo ID da clínica desejada
+# RoleType: 1=AdminGlobal, 2=AdminClinica, 3=Medico, 4=Enfermeiro, 5=Tecnico
+POST {{baseUrl}}/users/{{userId}}/clinic-role
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "clinicId": "{{clinicId}}",
+  "role": 3
+}
+
+### Atribuir perfil Enfermeiro ao usuário
+POST {{baseUrl}}/users/{{userId}}/clinic-role
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "clinicId": "{{clinicId}}",
+  "role": 4
+}
+
+
+###############################################################################
+# PLANTÕES (requer AdminClinica)
+###############################################################################
+
+### Listar plantões (filtrado por perfil/tenant)
+GET {{baseUrl}}/shifts
+Content-Type: application/json
+Authorization: Bearer {{adminClinicaToken}}
+
+### Listar plantões como AdminGlobal (vê todos)
+GET {{baseUrl}}/shifts
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+### Criar plantão
+POST {{baseUrl}}/shifts
+Content-Type: application/json
+Authorization: Bearer {{adminClinicaToken}}
+
+{
+  "clinicId": "{{clinicId}}",
+  "title": "Plantão Noturno - UTI",
+  "date": "2025-01-20T00:00:00Z",
+  "startTime": "19:00:00",
+  "endTime": "07:00:00"
+}
+
+### Criar outro plantão
+POST {{baseUrl}}/shifts
+Content-Type: application/json
+Authorization: Bearer {{adminClinicaToken}}
+
+{
+  "clinicId": "{{clinicId}}",
+  "title": "Plantão Diurno - Emergência",
+  "date": "2025-01-21T00:00:00Z",
+  "startTime": "07:00:00",
+  "endTime": "19:00:00"
+}
+
+### Atribuir profissional ao plantão
+# Substitua {shiftId} pelo ID do plantão criado
+POST {{baseUrl}}/shifts/{{shiftId}}/assign
+Content-Type: application/json
+Authorization: Bearer {{adminClinicaToken}}
+
+{
+  "userId": "{{userId}}"
+}
+
+
+###############################################################################
+# PRESENÇA / ATTENDANCE (requer perfil Profissional)
+###############################################################################
+
+### Check-in com geolocalização
+# O profissional registra entrada no plantão
+POST {{baseUrl}}/attendance/check-in
+Content-Type: application/json
+Authorization: Bearer {{medicoToken}}
+
+{
+  "shiftId": "{{shiftId}}",
+  "latitude": -23.5505,
+  "longitude": -46.6333,
+  "deviceId": "smartphone-pixel-7-001",
+  "biometricValidated": true
+}
+
+### Check-out com geolocalização
+# O profissional registra saída do plantão
+POST {{baseUrl}}/attendance/check-out
+Content-Type: application/json
+Authorization: Bearer {{medicoToken}}
+
+{
+  "shiftId": "{{shiftId}}",
+  "latitude": -23.5507,
+  "longitude": -46.6335,
+  "deviceId": "smartphone-pixel-7-001"
+}
+
+### Consultar histórico de presença do profissional
+GET {{baseUrl}}/attendance/my-history
+Content-Type: application/json
+Authorization: Bearer {{medicoToken}}
+
+
+###############################################################################
+# AUDITORIA (requer AdminGlobal)
+###############################################################################
+
+### Consultar logs de auditoria
+GET {{baseUrl}}/audit
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+
+###############################################################################
+# CENÁRIOS DE ERRO (para validação)
+###############################################################################
+
+### Login com credenciais inválidas (retorna 401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@plantonhub.com",
+  "password": "senhaerrada"
+}
+
+### Login com email inexistente (retorna 401)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "naoexiste@plantonhub.com",
+  "password": "Teste@123"
+}
+
+### Criar clínica sem autenticação (retorna 401)
+POST {{baseUrl}}/clinics
+Content-Type: application/json
+
+{
+  "name": "Clínica Sem Auth",
+  "address": "Teste",
+  "phone": "000"
+}
+
+### Criar clínica com perfil não autorizado (retorna 403)
+POST {{baseUrl}}/clinics
+Content-Type: application/json
+Authorization: Bearer {{medicoToken}}
+
+{
+  "name": "Clínica Sem Permissão",
+  "address": "Teste",
+  "phone": "000"
+}
+
+### Criar usuário com email inválido (retorna 400)
+POST {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{adminToken}}
+
+{
+  "name": "Teste Inválido",
+  "email": "email-invalido",
+  "password": "Teste@123"
+}
+
+### Check-in duplicado (retorna 409 se já existe check-in ativo)
+POST {{baseUrl}}/attendance/check-in
+Content-Type: application/json
+Authorization: Bearer {{medicoToken}}
+
+{
+  "shiftId": "{{shiftId}}",
+  "latitude": -23.5505,
+  "longitude": -46.6333,
+  "deviceId": "smartphone-pixel-7-001",
+  "biometricValidated": true
+}
+
+### Check-out sem check-in ativo (retorna 400)
+POST {{baseUrl}}/attendance/check-out
+Content-Type: application/json
+Authorization: Bearer {{medicoToken}}
+
+{
+  "shiftId": "00000000-0000-0000-0000-000000000000",
+  "latitude": -23.5505,
+  "longitude": -46.6333,
+  "deviceId": "smartphone-pixel-7-001"
+}

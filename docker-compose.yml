@@ -1,0 +1,80 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: plantonhub-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: plantonhub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d plantonhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: plantonhub-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: plantonhub-api
+    ports:
+      - "5000:5000"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=plantonhub;Username=postgres;Password=postgres
+      - ConnectionStrings__Redis=plantonhub-redis:6379
+      - CacheSettings__InstancePrefix=plantonhub:
+      - CacheSettings__DefaultTtlMinutes=5
+      - JwtSettings__Secret=PlantonHubSuperSecretKeyForJwtTokenGeneration2024!
+      - JwtSettings__Issuer=PlantonHub
+      - JwtSettings__Audience=PlantonHubUsers
+      - JwtSettings__ExpirationMinutes=60
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: plantonhub-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

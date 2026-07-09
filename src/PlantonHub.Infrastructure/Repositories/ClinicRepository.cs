@@ -1,0 +1,46 @@
+using Microsoft.EntityFrameworkCore;
+using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Interfaces;
+using PlantonHub.Infrastructure.Data;
+
+namespace PlantonHub.Infrastructure.Repositories;
+
+public class ClinicRepository : IClinicRepository
+{
+    private readonly AppDbContext _context;
+
+    public ClinicRepository(AppDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Clinic?> GetByIdAsync(Guid id)
+    {
+        return await _context.Clinics
+            .FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<IEnumerable<Clinic>> GetAllAsync()
+    {
+        return await _context.Clinics
+            .ToListAsync();
+    }
+
+    public async Task AddAsync(Clinic clinic)
+    {
+        _context.Clinics.Add(clinic);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Clinic clinic)
+    {
+        _context.Clinics.Update(clinic);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<bool> UserBelongsToClinicAsync(Guid userId, Guid clinicId)
+    {
+        return await _context.UserClinicRoles
+            .AnyAsync(ucr => ucr.UserId == userId && ucr.ClinicId == clinicId);
+    }
+}
