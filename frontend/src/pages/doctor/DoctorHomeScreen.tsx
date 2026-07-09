@@ -5,7 +5,6 @@ import { useClock } from './useClock';
 import { useAuth } from '../../hooks/useAuth';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
-import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useClinic } from '../../hooks/useClinic';
 import { attendanceApi } from '../../api/attendanceApi';
 import { PendingOperationsIndicator } from '../../components/PendingOperationsIndicator';
@@ -42,7 +41,6 @@ export function DoctorHomeScreen({ onCheckedIn, onCheckedOut }: DoctorHomeScreen
   const clock = useClock();
   const { getCurrentPosition } = useGeolocation();
   const { enqueueOfflineEvent, events } = useOfflineSync();
-  const { isOnline } = useNetworkStatus();
   const { activeClinic } = useClinic();
 
   const [loading, setLoading] = useState(false);
