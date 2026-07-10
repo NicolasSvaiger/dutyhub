@@ -11,7 +11,7 @@ import axios from 'axios';
  * E2E, execução em servidor headless etc.) e não trazia benefício em prod.
  */
 const axiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -114,7 +114,7 @@ axiosInstance.interceptors.response.use(
 
     try {
       const { data } = await axios.post(
-        '/api/auth/refresh-token',
+        `${import.meta.env.VITE_API_URL || '/api'}/auth/refresh-token`,
         { refreshToken }
       );
 

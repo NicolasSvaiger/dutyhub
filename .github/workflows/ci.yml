@@ -1,0 +1,198 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_API_REPO: dutyhub-api
+  ECR_FRONTEND_REPO: dutyhub-frontend
+
+jobs:
+  backend-unit-tests:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run unit tests
+        run: dotnet test PlantonHub.UnitTests --no-restore --verbosity normal
+
+  backend-property-tests:
+    name: Backend Property Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run property tests
+        run: dotnet test PlantonHub.PropertyTests --no-restore --verbosity normal
+
+  backend-integration-tests:
+    name: Backend Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run integration tests
+        run: dotnet test PlantonHub.IntegrationTests --no-restore --verbosity normal
+
+  frontend-unit-tests:
+    name: Frontend Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test -- --run
+
+  frontend-e2e-tests:
+    name: Frontend E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Start services
+        run: docker compose up -d --wait
+
+      - name: Install Playwright
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: frontend
+        run: npx playwright test
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
+
+  build-and-push:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs:
+      - backend-unit-tests
+      - backend-property-tests
+      - backend-integration-tests
+      - frontend-unit-tests
+      - frontend-e2e-tests
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & push API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_API_REPO:latest .
+          docker push $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_API_REPO:latest
+
+      - name: Build & push Frontend image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:latest -f frontend/Dockerfile frontend/
+          docker push $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_FRONTEND_REPO:latest
+
+  deploy-frontend:
+    name: Deploy Frontend to S3
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build-and-push]
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync to S3
+        working-directory: frontend
+        run: aws s3 sync dist/ s3://dutyhub-frontend-569206841715 --delete
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"

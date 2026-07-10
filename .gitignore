@@ -25,3 +25,10 @@ redis_data/
 # Environment
 .env
 *.env.local
+
+# Temporary AWS config files
+frontend/bucket-policy.json
+frontend/cf-config.json
+frontend/cf-update.json
+infrastructure/apprunner-dev.json
+infrastructure/apprunner-prod.json

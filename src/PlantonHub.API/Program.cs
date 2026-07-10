@@ -86,19 +86,16 @@ builder.Services.AddValidatorsFromAssemblyContaining<PlantonHub.Application.Vali
 
 // ----- Authentication (JWT) -----
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
+var authMode = builder.Configuration["AUTH_MODE"] ?? "local"; // local | cognito | dual
 
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = "DualAuth";
+    options.DefaultChallengeScheme = "DualAuth";
 })
-.AddJwtBearer(options =>
+.AddJwtBearer("Local", options =>
 {
-    // Preserve original claim names ("sub", "email", "roles", etc.) instead of
-    // remapping them to long ClaimTypes.* URIs. Our authorization policies
-    // check claim types by their original names.
     options.MapInboundClaims = false;
-
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -109,6 +106,52 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
         ClockSkew = TimeSpan.Zero
+    };
+})
+.AddJwtBearer("Cognito", options =>
+{
+    var cognitoIssuer = builder.Configuration["Cognito__Issuer"]
+        ?? "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_0PARyV1xj";
+    options.MapInboundClaims = false;
+    options.Authority = cognitoIssuer;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = cognitoIssuer,
+        ValidateAudience = false, // Cognito uses client_id claim instead
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+})
+.AddPolicyScheme("DualAuth", "Local or Cognito", options =>
+{
+    options.ForwardDefaultSelector = context =>
+    {
+        // If AUTH_MODE is "local", only use local
+        if (authMode == "local") return "Local";
+        // If AUTH_MODE is "cognito", only use Cognito
+        if (authMode == "cognito") return "Cognito";
+
+        // Dual mode: inspect the token to decide
+        var authHeader = context.Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+            return "Local";
+
+        var token = authHeader["Bearer ".Length..];
+        try
+        {
+            // Cognito tokens have "iss" pointing to cognito-idp URL
+            var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var jwt = handler.ReadJwtToken(token);
+            var issuer = jwt.Issuer;
+            if (issuer.Contains("cognito-idp"))
+                return "Cognito";
+        }
+        catch
+        {
+            // If we can't read the token, fall back to local
+        }
+        return "Local";
     };
 });
 
@@ -126,7 +169,9 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        var allowedOrigins = builder.Configuration["Cors__AllowedOrigins"]
+            ?? "http://localhost:3000,http://localhost:5173,https://app.laulab.com.br";
+        policy.WithOrigins(allowedOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();

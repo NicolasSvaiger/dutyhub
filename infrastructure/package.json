@@ -1,0 +1,24 @@
+{
+  "name": "dutyhub-infrastructure",
+  "version": "1.0.0",
+  "bin": {
+    "infrastructure": "bin/infrastructure.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy --all",
+    "destroy": "cdk destroy --all"
+  },
+  "devDependencies": {
+    "@types/node": "22.15.29",
+    "aws-cdk": "2.1130.0",
+    "typescript": "5.8.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.261.0",
+    "constructs": "10.5.0"
+  }
+}
