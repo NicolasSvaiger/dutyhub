@@ -113,15 +113,30 @@ builder.Services.AddAuthentication(options =>
     var cognitoIssuer = builder.Configuration["Cognito__Issuer"]
         ?? "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_0PARyV1xj";
     options.MapInboundClaims = false;
-    options.Authority = cognitoIssuer;
-    options.TokenValidationParameters = new TokenValidationParameters
+    if (authMode != "local")
     {
-        ValidateIssuer = true,
-        ValidIssuer = cognitoIssuer,
-        ValidateAudience = false, // Cognito uses client_id claim instead
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
+        options.Authority = cognitoIssuer;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = cognitoIssuer,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    }
+    else
+    {
+        // In local mode, don't try to reach Cognito (skip OIDC discovery)
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = false,
+            ValidateIssuerSigningKey = false,
+            RequireSignedTokens = false,
+        };
+    }
 })
 .AddPolicyScheme("DualAuth", "Local or Cognito", options =>
 {
@@ -245,6 +260,10 @@ app.UseMiddleware<TenantMiddleware>();
 
 // 6. Map Controllers
 app.MapControllers();
+
+// 7. Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
+   .AllowAnonymous();
 
 // ----- Run Migrations and Seed (Development) -----
 if (app.Environment.IsDevelopment())

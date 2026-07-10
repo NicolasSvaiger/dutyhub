@@ -94,7 +94,7 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
                         ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString()));
 
                     services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
+                        "Local",
                         options => options.MapInboundClaims = false);
                 });
             });

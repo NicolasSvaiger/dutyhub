@@ -196,7 +196,7 @@ public class CacheIntegrationTests : IClassFixture<CacheIntegrationTests.CacheTe
 
                 // Configure JWT Bearer to use the legacy token handler for consistent claim mapping
                 services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                    Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
+                    "Local",
                     options =>
                     {
                         options.MapInboundClaims = false;

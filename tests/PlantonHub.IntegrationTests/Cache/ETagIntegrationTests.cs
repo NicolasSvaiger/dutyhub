@@ -85,7 +85,7 @@ public class ETagIntegrationTests : IAsyncLifetime
 
                     // Configure JWT Bearer for test tokens
                     services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
+                        "Local",
                         options =>
                         {
                             options.MapInboundClaims = false;
