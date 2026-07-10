@@ -11,8 +11,12 @@ const STORAGE_KEYS = {
 export interface AuthUser {
   userId: string;
   email: string;
+  name: string | null;
   roles: string[];
+  /** Default clinic id embedded in the token (legacy single-clinic field). */
   clinicId: string | null;
+  /** All clinic ids the user is authorized to operate on. */
+  clinicIds: string[];
 }
 
 export interface AuthContextType {
@@ -53,6 +57,12 @@ function decodeJwtPayload(token: string): AuthUser | null {
       (payload['email'] as string) ??
       '';
 
+    const name =
+      (payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] as string) ??
+      (payload['name'] as string) ??
+      (payload['given_name'] as string) ??
+      null;
+
     // Roles can be a single string or array
     const roleClaim =
       payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
@@ -63,7 +73,14 @@ function decodeJwtPayload(token: string): AuthUser | null {
 
     const clinicId = (payload['clinicId'] as string) ?? null;
 
-    return { userId, email, roles, clinicId };
+    // Multi-clinic: comma-separated list of authorized clinic GUIDs
+    const clinicIdsRaw = (payload['clinicIds'] as string) ?? '';
+    const clinicIds = clinicIdsRaw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    return { userId, email, name, roles, clinicId, clinicIds };
   } catch {
     return null;
   }
@@ -118,7 +135,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify({
         userId: decoded.userId,
         email: decoded.email,
+        name: decoded.name,
         roles: decoded.roles,
+        clinicIds: decoded.clinicIds,
       }));
     }
   }, []);

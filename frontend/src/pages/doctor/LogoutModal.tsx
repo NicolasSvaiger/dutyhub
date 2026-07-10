@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import styles from './DoctorPage.module.css';
 
 interface LogoutModalProps {
@@ -6,25 +7,27 @@ interface LogoutModalProps {
 }
 
 export function LogoutModal({ onConfirm, onCancel }: LogoutModalProps) {
+  const { t } = useTranslation();
+
   return (
     <div className={styles.modalOverlay}>
       <div className={styles.modalSheet}>
-        <div className={styles.modalTitle}>Sair da conta</div>
-        <div className={styles.modalSub}>Deseja realmente sair?</div>
+        <div className={styles.modalTitle}>{t('doctor.logout.title')}</div>
+        <div className={styles.modalSub}>{t('doctor.logout.message')}</div>
         <div className={styles.modalBtns}>
           <button
             className={`${styles.btn} ${styles.btnGhost}`}
             onClick={onCancel}
             type="button"
           >
-            Cancelar
+            {t('doctor.logout.cancel')}
           </button>
           <button
             className={`${styles.btn} ${styles.btnOrange}`}
             onClick={onConfirm}
             type="button"
           >
-            Sair
+            {t('doctor.logout.confirm')}
           </button>
         </div>
       </div>

@@ -7,10 +7,17 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy package files for dependency installation (cached layer)
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm ci
+# Não baixa binários do Playwright durante o build da imagem — E2E roda
+# fora do container do frontend (na imagem oficial mcr.microsoft.com/playwright).
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
+# Install dependencies. `npm ci` é preferível (reproducível), mas quando o
+# package.json ganha uma dependência nova antes de o lockfile ser atualizado
+# no host, `npm ci` falha. Usamos fallback pra `npm install` nesses casos —
+# ele regenera o lockfile dentro do container e o build prossegue.
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
 # Copy source code
 COPY . .

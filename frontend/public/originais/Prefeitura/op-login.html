@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 – Acesso Órgão Público</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal: #2DBFB8;
+  --teal-dark: #1fa09a;
+  --teal-light: #e8faf9;
+  --orange: #F5A623;
+  --orange-light: #fff4e2;
+  --bg: #f0f4f4;
+  --surface: #ffffff;
+  --text: #1a2a2a;
+  --muted: #7a9090;
+  --border: rgba(45,191,184,.18);
+  --error: #e05555;
+}
+
+html, body {
+  min-height: 100vh;
+  font-family: 'Nunito Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── LAYOUT ── */
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* ── LADO ESQUERDO — hero ── */
+.hero {
+  background: linear-gradient(145deg, var(--teal) 0%, #1a8a85 50%, var(--orange) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+/* decoração geométrica */
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 420px; height: 420px;
+  border-radius: 50%;
+  border: 60px solid rgba(255,255,255,.06);
+  top: -120px; left: -120px;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  width: 280px; height: 280px;
+  border-radius: 50%;
+  border: 40px solid rgba(255,255,255,.06);
+  bottom: -80px; right: -80px;
+}
+.hero-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.15) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: #fff;
+  max-width: 360px;
+}
+
+.hero-logo {
+  margin-bottom: 2rem;
+}
+.hero-logo-icon {
+  width: 90px; height: 90px;
+  margin: 0 auto 1rem;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,.2));
+}
+.hero-logo-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 3rem;
+  font-weight: 900;
+  letter-spacing: -2px;
+  line-height: 1;
+  color: #fff;
+}
+.hero-logo-tag {
+  font-size: .82rem;
+  font-weight: 600;
+  opacity: .8;
+  letter-spacing: .04em;
+  margin-top: 4px;
+}
+
+.hero-divider {
+  width: 40px; height: 3px;
+  background: rgba(255,255,255,.4);
+  border-radius: 2px;
+  margin: 1.8rem auto;
+}
+
+.hero-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: .8rem;
+}
+.hero-sub {
+  font-size: .88rem;
+  opacity: .8;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.hero-badges {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  margin-top: 2rem;
+}
+.hero-badge {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 10px;
+  padding: .6rem .9rem;
+  font-size: .8rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: left;
+}
+.hero-badge svg { flex-shrink: 0; opacity: .9; }
+
+/* ── LADO DIREITO — form ── */
+.form-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2.5rem;
+  background: var(--surface);
+}
+
+.form-box {
+  width: 100%;
+  max-width: 400px;
+}
+
+.form-header {
+  margin-bottom: 2rem;
+}
+.form-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: .3rem;
+}
+.form-sub {
+  font-size: .85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ── STEPS ── */
+.step { display: none; }
+.step.active { display: block; animation: fadeUp .3s ease; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── INPUTS ── */
+.field {
+  margin-bottom: 1.1rem;
+}
+.field label {
+  display: block;
+  font-size: .75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: .4rem;
+}
+.input-wrap {
+  position: relative;
+}
+.input-wrap svg {
+  position: absolute;
+  left: .9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.input-wrap input {
+  width: 100%;
+  padding: .85rem 1rem .85rem 2.6rem;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text);
+  background: #fafefe;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-wrap input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45,191,184,.12);
+}
+.input-wrap input.error {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px rgba(224,85,85,.1);
+}
+
+/* toggle senha */
+.eye-btn {
+  position: absolute;
+  right: .9rem; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  cursor: pointer; color: var(--muted);
+  padding: 0; line-height: 0;
+  transition: color .15s;
+}
+.eye-btn:hover { color: var(--teal); }
+
+.field-error {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--error);
+  margin-top: .35rem;
+  display: none;
+}
+.field-error.show { display: block; }
+
+/* ── FORGOT ── */
+.forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -.4rem;
+  margin-bottom: 1.2rem;
+}
+.forgot-link {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--teal);
+  text-decoration: none;
+  cursor: pointer;
+  background: none; border: none;
+  font-family: 'Nunito Sans', sans-serif;
+  transition: color .15s;
+}
+.forgot-link:hover { color: var(--teal-dark); text-decoration: underline; }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  width: 100%;
+  padding: .95rem;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--teal) 0%, var(--orange) 100%);
+  box-shadow: 0 4px 18px rgba(45,191,184,.3);
+  letter-spacing: .02em;
+  transition: transform .14s, box-shadow .14s, opacity .14s;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(45,191,184,.4); }
+.btn-primary:active { transform: scale(.98); box-shadow: none; }
+.btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+.btn-ghost {
+  width: 100%;
+  padding: .85rem;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  background: none;
+  margin-top: .7rem;
+  transition: border-color .15s, color .15s;
+}
+.btn-ghost:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ── MFA ── */
+.mfa-info {
+  background: var(--teal-light);
+  border: 1.5px solid rgba(45,191,184,.25);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.4rem;
+  display: flex;
+  gap: .7rem;
+  align-items: flex-start;
+}
+.mfa-info svg { flex-shrink: 0; margin-top: 1px; }
+.mfa-info-text { font-size: .82rem; font-weight: 600; color: var(--teal-dark); line-height: 1.5; }
+.mfa-info-text strong { font-weight: 900; }
+
+/* código OTP */
+.otp-wrap {
+  display: flex;
+  gap: .6rem;
+  justify-content: center;
+  margin-bottom: 1.4rem;
+}
+.otp-input {
+  width: 52px; height: 58px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--teal);
+  text-align: center;
+  background: #fafefe;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.otp-input:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45,191,184,.12);
+}
+.otp-input.filled { background: var(--teal-light); }
+
+.resend-row {
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+.resend-text { font-size: .78rem; font-weight: 600; color: var(--muted); }
+.resend-btn {
+  background: none; border: none;
+  font-family: 'Nunito Sans', sans-serif;
+  font-size: .78rem; font-weight: 800;
+  color: var(--teal); cursor: pointer;
+  text-decoration: underline;
+}
+.resend-timer { font-weight: 800; color: var(--orange); }
+
+/* ── FORGOT MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  display: none; align-items: center; justify-content: center;
+  z-index: 100;
+  animation: fadeIn .2s ease;
+  padding: 1rem;
+}
+.modal-overlay.open { display: flex; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.modal-box {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%; max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
+  animation: popIn .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popIn { from{transform:scale(.92);opacity:0} to{transform:scale(1);opacity:1} }
+.modal-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 1.2rem; font-weight: 900;
+  color: var(--text); margin-bottom: .3rem;
+}
+.modal-sub { font-size: .83rem; font-weight: 600; color: var(--muted); margin-bottom: 1.4rem; line-height: 1.5; }
+.modal-success {
+  display: none;
+  text-align: center;
+  padding: 1rem 0;
+}
+.modal-success-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--teal-light);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1rem;
+}
+.modal-success-title { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; color:var(--teal); margin-bottom:.3rem; }
+.modal-success-sub { font-size:.82rem; font-weight:600; color:var(--muted); line-height:1.5; }
+.modal-btns { display:flex; gap:.7rem; margin-top:1rem; }
+.modal-btns button { flex:1; }
+
+/* ── FOOTER ── */
+.form-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: .72rem;
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .page { grid-template-columns: 1fr; }
+  .hero { display: none; }
+  .form-side { padding: 2rem 1.4rem; justify-content: flex-start; padding-top: 3rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ══ HERO ══ -->
+  <div class="hero">
+    <div class="hero-dots"></div>
+    <div class="hero-content">
+      <div class="hero-logo">
+        <svg class="hero-logo-icon" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+          <defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(255,255,255,.3)"/><stop offset="100%" stop-color="rgba(255,255,255,.1)"/></linearGradient></defs>
+          <circle cx="44" cy="44" r="44" fill="url(#hg)"/>
+          <path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/>
+          <polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="37,24 42,30 52,20" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="hero-logo-name">24p7</div>
+        <div class="hero-logo-tag">Tecnologia para quem não para</div>
+      </div>
+      <div class="hero-divider"></div>
+      <div class="hero-title">Plataforma de Gestão<br>de Plantões Médicos</div>
+      <div class="hero-sub">Acompanhe em tempo real a frequência e a escala dos plantonistas nas Unidades de Pronto Atendimento.</div>
+      <div class="hero-badges">
+        <div class="hero-badge">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          Monitoramento em tempo real
+        </div>
+        <div class="hero-badge">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+          Relatórios de frequência e ausências
+        </div>
+        <div class="hero-badge">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Indicadores de desempenho por UPA
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FORM SIDE ══ -->
+  <div class="form-side">
+    <div class="form-box">
+
+      <!-- STEP 1: LOGIN -->
+      <div class="step active" id="step-login">
+        <div class="form-header">
+          <div class="form-title">Bem-vindo de volta</div>
+          <div class="form-sub">Acesse sua conta para continuar</div>
+        </div>
+
+        <div class="field">
+          <label>E-mail</label>
+          <div class="input-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <input type="email" id="input-email" placeholder="seu@email.gov.br" autocomplete="email">
+          </div>
+          <div class="field-error" id="err-email">Informe um e-mail válido.</div>
+        </div>
+
+        <div class="field">
+          <label>Senha</label>
+          <div class="input-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="input-senha" placeholder="••••••••" autocomplete="current-password">
+            <button class="eye-btn" onclick="toggleSenha()" type="button" id="eye-btn">
+              <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-error" id="err-senha">Informe sua senha.</div>
+        </div>
+
+        <div class="forgot-row">
+          <button class="forgot-link" onclick="openForgot()">Esqueci minha senha</button>
+        </div>
+
+        <button class="btn-primary" onclick="handleLogin()">
+          Entrar
+        </button>
+      </div>
+
+      <!-- STEP 2: MFA -->
+      <div class="step" id="step-mfa">
+        <div class="form-header">
+          <div class="form-title">Verificação de segurança</div>
+          <div class="form-sub">Autenticação em dois fatores</div>
+        </div>
+
+        <div class="mfa-info">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <div class="mfa-info-text">
+            Enviamos um código de 6 dígitos para<br>
+            <strong id="mfa-email-display">—</strong><br>
+            Verifique sua caixa de entrada.
+          </div>
+        </div>
+
+        <div class="otp-wrap" id="otp-wrap">
+          <input class="otp-input" type="text" maxlength="1" inputmode="numeric" id="otp-0">
+          <input class="otp-input" type="text" maxlength="1" inputmode="numeric" id="otp-1">
+          <input class="otp-input" type="text" maxlength="1" inputmode="numeric" id="otp-2">
+          <input class="otp-input" type="text" maxlength="1" inputmode="numeric" id="otp-3">
+          <input class="otp-input" type="text" maxlength="1" inputmode="numeric" id="otp-4">
+          <input class="otp-input" type="text" maxlength="1" inputmode="numeric" id="otp-5">
+        </div>
+        <div class="field-error" id="err-otp" style="text-align:center;margin-top:-.8rem;margin-bottom:.8rem;">Código inválido. Use <strong>código enviado por e-mail</strong>.</div>
+
+        <div class="resend-row">
+          <span class="resend-text">Não recebeu? </span>
+          <button class="resend-btn" id="resend-btn" onclick="resendCode()" disabled>
+            Reenviar código <span class="resend-timer" id="resend-timer">(60s)</span>
+          </button>
+        </div>
+
+        <button class="btn-primary" onclick="handleMFA()">Verificar código</button>
+        <button class="btn-ghost" onclick="goTo('step-login')">← Voltar</button>
+      </div>
+
+      <div class="form-footer">
+        © 2026 24p7 · Todos os direitos reservados<br>
+        Acesso exclusivo para gestores autorizados
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ESQUECI SENHA ══ -->
+<div class="modal-overlay" id="modal-forgot" onclick="closeForgotOverlay(event)">
+  <div class="modal-box">
+    <div id="forgot-form-content">
+      <div class="modal-title">Redefinir senha</div>
+      <div class="modal-sub">Informe o e-mail da sua conta. Enviaremos um link para você criar uma nova senha.</div>
+      <div class="field">
+        <label>E-mail</label>
+        <div class="input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <input type="email" id="forgot-email" placeholder="seu@email.gov.br">
+        </div>
+      </div>
+      <div class="modal-btns">
+        <button class="btn-ghost" style="margin-top:0;" onclick="closeForgot()">Cancelar</button>
+        <button class="btn-primary" style="box-shadow:none;" onclick="handleForgot()">Enviar link</button>
+      </div>
+    </div>
+    <div class="modal-success" id="forgot-success">
+      <div class="modal-success-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="modal-success-title">Link enviado!</div>
+      <div class="modal-success-sub">Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.</div>
+      <button class="btn-primary" style="margin-top:1.4rem;box-shadow:none;" onclick="closeForgot()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CREDENCIAIS MOCADAS ──
+const MOCK_EMAIL = 'valmir.sousa@prefeitura.gov.br';
+const MOCK_SENHA = '123456';
+const MOCK_OTP   = '123456';
+
+// ── NAVEGAÇÃO ENTRE STEPS ──
+function goTo(stepId) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById(stepId).classList.add('active');
+}
+
+// ── TOGGLE SENHA ──
+let senhaVisible = false;
+function toggleSenha() {
+  senhaVisible = !senhaVisible;
+  const inp = document.getElementById('input-senha');
+  inp.type = senhaVisible ? 'text' : 'password';
+  document.getElementById('eye-icon').innerHTML = senhaVisible
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+// ── LOGIN ──
+// ── Credenciais autorizadas ──
+const USUARIO_VALIDO = 'vcsousa@gmail.com';
+const SENHA_VALIDA   = '123456';
+
+function handleLogin() {
+  const email = document.getElementById('input-email').value.trim();
+  const senha = document.getElementById('input-senha').value;
+  let valid = true;
+
+  document.getElementById('err-email').classList.remove('show');
+  document.getElementById('err-senha').classList.remove('show');
+  document.getElementById('input-email').classList.remove('error');
+  document.getElementById('input-senha').classList.remove('error');
+
+  // Validação de formato
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    document.getElementById('err-email').classList.add('show');
+    document.getElementById('input-email').classList.add('error');
+    valid = false;
+  }
+  if (!senha) {
+    document.getElementById('err-senha').textContent = 'Informe sua senha.';
+    document.getElementById('err-senha').classList.add('show');
+    document.getElementById('input-senha').classList.add('error');
+    valid = false;
+  }
+  if (!valid) return;
+
+  // Validação de credenciais
+  if (email !== USUARIO_VALIDO || senha !== SENHA_VALIDA) {
+    document.getElementById('err-email').classList.add('show');
+    document.getElementById('err-email').textContent = 'E-mail ou senha incorretos.';
+    document.getElementById('err-senha').textContent = 'Verifique suas credenciais e tente novamente.';
+    document.getElementById('err-senha').classList.add('show');
+    document.getElementById('input-email').classList.add('error');
+    document.getElementById('input-senha').classList.add('error');
+    // Limpa a senha para nova tentativa
+    document.getElementById('input-senha').value = '';
+    return;
+  }
+
+  // Credenciais corretas — avança para MFA
+  document.getElementById('err-email').textContent = 'Informe um e-mail válido.';
+  document.getElementById('err-senha').textContent = 'Informe sua senha.';
+  document.getElementById('mfa-email-display').textContent = email;
+  goTo('step-mfa');
+  document.getElementById('otp-0').focus();
+  startResendTimer();
+}
+
+// ── OTP ──
+const otpInputs = document.querySelectorAll('.otp-input');
+otpInputs.forEach((inp, i) => {
+  inp.addEventListener('input', e => {
+    const val = e.target.value.replace(/\D/g,'');
+    e.target.value = val;
+    e.target.classList.toggle('filled', val.length > 0);
+    if (val && i < 5) otpInputs[i+1].focus();
+    document.getElementById('err-otp').classList.remove('show');
+  });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !inp.value && i > 0) otpInputs[i-1].focus();
+  });
+  inp.addEventListener('paste', e => {
+    e.preventDefault();
+    const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+    paste.split('').forEach((ch, idx) => {
+      if (otpInputs[idx]) { otpInputs[idx].value = ch; otpInputs[idx].classList.add('filled'); }
+    });
+    if (otpInputs[paste.length]) otpInputs[paste.length].focus();
+  });
+});
+
+function handleMFA() {
+  const code = Array.from(otpInputs).map(i => i.value).join('');
+  if (code.length < 6) {
+    document.getElementById('err-otp').classList.add('show');
+    return;
+  }
+  // Mocado: código correto é 123456
+  if (code !== MOCK_OTP) {
+    document.getElementById('err-otp').classList.add('show');
+    otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled'); });
+    otpInputs[0].focus();
+    return;
+  }
+  // Sucesso — redireciona para welcome
+  const email = document.getElementById('mfa-email-display').textContent;
+  window.location.href = 'op-welcome.html?email=' + encodeURIComponent(email);
+}
+
+// ── TIMER REENVIO ──
+let timerInterval;
+function startResendTimer() {
+  clearInterval(timerInterval);
+  let secs = 60;
+  const btn = document.getElementById('resend-btn');
+  const timer = document.getElementById('resend-timer');
+  btn.disabled = true;
+  timer.style.display = 'inline';
+  timerInterval = setInterval(() => {
+    secs--;
+    timer.textContent = '(' + secs + 's)';
+    if (secs <= 0) {
+      clearInterval(timerInterval);
+      btn.disabled = false;
+      timer.style.display = 'none';
+    }
+  }, 1000);
+}
+function resendCode() {
+  otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled'); });
+  document.getElementById('err-otp').classList.remove('show');
+  otpInputs[0].focus();
+  startResendTimer();
+}
+
+// ── FORGOT ──
+function openForgot() {
+  const email = document.getElementById('input-email').value.trim();
+  if (email) document.getElementById('forgot-email').value = email;
+  document.getElementById('modal-forgot').classList.add('open');
+}
+function closeForgot() {
+  document.getElementById('modal-forgot').classList.remove('open');
+  setTimeout(() => {
+    document.getElementById('forgot-form-content').style.display = 'block';
+    document.getElementById('forgot-success').style.display = 'none';
+  }, 300);
+}
+function closeForgotOverlay(e) {
+  if (e.target === document.getElementById('modal-forgot')) closeForgot();
+}
+function handleForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+  document.getElementById('forgot-form-content').style.display = 'none';
+  document.getElementById('forgot-success').style.display = 'block';
+}
+</script>
+</body>
+</html>

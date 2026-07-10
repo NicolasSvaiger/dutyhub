@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 – Relatório de Atrasos</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:        #2DBFB8;
+  --teal-light:  #e8faf9;
+  --orange:      #F5A623;
+  --orange-light:#fff4e2;
+  --bg:          #f0f4f4;
+  --surface:     #ffffff;
+  --text:        #1a2a2a;
+  --muted:       #7a9090;
+  --border:      rgba(45,191,184,.18);
+  --nav-w:       240px;
+  --green:       #22c55e;
+  --green-light: #dcfce7;
+  --yellow:      #f59e0b;
+  --yellow-light:#fef3c7;
+  --red:         #ef4444;
+  --red-light:   #fee2e2;
+  --purple:      #8b5cf6;
+  --purple-light:#ede9fe;
+}
+
+html, body { min-height:100vh; font-family:'Nunito Sans',sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+
+/* ══ SIDEBAR ══ */
+.sidebar { position:fixed; top:0; left:0; bottom:0; width:var(--nav-w); background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; padding:1.8rem 0; z-index:50; }
+.sidebar-logo { display:flex; align-items:center; gap:.7rem; padding:0 1.4rem 1.8rem; border-bottom:1px solid var(--border); margin-bottom:1.4rem; }
+.sidebar-logo-name { font-family:'Nunito',sans-serif; font-size:1.5rem; font-weight:900; color:var(--teal); letter-spacing:-1px; line-height:1; }
+.sidebar-logo-tag  { font-size:.6rem; font-weight:700; color:var(--muted); letter-spacing:.03em; line-height:1.3; }
+.nav-section-label { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); padding:0 1.4rem; margin-bottom:.4rem; margin-top:.8rem; }
+.nav-item { display:flex; align-items:center; gap:.7rem; padding:.7rem 1.4rem; font-size:.85rem; font-weight:700; color:var(--muted); cursor:pointer; transition:all .15s; border-left:3px solid transparent; text-decoration:none; }
+.nav-item:hover  { background:var(--teal-light); color:var(--teal); }
+.nav-item.active { background:var(--teal-light); color:var(--teal); border-left-color:var(--teal); }
+.sidebar-footer { margin-top:auto; padding:1.2rem 1.4rem 0; border-top:1px solid var(--border); }
+.sidebar-user { display:flex; align-items:center; gap:.7rem; }
+.sidebar-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--teal),var(--orange)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sidebar-user-name { font-size:.78rem; font-weight:800; color:var(--text); line-height:1.2; }
+.sidebar-user-role { font-size:.65rem; font-weight:600; color:var(--muted); }
+.logout-btn { background:none; border:none; color:var(--muted); cursor:pointer; margin-left:auto; padding:4px; transition:color .15s; }
+.logout-btn:hover { color:var(--teal); }
+
+/* ══ MAIN ══ */
+.main { margin-left:var(--nav-w); min-height:100vh; display:flex; flex-direction:column; }
+.topbar { background:#fff; border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+.topbar-left { display:flex; flex-direction:column; }
+.topbar-title { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text); }
+.topbar-sub   { font-size:.72rem; font-weight:600; color:var(--muted); margin-top:1px; }
+.topbar-right { display:flex; align-items:center; gap:.7rem; }
+.btn-export { display:flex; align-items:center; gap:.4rem; padding:.5rem 1rem; border-radius:10px; font-family:'Nunito',sans-serif; font-size:.78rem; font-weight:800; cursor:pointer; transition:all .15s; border:1.5px solid; }
+.btn-pdf  { color:#e05555; border-color:rgba(224,85,85,.3); background:rgba(224,85,85,.06); }
+.btn-pdf:hover  { background:rgba(224,85,85,.12); }
+.btn-xlsx { color:#16a34a; border-color:rgba(22,163,74,.3); background:rgba(22,163,74,.06); }
+.btn-xlsx:hover { background:rgba(22,163,74,.12); }
+
+.content { flex:1; padding:2rem; animation:fadeUp .35s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── TOLERÂNCIA ── */
+.tolerancia-card {
+  background: linear-gradient(135deg, var(--teal) 0%, #1a8a85 60%, var(--orange) 100%);
+  border-radius:18px; padding:1.4rem 1.8rem;
+  margin-bottom:1.4rem; color:#fff;
+  display:flex; align-items:center; justify-content:space-between;
+  gap:2rem; flex-wrap:wrap;
+  position:relative; overflow:hidden;
+}
+.tolerancia-card::before {
+  content:''; position:absolute;
+  width:200px; height:200px; border-radius:50%;
+  border:30px solid rgba(255,255,255,.06);
+  right:-60px; top:-60px;
+}
+.tolerancia-left { position:relative; z-index:1; }
+.tolerancia-title { font-family:'Nunito',sans-serif; font-size:1rem; font-weight:900; margin-bottom:.2rem; }
+.tolerancia-sub   { font-size:.75rem; font-weight:600; opacity:.8; }
+.tolerancia-right { display:flex; align-items:center; gap:1.4rem; flex:1; max-width:420px; position:relative; z-index:1; }
+.slider-wrap { flex:1; }
+.slider-labels { display:flex; justify-content:space-between; font-size:.65rem; font-weight:700; opacity:.75; margin-bottom:.4rem; }
+input[type=range] {
+  width:100%; -webkit-appearance:none; appearance:none;
+  height:6px; border-radius:6px;
+  background: linear-gradient(90deg, rgba(255,255,255,.9) var(--fill,25%), rgba(255,255,255,.2) var(--fill,25%));
+  outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+  background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.25); cursor:pointer;
+}
+.tolerancia-valor {
+  background:rgba(255,255,255,.2); border:1.5px solid rgba(255,255,255,.3);
+  border-radius:12px; padding:.5rem 1rem; text-align:center; min-width:80px;
+  flex-shrink:0;
+}
+.tolerancia-num { font-family:'Nunito',sans-serif; font-size:1.4rem; font-weight:900; line-height:1; }
+.tolerancia-unit { font-size:.65rem; font-weight:700; opacity:.8; margin-top:2px; }
+
+/* ── FILTROS ── */
+.filter-card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); padding:1.3rem 1.6rem; margin-bottom:1.4rem; }
+.filter-row  { display:flex; align-items:flex-end; gap:1rem; flex-wrap:wrap; }
+.filter-field { display:flex; flex-direction:column; gap:.35rem; flex:1; min-width:140px; }
+.filter-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+.filter-select, .filter-input { appearance:none; -webkit-appearance:none; background:var(--bg); border:1.5px solid var(--border); border-radius:10px; padding:.6rem .9rem; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:700; color:var(--text); outline:none; cursor:pointer; transition:border-color .2s; }
+.filter-select:focus, .filter-input:focus { border-color:var(--teal); }
+.select-wrap { position:relative; }
+.select-wrap svg { position:absolute; right:.7rem; top:50%; transform:translateY(-50%); color:var(--teal); pointer-events:none; }
+.btn-buscar { display:flex; align-items:center; gap:.5rem; padding:.65rem 1.4rem; border:none; border-radius:10px; background:linear-gradient(135deg,var(--teal),var(--orange)); font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:800; color:#fff; cursor:pointer; white-space:nowrap; box-shadow:0 3px 12px rgba(45,191,184,.3); transition:transform .14s; }
+.btn-buscar:hover { transform:translateY(-1px); }
+.btn-limpar { display:flex; align-items:center; gap:.4rem; padding:.65rem 1rem; border:1.5px solid var(--border); border-radius:10px; background:none; font-family:'Nunito',sans-serif; font-size:.82rem; font-weight:700; color:var(--muted); cursor:pointer; transition:border-color .15s, color .15s; }
+.btn-limpar:hover { border-color:var(--teal); color:var(--teal); }
+
+/* ── KPIs ── */
+.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.4rem; }
+.kpi-card { background:var(--surface); border-radius:16px; border:1.5px solid var(--border); padding:1.1rem 1.3rem; position:relative; overflow:hidden; transition:transform .15s, box-shadow .15s; }
+.kpi-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.07); }
+.kpi-card::before { content:''; position:absolute; bottom:0; left:0; right:0; height:3px; }
+.kpi-card.dark::before   { background:#4a6060; }
+.kpi-card.yellow::before { background:var(--yellow); }
+.kpi-card.red::before    { background:var(--red); }
+.kpi-card.purple::before { background:var(--purple); }
+.kpi-lbl { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.3rem; }
+.kpi-val { font-family:'Nunito',sans-serif; font-size:2rem; font-weight:900; line-height:1; }
+.kpi-card.dark   .kpi-val { color:#2a3f3f; }
+.kpi-card.yellow .kpi-val { color:var(--yellow); }
+.kpi-card.red    .kpi-val { color:var(--red); }
+.kpi-card.purple .kpi-val { color:var(--purple); }
+.kpi-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:.3rem; }
+
+/* ── GRID INFERIOR ── */
+.bottom-grid { display:grid; grid-template-columns:1fr 340px; gap:1.2rem; margin-bottom:1.2rem; }
+
+/* ── GRÁFICO POR UPA ── */
+.chart-card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); padding:1.3rem 1.6rem; }
+.card-title { font-family:'Nunito',sans-serif; font-size:.92rem; font-weight:900; color:var(--text); margin-bottom:1.2rem; }
+.chart-bars { display:flex; flex-direction:column; gap:.9rem; }
+.chart-row { display:flex; align-items:center; gap:.8rem; }
+.chart-label { font-size:.78rem; font-weight:700; color:var(--text); min-width:130px; }
+.chart-bar-bg { flex:1; height:28px; background:var(--bg); border-radius:8px; overflow:hidden; position:relative; }
+.chart-bar-fill {
+  height:100%; border-radius:8px;
+  display:flex; align-items:center; padding-left:.7rem;
+  font-size:.72rem; font-weight:800; color:#fff;
+  transition:width .7s cubic-bezier(.4,0,.2,1);
+  min-width:32px;
+}
+.chart-count { font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:900; min-width:28px; text-align:right; }
+
+/* ── TOP REINCIDENTES ── */
+.rank-card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); padding:1.3rem 1.4rem; }
+.rank-list { display:flex; flex-direction:column; gap:.6rem; }
+.rank-item { display:flex; align-items:center; gap:.7rem; padding:.65rem .8rem; border-radius:12px; background:var(--bg); transition:background .15s; }
+.rank-item:hover { background:var(--teal-light); }
+.rank-num { font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:900; color:var(--muted); min-width:18px; text-align:center; }
+.rank-num.gold   { color:#f59e0b; }
+.rank-num.silver { color:#94a3b8; }
+.rank-num.bronze { color:#b45309; }
+.rank-avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:900; color:#fff; flex-shrink:0; background:linear-gradient(135deg,var(--yellow),var(--orange)); }
+.rank-name { font-size:.78rem; font-weight:800; color:var(--text); flex:1; }
+.rank-upa  { font-size:.65rem; font-weight:600; color:var(--muted); }
+.rank-count { font-family:'Nunito',sans-serif; font-size:.9rem; font-weight:900; color:var(--yellow); min-width:28px; text-align:right; }
+
+/* ── TABELA ── */
+.table-card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); overflow:hidden; }
+.table-header { padding:1.1rem 1.6rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.table-title  { font-family:'Nunito',sans-serif; font-size:.95rem; font-weight:900; color:var(--text); }
+.table-count  { font-size:.75rem; font-weight:700; color:var(--muted); }
+table { width:100%; border-collapse:collapse; }
+thead tr { background:var(--bg); border-bottom:1px solid var(--border); }
+thead th { padding:.75rem 1.1rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); text-align:left; white-space:nowrap; }
+thead th.center { text-align:center; }
+tbody tr { border-bottom:1px solid rgba(0,0,0,.04); transition:background .12s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:#f8fdfc; }
+tbody td { padding:.82rem 1.1rem; font-size:.82rem; font-weight:600; color:var(--text); vertical-align:middle; }
+tbody td.center { text-align:center; }
+.td-medico { display:flex; align-items:center; gap:.7rem; }
+.td-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:900; color:#fff; flex-shrink:0; }
+.td-name { font-weight:800; color:var(--text); }
+.td-sub  { font-size:.68rem; font-weight:600; color:var(--muted); }
+
+/* tempo de atraso destacado */
+.atraso-cell { display:flex; align-items:center; gap:.4rem; }
+.atraso-pill {
+  font-family:'Nunito',sans-serif; font-size:.8rem; font-weight:900;
+  padding:.25rem .7rem; border-radius:20px;
+}
+.atraso-leve   { background:var(--yellow-light); color:#b45309; }
+.atraso-medio  { background:rgba(245,105,35,.12); color:#c45000; }
+.atraso-grave  { background:var(--red-light);    color:#dc2626; }
+
+.badge { display:inline-flex; align-items:center; gap:.3rem; font-size:.65rem; font-weight:800; padding:.25rem .65rem; border-radius:20px; white-space:nowrap; }
+.badge-leve  { background:var(--yellow-light); color:#b45309; }
+.badge-medio { background:rgba(245,105,35,.12); color:#c45000; }
+.badge-grave { background:var(--red-light);    color:#dc2626; }
+.badge-reincidente { background:var(--purple-light); color:var(--purple); }
+
+.pagination { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.6rem; border-top:1px solid var(--border); }
+.pag-info { font-size:.75rem; font-weight:600; color:var(--muted); }
+.pag-btns { display:flex; gap:.4rem; }
+.pag-btn { width:32px; height:32px; border-radius:8px; border:1.5px solid var(--border); background:none; font-family:'Nunito',sans-serif; font-size:.8rem; font-weight:800; color:var(--muted); cursor:pointer; transition:all .15s; display:flex; align-items:center; justify-content:center; }
+.pag-btn:hover  { border-color:var(--teal); color:var(--teal); }
+.pag-btn.active { background:var(--teal); border-color:var(--teal); color:#fff; }
+.pag-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+/* ── TOAST ── */
+.toast { position:fixed; bottom:2rem; right:2rem; background:#1a2a2a; color:#fff; border-radius:12px; padding:.9rem 1.4rem; display:flex; align-items:center; gap:.7rem; font-size:.82rem; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.2); transform:translateY(80px); opacity:0; transition:transform .3s ease, opacity .3s ease; z-index:200; }
+.toast.show { transform:translateY(0); opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="34" height="34" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2DBFB8"/><stop offset="100%" stop-color="#F5A623"/></linearGradient></defs>
+      <circle cx="44" cy="44" r="44" fill="url(#sg)"/>
+      <path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/>
+      <polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="37,24 42,30 52,20" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <div class="sidebar-logo-name">24p7</div>
+      <div class="sidebar-logo-tag">Órgão Público</div>
+    </div>
+  </div>
+
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="op-welcome.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+    Início
+  </a>
+  <a class="nav-item" href="op-realtime.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Tempo Real
+  </a>
+  <a class="nav-item" href="op-tv.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    Painel TV
+  </a>
+
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="op-frequencia.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+    Frequência
+  </a>
+  <a class="nav-item" href="op-ausencias.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Ausências
+  </a>
+  <a class="nav-item active" href="op-atrasos.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Atrasos
+  </a>
+
+  <div class="nav-section-label">Gestão</div>
+  <a class="nav-item" href="op-historico.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Unidades (UPAs)
+  </a>
+  <a class="nav-item" href="op-escalas.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Escalas
+  </a>
+  <a class="nav-item" href="op-kpis.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Indicadores (KPIs)
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div>
+        <div class="sidebar-user-name">Valmir C. Sousa</div>
+        <div class="sidebar-user-role">Gestor Público</div>
+      </div>
+      <button class="logout-btn" onclick="window.location.href='op-login.html'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Relatório de Atrasos</div>
+      <div class="topbar-sub" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-export btn-pdf" onclick="exportar('pdf')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Exportar PDF
+      </button>
+      <button class="btn-export btn-xlsx" onclick="exportar('xlsx')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+        Exportar Excel
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- TOLERÂNCIA -->
+    <div class="tolerancia-card">
+      <div class="tolerancia-left">
+        <div class="tolerancia-title">⚙️ Tolerância de Atraso</div>
+        <div class="tolerancia-sub">Check-ins acima deste limite são contabilizados como atraso</div>
+      </div>
+      <div class="tolerancia-right">
+        <div class="slider-wrap">
+          <div class="slider-labels"><span>5 min</span><span>60 min</span></div>
+          <input type="range" id="slider-tolerancia" min="5" max="60" step="5" value="15" oninput="atualizarTolerancia(this.value)">
+        </div>
+        <div class="tolerancia-valor">
+          <div class="tolerancia-num" id="tol-num">15</div>
+          <div class="tolerancia-unit">minutos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filter-card">
+      <div class="filter-row">
+        <div class="filter-field" style="max-width:140px;">
+          <label class="filter-label">De</label>
+          <input type="date" class="filter-input" id="f-de" value="2026-05-01">
+        </div>
+        <div class="filter-field" style="max-width:140px;">
+          <label class="filter-label">Até</label>
+          <input type="date" class="filter-input" id="f-ate" value="2026-05-31">
+        </div>
+        <div class="filter-field">
+          <label class="filter-label">Unidade (UPA)</label>
+          <div class="select-wrap">
+            <select class="filter-select" id="f-upa">
+              <option value="">Todas as unidades</option>
+              <option value="Vila Pereira">UPA – Vila Pereira</option>
+              <option value="Centro">UPA – Centro</option>
+              <option value="Zona Norte">UPA – Zona Norte</option>
+              <option value="Zona Sul">UPA – Zona Sul</option>
+            </select>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="filter-field">
+          <label class="filter-label">Médico</label>
+          <div class="select-wrap">
+            <select class="filter-select" id="f-medico">
+              <option value="">Todos os médicos</option>
+              <option value="Mariana Costa">Dra. Mariana Costa</option>
+              <option value="Marcelo Dias">Dr. Marcelo Dias</option>
+              <option value="Roberto Alves">Dr. Roberto Alves</option>
+              <option value="Camila Ferraz">Dra. Camila Ferraz</option>
+              <option value="Tatiane Rocha">Dra. Tatiane Rocha</option>
+              <option value="Fábio Melo">Dr. Fábio Melo</option>
+              <option value="Priscila Teles">Dra. Priscila Teles</option>
+              <option value="Beatriz Lima">Dra. Beatriz Lima</option>
+              <option value="Lucas Prado">Dr. Lucas Prado</option>
+              <option value="André Souza">Dr. André Souza</option>
+            </select>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="filter-field">
+          <label class="filter-label">Gravidade</label>
+          <div class="select-wrap">
+            <select class="filter-select" id="f-grav">
+              <option value="">Todas</option>
+              <option value="leve">Leve (até 30 min)</option>
+              <option value="medio">Médio (31–60 min)</option>
+              <option value="grave">Grave (acima de 60 min)</option>
+            </select>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <button class="btn-buscar" onclick="aplicarFiltros()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar
+        </button>
+        <button class="btn-limpar" onclick="limparFiltros()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Limpar
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card dark">
+        <div class="kpi-lbl">Total de atrasos</div>
+        <div class="kpi-val" id="kpi-total">—</div>
+        <div class="kpi-sub" id="kpi-total-sub">acima da tolerância definida</div>
+      </div>
+      <div class="kpi-card yellow">
+        <div class="kpi-lbl">Tempo médio de atraso</div>
+        <div class="kpi-val" id="kpi-media">—</div>
+        <div class="kpi-sub">minutos por ocorrência</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-lbl">Maior atraso registrado</div>
+        <div class="kpi-val" id="kpi-maior">—</div>
+        <div class="kpi-sub" id="kpi-maior-sub">neste período</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-lbl">Médicos reincidentes</div>
+        <div class="kpi-val" id="kpi-reinc">—</div>
+        <div class="kpi-sub">com 3 ou mais atrasos</div>
+      </div>
+    </div>
+
+    <!-- GRÁFICO + RANKING -->
+    <div class="bottom-grid">
+      <div class="chart-card">
+        <div class="card-title">Atrasos por Unidade</div>
+        <div class="chart-bars" id="chart-bars"><!-- JS --></div>
+      </div>
+      <div class="rank-card">
+        <div class="card-title">Top Reincidentes</div>
+        <div class="rank-list" id="rank-list"><!-- JS --></div>
+      </div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-card">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Registros de atraso</div>
+          <div class="table-count" id="table-count">—</div>
+        </div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:.4rem;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Tolerância atual: <strong id="tol-label" style="color:var(--teal);">15 min</strong>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Médico</th>
+              <th>Unidade (UPA)</th>
+              <th>Data</th>
+              <th>Turno</th>
+              <th class="center">Previsto</th>
+              <th class="center">Realizado</th>
+              <th class="center">Atraso</th>
+              <th class="center">Gravidade</th>
+              <th class="center">Reincidente</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <div class="pag-info" id="pag-info">—</div>
+        <div class="pag-btns">
+          <button class="pag-btn" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="pag-btn active">1</button>
+          <button class="pag-btn" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ══════════════════════════════
+// DADOS MOCADOS (minutos de atraso reais)
+// ══════════════════════════════
+const TODOS = [
+  { medico:'Dra. Mariana Costa',  ini:'MC', upa:'Centro',      data:'02/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:18', minutos:18 },
+  { medico:'Dra. Mariana Costa',  ini:'MC', upa:'Centro',      data:'07/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:45', minutos:45 },
+  { medico:'Dra. Mariana Costa',  ini:'MC', upa:'Centro',      data:'14/05/2026', turno:'Noite',  previsto:'19:00', realizado:'19:22', minutos:22 },
+  { medico:'Dra. Mariana Costa',  ini:'MC', upa:'Centro',      data:'21/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'08:10', minutos:70 },
+  { medico:'Dr. Marcelo Dias',    ini:'MD', upa:'Zona Sul',    data:'03/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:52', minutos:52 },
+  { medico:'Dr. Marcelo Dias',    ini:'MD', upa:'Zona Sul',    data:'09/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:28', minutos:28 },
+  { medico:'Dr. Marcelo Dias',    ini:'MD', upa:'Zona Sul',    data:'15/05/2026', turno:'Tarde',  previsto:'13:00', realizado:'14:05', minutos:65 },
+  { medico:'Dr. Marcelo Dias',    ini:'MD', upa:'Zona Sul',    data:'22/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:38', minutos:38 },
+  { medico:'Dr. Roberto Alves',   ini:'RA', upa:'Vila Pereira',data:'05/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:20', minutos:20 },
+  { medico:'Dra. Camila Ferraz',  ini:'CF', upa:'Vila Pereira',data:'10/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:25', minutos:25 },
+  { medico:'Dra. Camila Ferraz',  ini:'CF', upa:'Vila Pereira',data:'18/05/2026', turno:'Noite',  previsto:'19:00', realizado:'19:17', minutos:17 },
+  { medico:'Dra. Tatiane Rocha',  ini:'TR', upa:'Zona Norte',  data:'06/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:32', minutos:32 },
+  { medico:'Dra. Tatiane Rocha',  ini:'TR', upa:'Zona Norte',  data:'13/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:19', minutos:19 },
+  { medico:'Dr. Fábio Melo',      ini:'FM', upa:'Centro',      data:'08/05/2026', turno:'Noite',  previsto:'19:00', realizado:'20:08', minutos:68 },
+  { medico:'Dra. Priscila Teles', ini:'PT', upa:'Zona Sul',    data:'11/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:42', minutos:42 },
+  { medico:'Dra. Priscila Teles', ini:'PT', upa:'Zona Sul',    data:'20/05/2026', turno:'Tarde',  previsto:'13:00', realizado:'13:27', minutos:27 },
+  { medico:'Dra. Beatriz Lima',   ini:'BL', upa:'Zona Sul',    data:'16/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:16', minutos:16 },
+  { medico:'Dr. Lucas Prado',     ini:'LP', upa:'Zona Norte',  data:'19/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:33', minutos:33 },
+  { medico:'Dr. André Souza',     ini:'AS', upa:'Vila Pereira',data:'23/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:22', minutos:22 },
+  { medico:'Dra. Mariana Costa',  ini:'MC', upa:'Centro',      data:'28/05/2026', turno:'Manhã',  previsto:'07:00', realizado:'07:35', minutos:35 },
+];
+
+let tolerancia    = 15;
+let dadosFiltrados = [];
+
+// ══════════════════════════════
+// TOLERÂNCIA
+// ══════════════════════════════
+function atualizarTolerancia(val) {
+  tolerancia = parseInt(val);
+  document.getElementById('tol-num').textContent   = val;
+  document.getElementById('tol-label').textContent = val + ' min';
+  // slider fill
+  const pct = ((val - 5) / (60 - 5)) * 100;
+  document.getElementById('slider-tolerancia').style.setProperty('--fill', pct + '%');
+  aplicarFiltros();
+}
+
+// ══════════════════════════════
+// GRAVIDADE
+// ══════════════════════════════
+function gravidade(min) {
+  if (min <= 30) return { key:'leve',  label:'Leve',  cls:'leve'  };
+  if (min <= 60) return { key:'medio', label:'Médio', cls:'medio' };
+  return              { key:'grave', label:'Grave', cls:'grave' };
+}
+
+function corGrav(key) {
+  if (key === 'leve')  return '#f59e0b';
+  if (key === 'medio') return '#c45000';
+  return '#ef4444';
+}
+
+// ══════════════════════════════
+// FILTROS
+// ══════════════════════════════
+function aplicarFiltros() {
+  const upa    = document.getElementById('f-upa').value;
+  const medico = document.getElementById('f-medico').value;
+  const grav   = document.getElementById('f-grav').value;
+
+  dadosFiltrados = TODOS.filter(d => {
+    if (d.minutos < tolerancia) return false;
+    const matchUpa    = !upa    || d.upa === upa;
+    const matchMedico = !medico || d.medico.includes(medico);
+    const matchGrav   = !grav   || gravidade(d.minutos).key === grav;
+    return matchUpa && matchMedico && matchGrav;
+  });
+
+  renderKPIs();
+  renderChart();
+  renderRanking();
+  renderTabela();
+}
+
+function limparFiltros() {
+  ['f-upa','f-medico','f-grav'].forEach(id => document.getElementById(id).value = '');
+  aplicarFiltros();
+}
+
+// ══════════════════════════════
+// CONTAGEM DE ATRASOS POR MÉDICO
+// ══════════════════════════════
+function contagemPorMedico(dados) {
+  const map = {};
+  dados.forEach(d => {
+    if (!map[d.medico]) map[d.medico] = { medico:d.medico, ini:d.ini, upa:d.upa, count:0 };
+    map[d.medico].count++;
+  });
+  return Object.values(map).sort((a,b) => b.count - a.count);
+}
+
+// ══════════════════════════════
+// KPIs
+// ══════════════════════════════
+function renderKPIs() {
+  const total  = dadosFiltrados.length;
+  const media  = total > 0 ? Math.round(dadosFiltrados.reduce((s,d)=>s+d.minutos,0)/total) : 0;
+  const maior  = total > 0 ? Math.max(...dadosFiltrados.map(d=>d.minutos)) : 0;
+  const maiorItem = dadosFiltrados.find(d => d.minutos === maior);
+  const reinc  = contagemPorMedico(dadosFiltrados).filter(m => m.count >= 3).length;
+
+  document.getElementById('kpi-total').textContent    = total;
+  document.getElementById('kpi-media').textContent    = media + ' min';
+  document.getElementById('kpi-maior').textContent    = maior + ' min';
+  document.getElementById('kpi-maior-sub').textContent= maiorItem ? maiorItem.medico.split(' ').slice(-1)[0] : 'neste período';
+  document.getElementById('kpi-reinc').textContent    = reinc;
+  document.getElementById('table-count').textContent  = total + ' registro' + (total!==1?'s':'') + ' encontrado' + (total!==1?'s':'') + ' · Tolerância: ' + tolerancia + ' min';
+  document.getElementById('pag-info').textContent     = 'Exibindo 1–' + total + ' de ' + total + ' registros';
+}
+
+// ══════════════════════════════
+// GRÁFICO POR UPA
+// ══════════════════════════════
+function renderChart() {
+  const upas = ['Vila Pereira','Centro','Zona Norte','Zona Sul'];
+  const cores = ['#2DBFB8','#F5A623','#8b5cf6','#ef4444'];
+  const max   = Math.max(...upas.map(u => dadosFiltrados.filter(d=>d.upa===u).length), 1);
+
+  document.getElementById('chart-bars').innerHTML = upas.map((u,i) => {
+    const count = dadosFiltrados.filter(d => d.upa === u).length;
+    const pct   = Math.round((count/max)*100);
+    return `
+    <div class="chart-row">
+      <div class="chart-label">UPA – ${u}</div>
+      <div class="chart-bar-bg">
+        <div class="chart-bar-fill" style="width:${pct}%;background:${cores[i]};">
+          ${count > 0 ? count + ' atraso' + (count>1?'s':'') : ''}
+        </div>
+      </div>
+      <div class="chart-count" style="color:${cores[i]};">${count}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════
+// RANKING
+// ══════════════════════════════
+function renderRanking() {
+  const ranking = contagemPorMedico(dadosFiltrados).slice(0,5);
+  const medals  = ['gold','silver','bronze','',''];
+
+  if (ranking.length === 0) {
+    document.getElementById('rank-list').innerHTML = `<div style="text-align:center;padding:1.5rem;color:var(--muted);font-size:.8rem;font-weight:700;">Nenhum atraso encontrado</div>`;
+    return;
+  }
+
+  document.getElementById('rank-list').innerHTML = ranking.map((m,i) => `
+    <div class="rank-item">
+      <div class="rank-num ${medals[i]}">${i+1}º</div>
+      <div class="rank-avatar">${m.ini}</div>
+      <div style="flex:1;">
+        <div class="rank-name">${m.medico}</div>
+        <div class="rank-upa">UPA – ${m.upa}</div>
+      </div>
+      <div class="rank-count">${m.count}x</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════
+// TABELA
+// ══════════════════════════════
+function renderTabela() {
+  const tbody = document.getElementById('tabela-body');
+  if (dadosFiltrados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2.5rem;color:var(--muted);font-weight:700;">Nenhum atraso encontrado para os filtros e tolerância selecionados.</td></tr>`;
+    return;
+  }
+
+  const contagem = contagemPorMedico(TODOS.filter(d => d.minutos >= tolerancia));
+  const reincs   = new Set(contagem.filter(m=>m.count>=3).map(m=>m.medico));
+
+  tbody.innerHTML = dadosFiltrados.map(d => {
+    const gv  = gravidade(d.minutos);
+    const cor = corGrav(gv.key);
+    const isReinc = reincs.has(d.medico);
+    return `
+    <tr>
+      <td>
+        <div class="td-medico">
+          <div class="td-avatar" style="background:linear-gradient(135deg,${cor},${cor}aa)">${d.ini}</div>
+          <div>
+            <div class="td-name">${d.medico}</div>
+            <div class="td-sub">CRM registrado</div>
+          </div>
+        </div>
+      </td>
+      <td><strong>UPA – ${d.upa}</strong></td>
+      <td><strong>${d.data}</strong></td>
+      <td>${d.turno}</td>
+      <td class="center" style="font-weight:700;">${d.previsto}</td>
+      <td class="center" style="font-weight:800;color:${cor};">${d.realizado}</td>
+      <td class="center">
+        <div class="atraso-cell" style="justify-content:center;">
+          <span class="atraso-pill atraso-${gv.key}">+${d.minutos} min</span>
+        </div>
+      </td>
+      <td class="center"><span class="badge badge-${gv.key}">${gv.label}</span></td>
+      <td class="center">
+        ${isReinc
+          ? `<span class="badge badge-reincidente">⚠ Reincidente</span>`
+          : `<span style="color:var(--muted);font-size:.72rem;font-weight:700;">—</span>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════
+// EXPORTAR
+// ══════════════════════════════
+function exportar(tipo) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent =
+    tipo === 'pdf' ? 'Relatório PDF gerado com sucesso!' : 'Planilha Excel gerada com sucesso!';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+atualizarTolerancia(15);
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR',{
+  weekday:'long', day:'2-digit', month:'long', year:'numeric'
+});
+</script>
+</body>
+</html>

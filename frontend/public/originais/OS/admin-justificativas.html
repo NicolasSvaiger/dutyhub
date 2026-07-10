@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 Admin – Justificativas</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{--teal:#2DBFB8;--teal-light:#e8faf9;--indigo:#6366f1;--indigo-dark:#4f46e5;--indigo-light:#eef2ff;--bg:#f4f5f9;--surface:#fff;--text:#1a1f36;--muted:#6b7280;--border:rgba(99,102,241,.14);--nav-w:260px;--green:#22c55e;--green-light:#dcfce7;--yellow:#f59e0b;--yellow-light:#fef3c7;--red:#ef4444;--red-light:#fee2e2;--purple:#8b5cf6;--purple-light:#ede9fe;--orange:#f97316;--orange-light:#fff7ed;}
+html,body{min-height:100vh;font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--nav-w);background:#1a1f36;display:flex;flex-direction:column;padding:1.8rem 0;z-index:50;overflow-y:auto;}
+.sidebar-logo{display:flex;align-items:center;gap:.8rem;padding:0 1.5rem 1.8rem;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:1.4rem;}
+.sidebar-logo-name{font-family:'Nunito',sans-serif;font-size:1.5rem;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1;}
+.sidebar-logo-tag{font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.04em;line-height:1.3;}
+.sidebar-module{display:inline-flex;align-items:center;gap:.35rem;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:.2rem .65rem;font-size:.6rem;font-weight:800;color:#a5b4fc;letter-spacing:.06em;text-transform:uppercase;margin-top:4px;}
+.nav-section-label{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.3);padding:0 1.5rem;margin-bottom:.35rem;margin-top:.9rem;}
+.nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.5rem;font-size:.83rem;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);}
+.nav-item.active{background:rgba(99,102,241,.15);color:#a5b4fc;border-left-color:var(--indigo);}
+.nav-item svg{flex-shrink:0;opacity:.7;}.nav-item.active svg{opacity:1;}
+.sidebar-footer{margin-top:auto;padding:1.2rem 1.5rem 0;border-top:1px solid rgba(255,255,255,.08);}
+.sidebar-user{display:flex;align-items:center;gap:.75rem;}
+.sidebar-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--indigo),var(--teal));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;color:#fff;flex-shrink:0;}
+.sidebar-user-name{font-size:.78rem;font-weight:800;color:rgba(255,255,255,.85);line-height:1.2;}
+.sidebar-user-role{font-size:.62rem;font-weight:600;color:rgba(255,255,255,.4);}
+.logout-btn{background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;margin-left:auto;padding:4px;transition:color .15s;}
+.logout-btn:hover{color:rgba(255,255,255,.8);}
+.main{margin-left:var(--nav-w);min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-title{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);}
+.topbar-sub{font-size:.7rem;font-weight:600;color:var(--muted);margin-top:1px;}
+.content{flex:1;padding:2rem;animation:fadeUp .35s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.6rem;flex-wrap:wrap;gap:1rem;}
+.page-title{font-family:'Nunito',sans-serif;font-size:1.3rem;font-weight:900;color:var(--text);}
+.page-sub{font-size:.78rem;font-weight:600;color:var(--muted);margin-top:.25rem;}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.6rem;}
+.kpi-s{background:var(--surface);border-radius:16px;border:1.5px solid var(--border);padding:1rem 1.2rem;position:relative;overflow:hidden;}
+.kpi-s::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
+.kpi-s.yellow::after{background:var(--yellow);}.kpi-s.green::after{background:var(--green);}.kpi-s.red::after{background:var(--red);}.kpi-s.indigo::after{background:var(--indigo);}
+.kpi-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.25rem;}
+.kpi-val{font-family:'Nunito',sans-serif;font-size:1.7rem;font-weight:900;line-height:1;}
+.kpi-s.yellow .kpi-val{color:var(--yellow);}.kpi-s.green .kpi-val{color:var(--green);}.kpi-s.red .kpi-val{color:var(--red);}.kpi-s.indigo .kpi-val{color:var(--indigo);}
+.kpi-sub{font-size:.67rem;font-weight:600;color:var(--muted);margin-top:.25rem;}
+.filter-bar{display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem;flex-wrap:wrap;}
+.search-wrap{position:relative;flex:1;min-width:220px;}
+.search-wrap svg{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+.search-input{width:100%;padding:.65rem 1rem .65rem 2.5rem;border:1.5px solid var(--border);border-radius:12px;font-family:'Nunito Sans',sans-serif;font-size:.85rem;font-weight:600;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:var(--indigo);}
+.filter-select{appearance:none;-webkit-appearance:none;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:.65rem 2.2rem .65rem .9rem;font-family:'Nunito Sans',sans-serif;font-size:.82rem;font-weight:700;color:var(--text);outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .7rem center;}
+
+/* TABELA */
+.table-card{background:var(--surface);border-radius:18px;border:1.5px solid var(--border);overflow:hidden;}
+.table-header-bar{padding:1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.table-title{font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;color:var(--text);}
+.table-count{font-size:.72rem;font-weight:700;color:var(--muted);}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--bg);border-bottom:1px solid var(--border);}
+thead th{padding:.75rem 1.1rem;font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;white-space:nowrap;}
+thead th.center{text-align:center;}
+tbody tr{border-bottom:1px solid rgba(0,0,0,.04);transition:background .12s;}
+tbody tr:last-child{border-bottom:none;}
+tbody tr:hover{background:#f9f9fc;}
+tbody td{padding:.85rem 1.1rem;font-size:.82rem;font-weight:600;color:var(--text);vertical-align:middle;}
+tbody td.center{text-align:center;}
+.td-med{display:flex;align-items:center;gap:.7rem;}
+.td-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;color:#fff;flex-shrink:0;}
+.td-name{font-weight:800;}.td-sub{font-size:.7rem;font-weight:600;color:var(--muted);}
+.badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;font-weight:800;padding:.25rem .7rem;border-radius:20px;white-space:nowrap;}
+.badge-pendente  {background:var(--yellow-light);color:#b45309;}
+.badge-aprovada  {background:var(--green-light);color:#16a34a;}
+.badge-reprovada {background:var(--red-light);color:#dc2626;}
+.badge-em-anl    {background:var(--purple-light);color:var(--purple);}
+
+/* PRAZO */
+.prazo-ok    {color:var(--green);font-weight:800;font-size:.75rem;}
+.prazo-warn  {color:var(--yellow);font-weight:800;font-size:.75rem;}
+.prazo-venc  {color:var(--red);font-weight:800;font-size:.75rem;}
+
+.actions-cell{display:flex;align-items:center;justify-content:center;gap:.4rem;}
+.act-btn{display:flex;align-items:center;gap:.35rem;padding:.32rem .7rem;border-radius:8px;border:1.5px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--muted);cursor:pointer;transition:all .15s;}
+.act-btn.aprovar{border-color:rgba(34,197,94,.3);color:var(--green);background:var(--green-light);}
+.act-btn.aprovar:hover{background:rgba(34,197,94,.2);}
+.act-btn.reprovar{border-color:rgba(239,68,68,.25);color:var(--red);background:var(--red-light);}
+.act-btn.reprovar:hover{background:rgba(239,68,68,.12);}
+.act-btn.ver:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light);}
+
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.4rem;border-top:1px solid var(--border);}
+.pag-info{font-size:.72rem;font-weight:600;color:var(--muted);}
+.pag-btns{display:flex;gap:.4rem;}
+.pag-btn{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:800;color:var(--muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;}
+.pag-btn:hover{border-color:var(--indigo);color:var(--indigo);}
+.pag-btn.active{background:var(--indigo);border-color:var(--indigo);color:#fff;}
+.pag-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* MODAL DETALHES */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:#fff;border-radius:20px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.15);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);overflow:hidden;}
+@keyframes popIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-header{padding:1.4rem 1.6rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title-h{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;line-height:0;}
+.modal-body{padding:1.6rem;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.2rem;}
+.detail-item{background:var(--bg);border-radius:10px;padding:.7rem .9rem;}
+.detail-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:3px;}
+.detail-val{font-size:.85rem;font-weight:800;color:var(--text);}
+.justif-text-box{background:var(--bg);border-radius:12px;padding:1rem;margin-bottom:1.2rem;}
+.justif-text-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.5rem;}
+.justif-text{font-size:.85rem;font-weight:600;color:var(--text);line-height:1.6;}
+.resposta-field{margin-bottom:1.2rem;}
+.resposta-field label{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);display:block;margin-bottom:.4rem;}
+.resposta-field textarea{width:100%;padding:.7rem .9rem;border:1.5px solid var(--border);border-radius:10px;font-family:'Nunito Sans',sans-serif;font-size:.85rem;font-weight:600;color:var(--text);background:var(--bg);outline:none;resize:vertical;min-height:80px;}
+.resposta-field textarea:focus{border-color:var(--indigo);}
+.modal-footer{padding:1rem 1.6rem;border-top:1px solid var(--border);display:flex;gap:.7rem;}
+.btn-aprovar{flex:1;padding:.8rem;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--green),#16a34a);transition:transform .14s;}
+.btn-aprovar:hover{transform:translateY(-1px);}
+.btn-reprovar{flex:1;padding:.8rem;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--red),#dc2626);transition:transform .14s;}
+.btn-reprovar:hover{transform:translateY(-1px);}
+.btn-fechar{padding:.8rem 1.2rem;border:1.5px solid var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;background:none;}
+.btn-fechar:hover{border-color:var(--indigo);color:var(--indigo);}
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1a1f36;color:#fff;border-radius:12px;padding:.9rem 1.4rem;display:flex;align-items:center;gap:.7rem;font-size:.82rem;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:transform .3s ease,opacity .3s ease;z-index:200;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="36" height="36" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(99,102,241,.6)"/><stop offset="100%" stop-color="rgba(45,191,184,.5)"/></linearGradient></defs><circle cx="44" cy="44" r="44" fill="url(#sg)"/><path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/><polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="37,24 42,30 52,20" fill="none" stroke="#6366f1" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><div class="sidebar-logo-name">24p7</div><div class="sidebar-logo-tag">Tecnologia para quem não para</div><div class="sidebar-module">Admin OS</div></div>
+  </div>
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="admin-welcome.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>Início</a>
+  <a class="nav-item" href="admin-tempo-real.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Tempo Real</a>
+  <a class="nav-item" href="admin-alertas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Central de Alertas</a>
+  <div class="nav-section-label">Cadastros</div>
+  <a class="nav-item" href="admin-usuarios.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários da OS</a>
+  <a class="nav-item" href="admin-orgaos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Órgãos Públicos</a>
+  <a class="nav-item" href="admin-gestores.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Gestores do Órgão</a>
+  <a class="nav-item" href="admin-upas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Unidades (UPAs)</a>
+  <a class="nav-item" href="admin-medicos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 11v4"/><path d="M9 14h6"/></svg>Médicos / Enfermeiros</a>
+  <div class="nav-section-label">Operacional</div>
+  <a class="nav-item" href="admin-escalas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Escalas</a>
+  <a class="nav-item" href="admin-substituicoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Substituições</a>
+  <a class="nav-item" href="admin-disponibilidade.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilidade</a>
+  <a class="nav-item active" href="admin-justificativas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Justificativas</a>
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="admin-gerencial.html">
+	<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+	Gerencial
+  </a>
+  <a class="nav-item" href="admin-faturamento.html">
+	<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+	Faturamento
+  </a>
+  <div class="nav-section-label">Sistema</div>
+  <a class="nav-item" href="admin-configuracoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>Configurações</a>
+  <a class="nav-item" href="admin-auditoria.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoria</a>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">SG</div>
+      <div><div class="sidebar-user-name">Sileide G. Rocha</div><div class="sidebar-user-role">Administradora · OS</div></div>
+      <button class="logout-btn" onclick="window.location.href='admin-login.html'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div><div class="topbar-title">Gestão de Justificativas</div><div class="topbar-sub">Análise e resposta às justificativas de ausência enviadas pelo Órgão Público</div></div>
+  </div>
+  <div class="content">
+    <div class="page-header">
+      <div><div class="page-title">Justificativas de Ausência</div><div class="page-sub">Acionamentos recebidos da prefeitura que aguardam resposta formal da OS</div></div>
+    </div>
+
+    <div class="kpi-strip">
+      <div class="kpi-s yellow"><div class="kpi-lbl">Aguardando análise</div><div class="kpi-val">5</div><div class="kpi-sub">resposta pendente</div></div>
+      <div class="kpi-s indigo"><div class="kpi-lbl">Em análise</div><div class="kpi-val">3</div><div class="kpi-sub">sendo analisadas</div></div>
+      <div class="kpi-s green"><div class="kpi-lbl">Aprovadas</div><div class="kpi-val">12</div><div class="kpi-sub">no mês</div></div>
+      <div class="kpi-s red"><div class="kpi-lbl">Reprovadas</div><div class="kpi-val">4</div><div class="kpi-sub">com penalidade aplicada</div></div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" type="text" placeholder="Buscar por médico, UPA ou protocolo...">
+      </div>
+      <select class="filter-select">
+        <option>Todos os status</option>
+        <option>Aguardando análise</option>
+        <option>Em análise</option>
+        <option>Aprovada</option>
+        <option>Reprovada</option>
+      </select>
+      <select class="filter-select">
+        <option>Todas as UPAs</option>
+        <option>UPA – Vila Pereira</option>
+        <option>UPA – Centro</option>
+        <option>UPA – Zona Norte</option>
+        <option>UPA – Zona Sul</option>
+      </select>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header-bar">
+        <div class="table-title">Acionamentos recebidos</div>
+        <div class="table-count" id="table-count">24 justificativas · Maio 2026</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Protocolo</th>
+              <th>Médico</th>
+              <th>UPA · Data · Turno</th>
+              <th>Tipo de acionamento</th>
+              <th class="center">Status</th>
+              <th class="center">Prazo resposta</th>
+              <th class="center">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination">
+        <div class="pag-info">Exibindo 1–10 de 24 justificativas</div>
+        <div class="pag-btns">
+          <button class="pag-btn" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <button class="pag-btn active">1</button>
+          <button class="pag-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL DETALHE -->
+<div class="modal-overlay" id="modal-detalhe" onclick="fecharModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title-h" id="modal-titulo">Justificativa — JUS-2026-041</div>
+      <button class="modal-close" onclick="fecharModal()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="modal-detalhes"></div>
+      <div class="justif-text-box">
+        <div class="justif-text-label">Justificativa enviada pelo Órgão Público</div>
+        <div class="justif-text" id="modal-texto"></div>
+      </div>
+      <div class="resposta-field" id="resposta-wrap">
+        <label>Resposta da OS (obrigatório para aprovar ou reprovar)</label>
+        <textarea id="resposta-os" placeholder="Descreva a decisão e os fundamentos para a resposta formal..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer" id="modal-footer"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toast-msg"></span></div>
+<script>
+const JUSTIF = [
+  { id:1, proto:'JUS-2026-041', med:'Dra. Renata Silva', ini:'RS', cor:'#ef4444', upa:'Centro', data:'10/05', turno:'Manhã', tipo:'Solicitar justificativa formal', status:'pendente', prazo:'12/05', texto:'A médica Dra. Renata Silva não compareceu ao plantão da manhã do dia 10/05/2026 sem comunicação prévia. Solicitamos justificativa formal dentro do prazo de 48 horas conforme cláusula 8.2 do contrato CT-2024-0087.' },
+  { id:2, proto:'JUS-2026-040', med:'Dr. Marcelo Dias',  ini:'MD', cor:'#f59e0b', upa:'Zona Sul', data:'09/05', turno:'Manhã', tipo:'Exigir reposição do plantão', status:'pendente', prazo:'11/05', texto:'O Dr. Marcelo Dias registrou atraso de 50 minutos no plantão do dia 09/05/2026, comprometendo o atendimento. Solicitamos a reposição das horas não cumpridas ou compensação equivalente.' },
+  { id:3, proto:'JUS-2026-038', med:'Dra. Mariana Costa', ini:'MC', cor:'#8b5cf6', upa:'Centro', data:'08/05', turno:'Noite', tipo:'Solicitar justificativa formal', status:'em-anl', prazo:'14/05', texto:'A Dra. Mariana Costa não compareceu ao plantão noturno do dia 08/05/2026. Esta é a 4ª ausência registrada no mês.' },
+  { id:4, proto:'JUS-2026-035', med:'Dra. Renata Silva', ini:'RS', cor:'#ef4444', upa:'Centro', data:'05/05', turno:'Manhã', tipo:'Registrar advertência', status:'em-anl', prazo:'15/05', texto:'Reincidência de ausência não comunicada. Solicitamos registro formal de advertência e plano de ação para evitar recorrências.' },
+  { id:5, proto:'JUS-2026-030', med:'Dr. Marcelo Dias', ini:'MD', cor:'#f59e0b', upa:'Zona Sul', data:'02/05', turno:'Tarde', tipo:'Solicitar justificativa formal', status:'aprovada', prazo:'08/05', texto:'Ausência comunicada no dia 02/05. Médico apresentou atestado médico devidamente registrado no CRM. Justificativa aceita.' },
+  { id:6, proto:'JUS-2026-028', med:'Dra. Priscila Teles', ini:'PT', cor:'#6b7280', upa:'Zona Sul', data:'01/05', turno:'Manhã', tipo:'Exigir reposição do plantão', status:'reprovada', prazo:'07/05', texto:'Ausência sem justificativa plausível. OS não apresentou documentação comprobatória dentro do prazo estipulado. Penalidade contratual aplicada.' },
+];
+
+const STATUS_BADGE={pendente:'badge-pendente','em-anl':'badge-em-anl',aprovada:'badge-aprovada',reprovada:'badge-reprovada'};
+const STATUS_LABEL={pendente:'Aguardando',  'em-anl':'Em análise',  aprovada:'Aprovada',  reprovada:'Reprovada'};
+const PRAZO_CLS  ={ok:'prazo-ok', warn:'prazo-warn', venc:'prazo-venc'};
+
+function renderTabela(){
+  document.getElementById('tabela-body').innerHTML=JUSTIF.map(j=>{
+    const pCls = j.status==='aprovada'||j.status==='reprovada' ? 'prazo-ok' : j.prazo<='10/05'?'prazo-venc':'prazo-warn';
+    const pLabel = j.status==='aprovada'||j.status==='reprovada' ? '✓ Concluído' : `⏱ Até ${j.prazo}`;
+    return `
+    <tr>
+      <td><span style="font-size:.72rem;font-weight:800;color:var(--muted);">${j.proto}</span></td>
+      <td><div class="td-med"><div class="td-av" style="background:${j.cor};">${j.ini}</div><div><div class="td-name">${j.med}</div></div></div></td>
+      <td><span style="font-weight:700;">UPA – ${j.upa}</span> <span style="color:var(--muted);font-size:.72rem;">· ${j.data} · ${j.turno}</span></td>
+      <td style="font-size:.78rem;color:var(--muted);font-weight:700;max-width:160px;">${j.tipo}</td>
+      <td class="center"><span class="badge ${STATUS_BADGE[j.status]}">${STATUS_LABEL[j.status]}</span></td>
+      <td class="center"><span class="${pCls}">${pLabel}</span></td>
+      <td class="center"><div class="actions-cell">
+        <button class="act-btn ver" onclick="abrirModal(${j.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Ver</button>
+        ${j.status==='pendente'||j.status==='em-anl'?`
+        <button class="act-btn aprovar" onclick="responder(${j.id},'aprovada')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>
+        <button class="act-btn reprovar" onclick="responder(${j.id},'reprovada')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModal(id){
+  const j=JUSTIF.find(x=>x.id===id);
+  if(!j)return;
+  document.getElementById('modal-titulo').textContent=`Justificativa — ${j.proto}`;
+  document.getElementById('modal-detalhes').innerHTML=`
+    <div class="detail-item"><div class="detail-lbl">Médico</div><div class="detail-val">${j.med}</div></div>
+    <div class="detail-item"><div class="detail-lbl">UPA</div><div class="detail-val">UPA – ${j.upa}</div></div>
+    <div class="detail-item"><div class="detail-lbl">Data · Turno</div><div class="detail-val">${j.data}/2026 · ${j.turno}</div></div>
+    <div class="detail-item"><div class="detail-lbl">Tipo</div><div class="detail-val" style="font-size:.78rem;">${j.tipo}</div></div>`;
+  document.getElementById('modal-texto').textContent=j.texto;
+  document.getElementById('resposta-os').value='';
+  const isRespondida=j.status==='aprovada'||j.status==='reprovada';
+  document.getElementById('resposta-wrap').style.display=isRespondida?'none':'block';
+  document.getElementById('modal-footer').innerHTML=isRespondida
+    ? `<span class="badge ${STATUS_BADGE[j.status]}" style="font-size:.78rem;padding:.4rem .9rem;">${STATUS_LABEL[j.status]}</span><button class="btn-fechar" onclick="fecharModal()">Fechar</button>`
+    : `<button class="btn-fechar" onclick="fecharModal()">Fechar</button><button class="btn-reprovar" onclick="responderModal(${j.id},'reprovada')">Reprovar</button><button class="btn-aprovar" onclick="responderModal(${j.id},'aprovada')">Aprovar</button>`;
+  document.getElementById('modal-detalhe').classList.add('open');
+}
+
+function responder(id,decisao){
+  const j=JUSTIF.find(x=>x.id===id);
+  if(j){ j.status=decisao; renderTabela(); toast(`Justificativa ${decisao==='aprovada'?'aprovada':'reprovada'} com sucesso!`); }
+}
+function responderModal(id,decisao){
+  fecharModal();
+  responder(id,decisao);
+}
+function fecharModal(e){
+  if(!e||e.target===document.getElementById('modal-detalhe'))
+    document.getElementById('modal-detalhe').classList.remove('open');
+}
+function toast(msg){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+renderTabela();
+</script>
+</body>
+</html>

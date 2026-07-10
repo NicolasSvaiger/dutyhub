@@ -1,19 +1,43 @@
 import axios from 'axios';
 
+/**
+ * baseURL relativa (`/api`) — o frontend deve sempre bater no mesmo origin
+ * em que ele está sendo servido. Em produção (docker-compose), o nginx
+ * proxya `/api/*` para o container da API; em desenvolvimento com Vite,
+ * configure um proxy equivalente no `vite.config.ts` se precisar.
+ *
+ * Hardcode para `http://localhost:5000/api` foi removido porque quebrava
+ * ambientes onde `localhost` não é o host da máquina (containers de teste
+ * E2E, execução em servidor headless etc.) e não trazia benefício em prod.
+ */
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor: add Bearer token from localStorage
+// Request interceptor: add Bearer token and active clinic from localStorage
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('plantonhub_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Multi-clinic support: send the active clinic id in every request.
+    // The backend validates it against the 'clinicIds' claim in the JWT.
+    // Only fill in from localStorage when the caller hasn't already set the
+    // header explicitly — explicit values win, which avoids races when the
+    // user switches clinics and the localStorage lags behind for a tick.
+    const alreadySet = config.headers['X-Clinic-Id'] ?? config.headers['x-clinic-id'];
+    if (!alreadySet) {
+      const activeClinicId = localStorage.getItem('plantonhub_active_clinic');
+      if (activeClinicId) {
+        config.headers['X-Clinic-Id'] = activeClinicId;
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -44,6 +68,13 @@ axiosInstance.interceptors.response.use(
 
     // Only attempt refresh on 401 and if we haven't already retried
     if (error.response?.status !== 401 || originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+    // Não tenta refresh quando o próprio /auth/login retorna 401: significa
+    // que as credenciais estão erradas, o LoginPage vai mostrar o erro.
+    // Também não redireciona pra /login (usuário já está lá).
+    if (originalRequest.url?.includes('/auth/login')) {
       return Promise.reject(error);
     }
 
@@ -83,7 +114,7 @@ axiosInstance.interceptors.response.use(
 
     try {
       const { data } = await axios.post(
-        'http://localhost:5000/api/auth/refresh-token',
+        '/api/auth/refresh-token',
         { refreshToken }
       );
 

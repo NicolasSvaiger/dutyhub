@@ -1,0 +1,117 @@
+/* ============================================================
+   PlantonHub — Design Tokens
+
+   Ponto único de verdade para cores, sombras, raios, tipografia
+   e layout do app.
+
+   Suporta tema claro e escuro. O tema ativo é definido em
+   <html data-theme="light|dark">, controlado pelo ThemeContext.
+   Componentes usam as vars semânticas (--surface, --text, etc.)
+   e ganham dark mode automaticamente.
+
+   Para trocar a paleta (rebrand, tema alternativo, etc.), altere
+   apenas os valores aqui — todo o resto se atualiza sozinho.
+   ============================================================ */
+
+:root,
+[data-theme="light"] {
+  /* ── MARCA (cores fixas, iguais nos dois temas) ─────────── */
+  --teal:       #2DBFB8;
+  --teal-dark:  #1fa09a;
+  --teal-light: #4dd6a8;
+
+  --orange:       #F5A623;
+  --orange-dark:  #d4901e;
+  --orange-light: #f7c15e;
+
+  /* ── SUPERFÍCIES ─────────────────────────────────────────── */
+  --bg:          #f5f7f7;   /* fundo geral do app */
+  --surface:     #ffffff;   /* cartões, painéis, modais */
+  --surface-alt: #f9f9f9;   /* rows, list items, hover subtle */
+  --tint:        #f2fbfa;   /* fundo levemente teal (info blocks) */
+  --input-bg:    #f5fdfc;   /* fundo de inputs / seletores */
+  --input-bg-hover: #ecfaf9;
+
+  /* ── TIPOGRAFIA ──────────────────────────────────────────── */
+  --text:  #1a2a2a;  /* texto principal */
+  --muted: #7a9090;  /* texto secundário / labels */
+
+  /* ── BORDAS ──────────────────────────────────────────────── */
+  --border:       rgba(45, 191, 184, 0.2);
+  --border-strong: rgba(45, 191, 184, 0.4);
+  --border-neutral: rgba(0, 0, 0, 0.15);
+
+  /* ── FEEDBACK / ESTADO ───────────────────────────────────── */
+  --danger:        #e53e3e;
+  --danger-bg:     #fff0f0;
+  --danger-border: rgba(229, 62, 62, 0.25);
+
+  --warning-bg:     #fff7ec;
+  --warning-border: rgba(245, 166, 35, 0.25);
+
+  /* ── SOMBRAS ─────────────────────────────────────────────── */
+  --shadow-card:  0 3px 14px rgba(0, 0, 0, 0.06);
+  --shadow-panel: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-modal: 0 -8px 32px rgba(0, 0, 0, 0.18);
+
+  --glow-teal:   0 4px 18px rgba(45, 191, 184, 0.35);
+  --glow-orange: 0 4px 18px rgba(245, 166, 35, 0.35);
+
+  /* ── GRADIENTES ──────────────────────────────────────────── */
+  --gradient-teal:   linear-gradient(135deg, var(--teal)   0%, var(--teal-light)   100%);
+  --gradient-orange: linear-gradient(135deg, var(--orange) 0%, var(--orange-light) 100%);
+  --gradient-header: linear-gradient(135deg, var(--teal)   0%, var(--orange)       100%);
+
+  /* ── TIPOGRAFIA ──────────────────────────────────────────── */
+  --font-sans: 'Nunito', sans-serif;
+
+  /* ── LAYOUT ──────────────────────────────────────────────── */
+  --nav-h: 70px;
+
+  /* ── TRANSIÇÕES ─────────────────────────────────────────── */
+  --t-fast: .14s;
+  --t-med:  .2s;
+  --t-slow: .32s;
+}
+
+/* ============================================================
+   TEMA ESCURO
+   Só sobrescreve os tokens semânticos; a paleta de marca fica.
+   ============================================================ */
+
+[data-theme="dark"] {
+  --bg:          #0f1518;
+  --surface:     #1a2327;
+  --surface-alt: #232d31;
+  --tint:        #1a2f2e;
+  --input-bg:    #1e2a2d;
+  --input-bg-hover: #253236;
+
+  --text:  #e8eff0;
+  --muted: #93a5a5;
+
+  --border:        rgba(45, 191, 184, 0.28);
+  --border-strong: rgba(45, 191, 184, 0.55);
+  --border-neutral: rgba(255, 255, 255, 0.14);
+
+  --danger:        #ff6b6b;
+  --danger-bg:     #2b1717;
+  --danger-border: rgba(255, 107, 107, 0.35);
+
+  --warning-bg:     #2a2015;
+  --warning-border: rgba(245, 166, 35, 0.35);
+
+  --shadow-card:  0 3px 14px rgba(0, 0, 0, 0.32);
+  --shadow-panel: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-popup: 0 8px 24px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-modal: 0 -8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Aplica a cor de fundo do tema no body — evita "flash of white"
+   ao carregar a página antes do React montar. */
+html {
+  background: var(--bg);
+  color: var(--text);
+  transition: background-color var(--t-med) ease, color var(--t-med) ease;
+}

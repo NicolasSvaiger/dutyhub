@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 Admin – Escalas</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --teal:#2DBFB8;--teal-light:#e8faf9;
+  --indigo:#6366f1;--indigo-dark:#4f46e5;--indigo-light:#eef2ff;
+  --bg:#f4f5f9;--surface:#fff;--text:#1a1f36;--muted:#6b7280;
+  --border:rgba(99,102,241,.14);--nav-w:260px;
+  --green:#22c55e;--green-light:#dcfce7;
+  --yellow:#f59e0b;--yellow-light:#fef3c7;
+  --red:#ef4444;--red-light:#fee2e2;
+  --purple:#8b5cf6;--purple-light:#ede9fe;
+  --orange:#f97316;--orange-light:#fff7ed;
+}
+html,body{min-height:100vh;font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+
+/* ══ SIDEBAR ══ */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--nav-w);background:#1a1f36;display:flex;flex-direction:column;padding:1.8rem 0;z-index:50;overflow-y:auto;}
+.sidebar-logo{display:flex;align-items:center;gap:.8rem;padding:0 1.5rem 1.8rem;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:1.4rem;}
+.sidebar-logo-name{font-family:'Nunito',sans-serif;font-size:1.5rem;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1;}
+.sidebar-logo-tag{font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.04em;line-height:1.3;}
+.sidebar-module{display:inline-flex;align-items:center;gap:.35rem;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:.2rem .65rem;font-size:.6rem;font-weight:800;color:#a5b4fc;letter-spacing:.06em;text-transform:uppercase;margin-top:4px;}
+.nav-section-label{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.3);padding:0 1.5rem;margin-bottom:.35rem;margin-top:.9rem;}
+.nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.5rem;font-size:.83rem;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;border-left:3px solid transparent;text-decoration:none;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);}
+.nav-item.active{background:rgba(99,102,241,.15);color:#a5b4fc;border-left-color:var(--indigo);}
+.nav-item svg{flex-shrink:0;opacity:.7;}.nav-item.active svg{opacity:1;}
+.sidebar-footer{margin-top:auto;padding:1.2rem 1.5rem 0;border-top:1px solid rgba(255,255,255,.08);}
+.sidebar-user{display:flex;align-items:center;gap:.75rem;}
+.sidebar-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--indigo),var(--teal));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;color:#fff;flex-shrink:0;}
+.sidebar-user-name{font-size:.78rem;font-weight:800;color:rgba(255,255,255,.85);line-height:1.2;}
+.sidebar-user-role{font-size:.62rem;font-weight:600;color:rgba(255,255,255,.4);}
+.logout-btn{background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;margin-left:auto;padding:4px;transition:color .15s;}
+.logout-btn:hover{color:rgba(255,255,255,.8);}
+
+/* ══ MAIN ══ */
+.main{margin-left:var(--nav-w);min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-left{display:flex;flex-direction:column;}
+.topbar-title{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);}
+.topbar-sub{font-size:.7rem;font-weight:600;color:var(--muted);margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:.7rem;}
+.content{flex:1;padding:2rem;animation:fadeUp .35s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ CONTROLES TOPO ══ */
+.controls-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.4rem;flex-wrap:wrap;gap:.8rem;}
+.controls-left{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;}
+.controls-right{display:flex;align-items:center;gap:.7rem;}
+
+/* seletor UPA */
+.upa-tabs{display:flex;background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:4px;gap:3px;}
+.upa-tab{padding:.45rem .9rem;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;cursor:pointer;transition:all .15s;background:none;color:var(--muted);white-space:nowrap;}
+.upa-tab.active{background:var(--indigo);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.3);}
+.upa-tab:hover:not(.active){background:var(--indigo-light);color:var(--indigo);}
+
+/* semana nav */
+.week-nav{display:flex;align-items:center;gap:.5rem;}
+.week-btn{width:32px;height:32px;border-radius:9px;border:1.5px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .15s;}
+.week-btn:hover{border-color:var(--indigo);color:var(--indigo);}
+.week-label{font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:900;color:var(--text);min-width:180px;text-align:center;}
+.btn-hoje{padding:.45rem .9rem;border:1.5px solid var(--border);border-radius:9px;background:#fff;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--teal);cursor:pointer;transition:all .15s;}
+.btn-hoje:hover{background:var(--teal-light);border-color:var(--teal);}
+
+/* botões ação */
+.btn-action{display:flex;align-items:center;gap:.4rem;padding:.55rem 1rem;border-radius:10px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;cursor:pointer;transition:all .15s;border:1.5px solid;}
+.btn-gerar{background:var(--orange-light);border-color:rgba(249,115,22,.3);color:var(--orange);}
+.btn-gerar:hover{background:rgba(249,115,22,.15);}
+.btn-publicar{background:linear-gradient(135deg,var(--indigo),var(--indigo-dark));border-color:transparent;color:#fff;box-shadow:0 3px 12px rgba(99,102,241,.3);}
+.btn-publicar:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(99,102,241,.4);}
+
+/* ══ GRADE ══ */
+.grade-wrap{background:var(--surface);border-radius:18px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:1.2rem;}
+.grade-table{width:100%;border-collapse:collapse;}
+.grade-table thead th{padding:.8rem .6rem;text-align:center;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border);border-right:1px solid rgba(0,0,0,.04);}
+.grade-table thead th:first-child{width:100px;border-right:1px solid var(--border);background:var(--bg);text-align:left;padding-left:1rem;}
+.grade-table thead .th-hoje{background:var(--indigo-light);color:var(--indigo);}
+.day-num{font-family:'Nunito',sans-serif;font-size:1.1rem;font-weight:900;display:block;line-height:1;}
+.day-name{font-size:.6rem;font-weight:700;display:block;margin-top:2px;}
+.grade-table tbody td{border-right:1px solid rgba(0,0,0,.04);border-bottom:1px solid rgba(0,0,0,.04);vertical-align:top;padding:.5rem;min-width:120px;}
+.grade-table tbody td:first-child{border-right:1px solid var(--border);background:var(--bg);padding:.7rem 1rem;}
+.grade-table tbody tr:last-child td{border-bottom:none;}
+.turno-label{font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:900;color:var(--text);}
+.turno-horario{font-size:.6rem;font-weight:700;color:var(--muted);display:block;margin-top:2px;}
+
+/* células */
+.cell{min-height:100px;display:flex;flex-direction:column;gap:.3rem;position:relative;}
+.cell.hoje-col{background:rgba(99,102,241,.03);}
+
+/* chip médico */
+.med-chip{
+  display:flex;align-items:center;gap:.4rem;
+  padding:.32rem .55rem;border-radius:8px;
+  font-size:.68rem;font-weight:800;
+  cursor:grab;user-select:none;
+  transition:transform .15s,box-shadow .15s;
+  position:relative;
+}
+.med-chip:active{cursor:grabbing;transform:scale(.97);}
+.med-chip:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.1);}
+.med-chip.fixo    {background:var(--green-light);color:#166534;}
+.med-chip.rotativo{background:var(--indigo-light);color:var(--indigo);}
+.med-chip.pendente{background:var(--yellow-light);color:#92400e;}
+.med-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.med-chip.fixo .med-dot    {background:var(--green);}
+.med-chip.rotativo .med-dot{background:var(--indigo);}
+.med-chip.pendente .med-dot{background:var(--yellow);}
+.med-nome{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;}
+.med-remove{margin-left:auto;background:none;border:none;cursor:pointer;opacity:0;color:inherit;padding:0;line-height:0;transition:opacity .15s;}
+.med-chip:hover .med-remove{opacity:.6;}
+.med-remove:hover{opacity:1!important;}
+
+/* vaga aberta */
+.vaga-aberta{
+  display:flex;align-items:center;justify-content:center;gap:.3rem;
+  padding:.32rem .55rem;border-radius:8px;
+  border:1.5px dashed rgba(239,68,68,.35);
+  background:rgba(239,68,68,.04);
+  font-size:.65rem;font-weight:800;color:var(--red);
+  cursor:pointer;transition:all .15s;
+}
+.vaga-aberta:hover{background:var(--red-light);border-color:var(--red);}
+
+/* add slot */
+.add-slot{
+  display:flex;align-items:center;justify-content:center;
+  padding:.28rem;border-radius:7px;border:1.5px dashed var(--border);
+  background:none;cursor:pointer;color:var(--muted);
+  font-size:.65rem;font-weight:700;gap:.3rem;
+  transition:all .15s;opacity:0;
+}
+.cell:hover .add-slot{opacity:1;}
+.add-slot:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light);}
+
+/* ══ PAINEL LATERAL ══ */
+.side-panel{display:grid;grid-template-columns:1fr 280px;gap:1.2rem;align-items:start;}
+.panel-card{background:var(--surface);border-radius:18px;border:1.5px solid var(--border);overflow:hidden;}
+.panel-header{padding:.9rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.panel-title{font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:900;color:var(--text);}
+
+/* lista de médicos disponíveis */
+.med-pool{padding:.8rem;display:flex;flex-direction:column;gap:.4rem;max-height:340px;overflow-y:auto;}
+.pool-item{display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;border-radius:10px;background:var(--bg);cursor:grab;transition:background .15s;user-select:none;}
+.pool-item:hover{background:var(--indigo-light);}
+.pool-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;color:#fff;flex-shrink:0;}
+.pool-name{font-size:.75rem;font-weight:800;color:var(--text);flex:1;}
+.pool-info{font-size:.62rem;font-weight:600;color:var(--muted);}
+.pool-status{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.pool-status.disponivel{background:var(--green);}
+.pool-status.parcial{background:var(--yellow);}
+
+/* legenda */
+.legend-body{padding:.9rem 1.2rem;display:flex;flex-direction:column;gap:.5rem;}
+.leg-item{display:flex;align-items:center;gap:.6rem;font-size:.75rem;font-weight:700;color:var(--muted);}
+.leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+
+/* resumo semana */
+.resumo-body{padding:.8rem 1.2rem;display:flex;flex-direction:column;gap:.5rem;}
+.resumo-item{display:flex;justify-content:space-between;align-items:center;padding:.4rem .6rem;background:var(--bg);border-radius:8px;}
+.resumo-label{font-size:.73rem;font-weight:700;color:var(--muted);}
+.resumo-val{font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:900;}
+
+/* ══ MODAL ADICIONAR ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:#fff;border-radius:20px;padding:1.8rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.15);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-title{font-family:'Nunito',sans-serif;font-size:1.1rem;font-weight:900;color:var(--text);margin-bottom:1.2rem;}
+.modal-list{display:flex;flex-direction:column;gap:.4rem;max-height:300px;overflow-y:auto;margin-bottom:1.2rem;}
+.modal-item{display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;border-radius:10px;background:var(--bg);cursor:pointer;transition:background .15s;}
+.modal-item:hover{background:var(--indigo-light);}
+.modal-item-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:900;color:#fff;flex-shrink:0;}
+.modal-item-name{font-size:.82rem;font-weight:800;color:var(--text);flex:1;}
+.modal-item-info{font-size:.68rem;font-weight:600;color:var(--muted);}
+.tipo-row{display:flex;gap:.5rem;margin-bottom:1.2rem;}
+.tipo-btn{flex:1;padding:.6rem;border:1.5px solid var(--border);border-radius:10px;background:none;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:var(--muted);cursor:pointer;transition:all .15s;}
+.tipo-btn.active.fixo{background:var(--green-light);border-color:var(--green);color:#166534;}
+.tipo-btn.active.rot {background:var(--indigo-light);border-color:var(--indigo);color:var(--indigo);}
+.modal-btns{display:flex;gap:.6rem;}
+.btn-confirm{flex:1;padding:.8rem;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--indigo),var(--indigo-dark));}
+.btn-cancel{padding:.8rem 1.1rem;border:1.5px solid var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;background:none;}
+.btn-cancel:hover{border-color:var(--indigo);color:var(--indigo);}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1a1f36;color:#fff;border-radius:12px;padding:.9rem 1.4rem;display:flex;align-items:center;gap:.7rem;font-size:.82rem;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:transform .3s ease,opacity .3s ease;z-index:200;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="36" height="36" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(99,102,241,.6)"/><stop offset="100%" stop-color="rgba(45,191,184,.5)"/></linearGradient></defs><circle cx="44" cy="44" r="44" fill="url(#sg)"/><path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/><polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="37,24 42,30 52,20" fill="none" stroke="#6366f1" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><div class="sidebar-logo-name">24p7</div><div class="sidebar-logo-tag">Tecnologia para quem não para</div><div class="sidebar-module">Admin OS</div></div>
+  </div>
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="admin-welcome.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>Início</a>
+  <a class="nav-item" href="admin-tempo-real.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Tempo Real</a>
+  <a class="nav-item" href="admin-alertas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Central de Alertas</a>
+  <div class="nav-section-label">Cadastros</div>
+  <a class="nav-item" href="admin-usuarios.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários da OS</a>
+  <a class="nav-item" href="admin-orgaos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Órgãos Públicos</a>
+  <a class="nav-item" href="admin-gestores.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Gestores do Órgão</a>
+  <a class="nav-item" href="admin-upas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Unidades (UPAs)</a>
+  <a class="nav-item" href="admin-medicos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 11v4"/><path d="M9 14h6"/></svg>Médicos / Enfermeiros</a>
+  <div class="nav-section-label">Operacional</div>
+  <a class="nav-item active" href="admin-escalas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Escalas</a>
+  <a class="nav-item" href="admin-substituicoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Substituições</a>
+  <a class="nav-item" href="admin-disponibilidade.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilidade</a>
+  <a class="nav-item" href="admin-justificativas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Justificativas</a>
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="admin-gerencial.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Gerencial</a>
+  <a class="nav-item" href="admin-faturamento.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Faturamento</a>
+  <div class="nav-section-label">Sistema</div>
+  <a class="nav-item" href="admin-configuracoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>Configurações</a>
+  <a class="nav-item" href="admin-auditoria.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoria</a>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">SG</div>
+      <div><div class="sidebar-user-name">Sileide G. Rocha</div><div class="sidebar-user-role">Administradora · OS</div></div>
+      <button class="logout-btn" onclick="window.location.href='admin-login.html'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Escalas de Plantão</div>
+      <div class="topbar-sub" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-action btn-gerar" onclick="gerarEscala()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Gerar automaticamente
+      </button>
+      <button class="btn-action btn-publicar" onclick="publicar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Publicar escala
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- CONTROLES -->
+    <div class="controls-bar">
+      <div class="controls-left">
+        <div class="upa-tabs" id="upa-tabs">
+          <button class="upa-tab active" onclick="selecionarUPA(this,'vila-pereira')">Vila Pereira</button>
+          <button class="upa-tab" onclick="selecionarUPA(this,'centro')">Centro</button>
+          <button class="upa-tab" onclick="selecionarUPA(this,'zona-norte')">Zona Norte</button>
+          <button class="upa-tab" onclick="selecionarUPA(this,'zona-sul')">Zona Sul</button>
+        </div>
+      </div>
+      <div class="controls-right">
+        <div class="week-nav">
+          <button class="week-btn" onclick="mudarSemana(-1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="week-label" id="week-label">—</div>
+          <button class="week-btn" onclick="mudarSemana(1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+        </div>
+        <button class="btn-hoje" onclick="irHoje()">Hoje</button>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <div>
+        <!-- GRADE -->
+        <div class="grade-wrap">
+          <table class="grade-table">
+            <thead id="grade-head"></thead>
+            <tbody id="grade-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PAINEL DIREITO -->
+      <div style="display:flex;flex-direction:column;gap:.8rem;">
+
+        <!-- MÉDICOS DISPONÍVEIS -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <div class="panel-title">Médicos disponíveis</div>
+            <span style="font-size:.65rem;font-weight:800;background:var(--green-light);color:#16a34a;padding:.2rem .6rem;border-radius:10px;">4 livres</span>
+          </div>
+          <div class="med-pool" id="med-pool">
+            <div class="pool-item"><div class="pool-avatar" style="background:#6366f1;">JL</div><div style="flex:1;"><div class="pool-name">Dra. Jessica Lima</div><div class="pool-info">CRM 5485-SP</div></div><div class="pool-status disponivel"></div></div>
+            <div class="pool-item"><div class="pool-avatar" style="background:#2DBFB8;">RA</div><div style="flex:1;"><div class="pool-name">Dr. Roberto Alves</div><div class="pool-info">CRM 8821-SP</div></div><div class="pool-status disponivel"></div></div>
+            <div class="pool-item"><div class="pool-avatar" style="background:#22c55e;">CF</div><div style="flex:1;"><div class="pool-name">Dra. Camila Ferraz</div><div class="pool-info">CRM 3312-SP</div></div><div class="pool-status disponivel"></div></div>
+            <div class="pool-item"><div class="pool-avatar" style="background:#f97316;">AS</div><div style="flex:1;"><div class="pool-name">Dr. André Souza</div><div class="pool-info">CRM 7743-SP</div></div><div class="pool-status parcial"></div></div>
+          </div>
+        </div>
+
+        <!-- LEGENDA -->
+        <div class="panel-card">
+          <div class="panel-header"><div class="panel-title">Legenda</div></div>
+          <div class="legend-body">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--green);"></div>Plantão fixo</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--indigo);"></div>Plantão rotativo</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--yellow);"></div>Aguardando confirmação</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--red);border-radius:2px;"></div>Vaga em aberto</div>
+          </div>
+        </div>
+
+        <!-- RESUMO -->
+        <div class="panel-card">
+          <div class="panel-header"><div class="panel-title">Resumo da semana</div></div>
+          <div class="resumo-body">
+            <div class="resumo-item"><span class="resumo-label">Turnos escalados</span><span class="resumo-val" style="color:var(--teal);" id="r-escalados">—</span></div>
+            <div class="resumo-item"><span class="resumo-label">Vagas em aberto</span><span class="resumo-val" style="color:var(--red);" id="r-vagas">—</span></div>
+            <div class="resumo-item"><span class="resumo-label">Médicos únicos</span><span class="resumo-val" style="color:var(--indigo);" id="r-medicos">—</span></div>
+            <div class="resumo-item"><span class="resumo-label">Cobertura</span><span class="resumo-val" style="color:var(--green);" id="r-cobertura">—</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL ADICIONAR MÉDICO -->
+<div class="modal-overlay" id="modal-add" onclick="fecharModal(event)">
+  <div class="modal-box">
+    <div class="modal-title">Adicionar médico ao turno</div>
+    <div class="tipo-row">
+      <button class="tipo-btn active fixo" id="tipo-fixo" onclick="selecionarTipo('fixo')">📌 Plantão fixo</button>
+      <button class="tipo-btn rot" id="tipo-rot" onclick="selecionarTipo('rotativo')">🔄 Rotativo</button>
+    </div>
+    <div class="modal-list" id="modal-list"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="document.getElementById('modal-add').classList.remove('open')">Cancelar</button>
+      <button class="btn-confirm" onclick="confirmarAdd()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toast-msg"></span></div>
+
+<script>
+// ══════════════════════════════
+// DADOS
+// ══════════════════════════════
+const DIAS_PT  = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MESES_PT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+const TURNOS = [
+  { key:'manha', label:'Manhã',  horario:'07h–19h' },
+  { key:'noite', label:'Noite',  horario:'19h–07h' },
+];
+
+const MEDICOS_POOL = [
+  { ini:'JL', nome:'Dra. Jessica Lima',  crm:'5485-SP', cor:'#6366f1' },
+  { ini:'RA', nome:'Dr. Roberto Alves',  crm:'8821-SP', cor:'#2DBFB8' },
+  { ini:'CF', nome:'Dra. Camila Ferraz', crm:'3312-SP', cor:'#22c55e' },
+  { ini:'AS', nome:'Dr. André Souza',    crm:'7743-SP', cor:'#f97316' },
+];
+
+// Escala inicial mocada
+const ESCALA = {
+  'vila-pereira': {
+    manha:{ 0:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},{m:'AS',t:'fixo'}], 1:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},{m:'AS',t:'fixo'}], 2:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},{m:'AS',t:'fixo'}], 3:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},{m:'CF',t:'pendente'},null], 4:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},{m:'AS',t:'fixo'}], 5:[{m:'JL',t:'fixo'},{m:'RA',t:'rotativo'},{m:'CF',t:'fixo'},{m:'AS',t:'fixo'}], 6:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},{m:'AS',t:'fixo'}] },
+    noite:{ 0:[{m:'AS',t:'rotativo'},{m:'JL',t:'rotativo'},null,null], 1:[{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},null,null], 2:[{m:'JL',t:'fixo'},{m:'AS',t:'fixo'},null,null], 3:[{m:'RA',t:'fixo'},{m:'CF',t:'fixo'},{m:'AS',t:'pendente'},null], 4:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},null,null], 5:[{m:'CF',t:'rotativo'},{m:'AS',t:'rotativo'},null,null], 6:[{m:'JL',t:'fixo'},{m:'RA',t:'fixo'},null,null] }
+  }
+};
+// Clona para outras UPAs (simplificado)
+['centro','zona-norte','zona-sul'].forEach(k=>{ ESCALA[k]=JSON.parse(JSON.stringify(ESCALA['vila-pereira'])); });
+
+const NOME_MAP = { JL:'Dra. Jessica Lima', RA:'Dr. Roberto Alves', CF:'Dra. Camila Ferraz', AS:'Dr. André Souza' };
+const COR_MAP  = { JL:'#6366f1', RA:'#2DBFB8', CF:'#22c55e', AS:'#f97316' };
+
+let semanaOffset = 0;
+let upaAtual     = 'vila-pereira';
+let modalCtx     = null;
+let tipoSel      = 'fixo';
+const HOJE       = new Date(); HOJE.setHours(0,0,0,0);
+
+function getDias(off){
+  const ini=new Date(HOJE);
+  ini.setDate(HOJE.getDate()-HOJE.getDay()+off*7);
+  return Array.from({length:7},(_,i)=>{const d=new Date(ini);d.setDate(ini.getDate()+i);return d;});
+}
+
+function mudarSemana(d){ semanaOffset+=d; render(); }
+function irHoje(){ semanaOffset=0; render(); }
+function selecionarUPA(el,key){ document.querySelectorAll('.upa-tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); upaAtual=key; render(); }
+
+function render(){
+  const dias=getDias(semanaOffset);
+  // label semana
+  const ini=dias[0], fim=dias[6];
+  document.getElementById('week-label').textContent=`${ini.getDate()} ${MESES_PT[ini.getMonth()]} – ${fim.getDate()} ${MESES_PT[fim.getMonth()]} ${fim.getFullYear()}`;
+  document.getElementById('topbar-date').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+  // HEAD
+  let head='<tr><th style="text-align:left;padding-left:1rem;">Turno</th>';
+  dias.forEach(d=>{
+    const isHoje=d.getTime()===HOJE.getTime();
+    head+=`<th class="${isHoje?'th-hoje':''}"><span class="day-num">${d.getDate()}</span><span class="day-name">${DIAS_PT[d.getDay()]}</span></th>`;
+  });
+  head+='</tr>';
+  document.getElementById('grade-head').innerHTML=head;
+
+  // BODY
+  const esc=ESCALA[upaAtual];
+  let totalEsc=0, totalVaga=0;
+  const medsUnicos=new Set();
+
+  let body='';
+  TURNOS.forEach(t=>{
+    body+='<tr>';
+    body+=`<td><div class="turno-label">${t.label}</div><span class="turno-horario">${t.horario}</span></td>`;
+    dias.forEach(d=>{
+      const dow=d.getDay();
+      const isHoje=d.getTime()===HOJE.getTime();
+      const slots=(esc[t.key]||{})[dow]||[];
+      let cell='';
+      slots.forEach((s,i)=>{
+        if(!s){
+          totalVaga++;
+          cell+=`<div class="vaga-aberta" onclick="abrirModal('${t.key}',${dow},${i})"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Vaga em aberto</div>`;
+        } else {
+          totalEsc++;
+          medsUnicos.add(s.m);
+          cell+=`<div class="med-chip ${s.t}"><div class="med-dot"></div><span class="med-nome">${NOME_MAP[s.m]?.split(' ').slice(0,2).join(' ')}</span><button class="med-remove" onclick="removerMed('${t.key}',${dow},${i})" title="Remover"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`;
+        }
+      });
+      cell+=`<button class="add-slot" onclick="abrirModal('${t.key}',${dow},${slots.length})"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Adicionar</button>`;
+      body+=`<td class="${isHoje?'hoje-col':''}"><div class="cell">${cell}</div></td>`;
+    });
+    body+='</tr>';
+  });
+  document.getElementById('grade-body').innerHTML=body;
+
+  // resumo
+  const total=totalEsc+totalVaga;
+  document.getElementById('r-escalados').textContent=totalEsc;
+  document.getElementById('r-vagas').textContent=totalVaga;
+  document.getElementById('r-medicos').textContent=medsUnicos.size;
+  document.getElementById('r-cobertura').textContent=total>0?Math.round((totalEsc/total)*100)+'%':'—';
+}
+
+// MODAL
+function abrirModal(turno,dow,idx){
+  modalCtx={turno,dow,idx};
+  tipoSel='fixo';
+  document.getElementById('tipo-fixo').classList.add('active');
+  document.getElementById('tipo-rot').classList.remove('active');
+  document.getElementById('modal-list').innerHTML=MEDICOS_POOL.map(m=>`
+    <div class="modal-item" onclick="selecionarMedModal('${m.ini}',this)">
+      <div class="modal-item-avatar" style="background:${m.cor};">${m.ini}</div>
+      <div class="modal-item-name">${m.nome}</div>
+      <div class="modal-item-info">${m.crm}</div>
+    </div>`).join('');
+  document.getElementById('modal-add').classList.add('open');
+}
+
+let medSel=null;
+function selecionarMedModal(ini,el){
+  document.querySelectorAll('.modal-item').forEach(i=>i.style.background='');
+  el.style.background='var(--indigo-light)';
+  medSel=ini;
+}
+function selecionarTipo(t){
+  tipoSel=t;
+  document.getElementById('tipo-fixo').classList.toggle('active',t==='fixo');
+  document.getElementById('tipo-fixo').classList.toggle('rot',false);
+  document.getElementById('tipo-rot').classList.toggle('active',t==='rotativo');
+}
+function confirmarAdd(){
+  if(!medSel||!modalCtx)return;
+  const {turno,dow,idx}=modalCtx;
+  const slots=ESCALA[upaAtual][turno][dow]||[];
+  if(idx>=slots.length) slots.push({m:medSel,t:tipoSel});
+  else slots[idx]={m:medSel,t:tipoSel};
+  ESCALA[upaAtual][turno][dow]=slots;
+  document.getElementById('modal-add').classList.remove('open');
+  medSel=null; render();
+  toast('Médico adicionado ao turno!');
+}
+function fecharModal(e){ if(e.target===document.getElementById('modal-add')){ document.getElementById('modal-add').classList.remove('open'); medSel=null; } }
+
+function removerMed(turno,dow,idx){
+  ESCALA[upaAtual][turno][dow][idx]=null;
+  render(); toast('Médico removido do turno.');
+}
+
+function gerarEscala(){
+  // Distribui médicos automaticamente nas vagas abertas
+  const esc=ESCALA[upaAtual];
+  let alteracoes=0;
+  TURNOS.forEach(t=>{
+    for(let d=0;d<7;d++){
+      const slots=esc[t.key][d]||[];
+      slots.forEach((s,i)=>{
+        if(!s){
+          const m=MEDICOS_POOL[i%MEDICOS_POOL.length];
+          slots[i]={m:m.ini,t:'rotativo'};
+          alteracoes++;
+        }
+      });
+    }
+  });
+  render();
+  toast(`Escala gerada automaticamente! ${alteracoes} vaga${alteracoes!==1?'s':''} preenchida${alteracoes!==1?'s':''}.`);
+}
+
+function publicar(){ toast('Escala publicada! Médicos notificados por e-mail.'); }
+
+function toast(msg){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+/*
+ * OfflineBanner — segue o padrão do app.
+ *
+ * position: fixed no topo pra ficar por cima de qualquer tela (inclusive
+ * a DoctorPage que tem `position: fixed; inset: 0`). Usa design tokens
+ * pra adaptar a light/dark e casar com os avisos internos do app
+ * (mesma paleta de var(--warning-bg) usada no modal do médico).
+ */
+
+.offlineBanner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .5rem 1rem;
+  background: var(--warning-bg);
+  border-bottom: 1px solid var(--warning-border);
+  color: var(--orange-dark);
+  font-family: var(--font-sans);
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1.35;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: offlineBannerSlide .22s ease-out;
+}
+
+@keyframes offlineBannerSlide {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+.offlineBannerIcon {
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+.offlineBannerText {
+  text-align: center;
+}
+
+/* Em telas maiores o texto respira, à esquerda com o ícone */
+@media (min-width: 640px) {
+  .offlineBanner {
+    font-size: .85rem;
+    gap: .6rem;
+  }
+}

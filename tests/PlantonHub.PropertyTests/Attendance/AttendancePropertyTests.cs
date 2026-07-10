@@ -61,6 +61,7 @@ public class CheckInRoundTripPropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckInRequest
@@ -134,6 +135,9 @@ public class CheckInRoundTripPropertyTests
             var tenantService = new Mock<ITenantService>();
             tenantService.Setup(t => t.GetCurrentUserId()).Returns(input.userId);
             tenantService.Setup(t => t.GetCurrentClinicId()).Returns(input.clinicId);
+            // GetMyHistoryAsync agora agrega por todas as clínicas autorizadas
+            // (ver AttendanceService). O teste precisa expor a clínica do input.
+            tenantService.Setup(t => t.GetAuthorizedClinicIds()).Returns(new[] { input.clinicId });
 
             var shiftRepository = new Mock<IShiftRepository>();
             var attendanceRepository = new Mock<IAttendanceRepository>();
@@ -143,6 +147,7 @@ public class CheckInRoundTripPropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             // Act
@@ -204,10 +209,30 @@ public class DuplicateCheckInPreventionPropertyTests
             var attendanceRepository = new Mock<IAttendanceRepository>();
             attendanceRepository.Setup(r => r.HasActiveCheckInAsync(input.userId, input.shiftId))
                 .ReturnsAsync(true); // Already has active check-in
+            // HasAnyActiveCheckInAsync é o guard global — precisa retornar true
+            // pra que o CheckInAsync bloqueie antes de tentar AddAsync.
+            attendanceRepository.Setup(r => r.HasAnyActiveCheckInAsync(input.userId))
+                .ReturnsAsync(true);
+            // O novo fluxo busca o active pra incluir no body do 409
+            tenantService.Setup(t => t.GetAuthorizedClinicIds()).Returns(new[] { input.clinicId });
+            attendanceRepository.Setup(r => r.GetActiveByUserAndClinicAsync(input.userId, input.clinicId))
+                .ReturnsAsync(new[] { new Domain.Entities.Attendance
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = input.userId,
+                    ShiftId = input.shiftId,
+                    ClinicId = input.clinicId,
+                    CheckInTime = DateTime.UtcNow,
+                    CheckInLatitude = input.lat,
+                    CheckInLongitude = input.lng,
+                    CheckInDeviceId = input.deviceId,
+                    BiometricValidated = true,
+                }});
 
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckInRequest
@@ -259,10 +284,27 @@ public class DuplicateCheckInPreventionPropertyTests
             var attendanceRepository = new Mock<IAttendanceRepository>();
             attendanceRepository.Setup(r => r.HasActiveCheckInAsync(input.userId, input.shiftId))
                 .ReturnsAsync(true);
+            attendanceRepository.Setup(r => r.HasAnyActiveCheckInAsync(input.userId))
+                .ReturnsAsync(true);
+            tenantService.Setup(t => t.GetAuthorizedClinicIds()).Returns(new[] { input.clinicId });
+            attendanceRepository.Setup(r => r.GetActiveByUserAndClinicAsync(input.userId, input.clinicId))
+                .ReturnsAsync(new[] { new Domain.Entities.Attendance
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = input.userId,
+                    ShiftId = input.shiftId,
+                    ClinicId = input.clinicId,
+                    CheckInTime = DateTime.UtcNow,
+                    CheckInLatitude = input.lat,
+                    CheckInLongitude = input.lng,
+                    CheckInDeviceId = input.deviceId,
+                    BiometricValidated = true,
+                }});
 
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckInRequest
@@ -366,6 +408,7 @@ public class CheckOutUpdatesRecordPropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckOutRequest
@@ -449,6 +492,7 @@ public class CheckOutUpdatesRecordPropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckOutRequest
@@ -517,6 +561,7 @@ public class CheckOutRequiresActiveCheckInPropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckOutRequest
@@ -588,6 +633,7 @@ public class CheckOutRequiresActiveCheckInPropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             var request = new CheckOutRequest

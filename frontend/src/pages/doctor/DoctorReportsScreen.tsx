@@ -1,16 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styles from './DoctorPage.module.css';
-import { LogoHeader } from './icons';
+import { DoctorHeader } from './DoctorHeader';
+import { ReportsClinicPicker } from './ReportsClinicPicker';
+import { DateField } from './DateField';
 import { useReportStats } from './useReportStats';
 import { useClinic } from '../../hooks/useClinic';
 import { attendanceApi } from '../../api/attendanceApi';
-import { formatDate } from './DoctorCheckInConfirmScreen';
+import { formatDate } from './dateFormat';
 import { formatTime } from './useClock';
 import type { Attendance } from '../../types/index';
 
 /**
  * Filters attendance records by date range [startDate, endDate] inclusive.
- * Compares only the date portion of checkInTime (YYYY-MM-DD).
  * Exported for testability (Property 7).
  */
 export function filterByDateRange(
@@ -21,17 +23,14 @@ export function filterByDateRange(
   if (!startDate && !endDate) return records;
 
   return records.filter((record) => {
-    const checkInDate = record.checkInTime.slice(0, 10); // YYYY-MM-DD
+    const checkInDate = record.checkInTime.slice(0, 10);
     if (startDate && checkInDate < startDate) return false;
     if (endDate && checkInDate > endDate) return false;
     return true;
   });
 }
 
-/**
- * Filters attendance records by clinicId.
- * Exported for testability (Property 8).
- */
+/** Filters attendance records by clinicId. Exported for testability (Property 8). */
 export function filterByClinic(
   records: Attendance[],
   clinicId: string | null
@@ -41,12 +40,12 @@ export function filterByClinic(
 }
 
 export function DoctorReportsScreen() {
+  const { t } = useTranslation();
   const { clinics } = useClinic();
   const [records, setRecords] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter state
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedClinicId, setSelectedClinicId] = useState<string>('');
@@ -60,11 +59,11 @@ export function DoctorReportsScreen() {
       setRecords(data);
       setFilteredRecords(data);
     } catch {
-      setError('Erro ao carregar relatórios');
+      setError(t('doctor.reports.errorLoading'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void fetchHistory();
@@ -81,24 +80,12 @@ export function DoctorReportsScreen() {
 
   return (
     <div className={`${styles.screen} ${styles.screenActive} ${styles.screenRelatorios}`}>
-      {/* Page Header */}
-      <div className={styles.pageHeader}>
-        <div className={styles.pageHeaderTop}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '.7rem' }}>
-            <LogoHeader size={44} />
-            <div>
-              <div className={styles.pageTitle}>Relatórios</div>
-              <div className={styles.pageSubtitle}>Histórico de presenças</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <DoctorHeader />
 
-      {/* Body */}
       <div className={styles.relBody}>
         {loading && (
           <div className={styles.card}>
-            <p className={styles.loadMsg}>Carregando...</p>
+            <p className={styles.loadMsg}>{t('doctor.reports.loading')}</p>
           </div>
         )}
 
@@ -109,7 +96,7 @@ export function DoctorReportsScreen() {
               style={{
                 fontSize: '.85rem',
                 fontWeight: 700,
-                color: '#e53e3e',
+                color: 'var(--danger)',
                 textAlign: 'center',
               }}
             >
@@ -120,7 +107,7 @@ export function DoctorReportsScreen() {
               onClick={fetchHistory}
               style={{ marginTop: '.6rem' }}
             >
-              Tentar novamente
+              {t('doctor.reports.retry')}
             </button>
           </div>
         )}
@@ -129,83 +116,70 @@ export function DoctorReportsScreen() {
           <>
             {/* Stats Card */}
             <div className={styles.card}>
-              <div className={styles.cardTitle}>Resumo</div>
+              <div className={styles.cardTitle}>{t('doctor.reports.summary')}</div>
               <div className={styles.statsRow}>
                 <div className={styles.statBox}>
                   <div className={styles.statNum}>{stats.totalShifts}</div>
-                  <div className={styles.statLbl}>Plantões</div>
+                  <div className={styles.statLbl}>{t('doctor.reports.shifts')}</div>
                 </div>
                 <div className={styles.statBox}>
                   <div className={styles.statNum}>{stats.totalHours.toFixed(1)}</div>
-                  <div className={styles.statLbl}>Horas</div>
+                  <div className={styles.statLbl}>{t('doctor.reports.hours')}</div>
                 </div>
                 <div className={styles.statBox}>
                   <div className={styles.statNum}>{stats.avgHoursPerShift.toFixed(1)}</div>
-                  <div className={styles.statLbl}>Média/Plantão</div>
+                  <div className={styles.statLbl}>{t('doctor.reports.avgPerShift')}</div>
                 </div>
               </div>
             </div>
 
             {/* Filter Card */}
             <div className={styles.card}>
-              <div className={styles.cardTitle}>Filtros</div>
+              <div className={styles.cardTitle}>{t('doctor.reports.filters')}</div>
 
-              <div className={styles.filterLabel}>Data Início</div>
-              <div className={styles.dateInputWrap}>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-
-              <div className={styles.filterLabel} style={{ marginTop: '.6rem' }}>
-                Data Fim
-              </div>
-              <div className={styles.dateInputWrap}>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
+              <div className={styles.filterLabel}>{t('doctor.reports.startDate')}</div>
+              <DateField
+                value={startDate}
+                onChange={setStartDate}
+                max={endDate || undefined}
+                ariaLabel={t('doctor.reports.startDate')}
+              />
 
               <div className={styles.filterLabel} style={{ marginTop: '.6rem' }}>
-                Unidade
+                {t('doctor.reports.endDate')}
               </div>
-              <div className={styles.customSelectWrap}>
-                <select
-                  value={selectedClinicId}
-                  onChange={(e) => setSelectedClinicId(e.target.value)}
-                >
-                  <option value="">Todas as unidades</option>
-                  {clinics.map((clinic) => (
-                    <option key={clinic.id} value={clinic.id}>
-                      {clinic.name}
-                    </option>
-                  ))}
-                </select>
-                <svg className={styles.selectArrow} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+              <DateField
+                value={endDate}
+                onChange={setEndDate}
+                min={startDate || undefined}
+                ariaLabel={t('doctor.reports.endDate')}
+              />
+
+              <div className={styles.filterLabel} style={{ marginTop: '.6rem' }}>
+                {t('doctor.reports.clinic')}
               </div>
+              <ReportsClinicPicker
+                clinics={clinics}
+                value={selectedClinicId}
+                onChange={setSelectedClinicId}
+              />
 
               <button className={styles.btnBuscar} onClick={handleFilter}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                Buscar
+                {t('doctor.reports.search')}
               </button>
             </div>
 
             {/* Record List */}
             <div className={styles.card}>
-              <div className={styles.cardTitle}>Registros</div>
+              <div className={styles.cardTitle}>{t('doctor.reports.records')}</div>
               <div className={styles.recordList}>
                 {filteredRecords.length === 0 && (
                   <p style={{ fontSize: '.82rem', color: 'var(--muted)', textAlign: 'center' }}>
-                    Nenhum registro encontrado
+                    {t('doctor.reports.noRecords')}
                   </p>
                 )}
                 {filteredRecords.map((record) => {
@@ -216,14 +190,14 @@ export function DoctorReportsScreen() {
                       <div className={styles.recLeft}>
                         <div className={styles.recDate}>{formatDate(checkInDate)}</div>
                         <div className={styles.recSub}>
-                          Entrada: {formatTime(checkInDate)}
-                          {hasCheckOut && ` • Saída: ${formatTime(new Date(record.checkOutTime!))}`}
+                          {t('doctor.reports.entry')}: {formatTime(checkInDate)}
+                          {hasCheckOut && ` • ${t('doctor.reports.exit')}: ${formatTime(new Date(record.checkOutTime!))}`}
                         </div>
                       </div>
                       <span
                         className={`${styles.badge} ${hasCheckOut ? styles.badgeOut : styles.badgeIn}`}
                       >
-                        {hasCheckOut ? 'CHECK-OUT' : 'CHECK-IN'}
+                        {hasCheckOut ? t('doctor.reports.badgeOut') : t('doctor.reports.badgeIn')}
                       </span>
                     </div>
                   );

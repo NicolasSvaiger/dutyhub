@@ -34,6 +34,14 @@ public class AttendanceRepository : IAttendanceRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Attendance>> GetActiveByUserAndClinicAsync(Guid userId, Guid clinicId)
+    {
+        return await _context.Attendances
+            .Where(a => a.UserId == userId && a.ClinicId == clinicId && a.CheckOutTime == null)
+            .OrderByDescending(a => a.CheckInTime)
+            .ToListAsync();
+    }
+
     public async Task AddAsync(Attendance attendance)
     {
         _context.Attendances.Add(attendance);
@@ -50,6 +58,12 @@ public class AttendanceRepository : IAttendanceRepository
     {
         return await _context.Attendances
             .AnyAsync(a => a.UserId == userId && a.ShiftId == shiftId && a.CheckOutTime == null);
+    }
+
+    public async Task<bool> HasAnyActiveCheckInAsync(Guid userId)
+    {
+        return await _context.Attendances
+            .AnyAsync(a => a.UserId == userId && a.CheckOutTime == null);
     }
 
     public async Task<bool> ExistsByLocalEventIdAsync(Guid localEventId, Guid userId, string deviceId)

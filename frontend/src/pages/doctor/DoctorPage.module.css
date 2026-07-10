@@ -1,26 +1,350 @@
-/* DoctorPage.module.css - Extracted from medico.html */
-/* Font import is handled via index.html or a global stylesheet */
-/* @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap'); */
+/* DoctorPage.module.css - Styles for the doctor pages.
+   Design tokens (colors, radii, shadows, layout) are defined globally in
+   src/styles/theme.css and consumed here via var(--...). This file should
+   contain ONLY doctor-specific layout and components. */
 
-/* ── CSS VARIABLES (applied via :root in this module's scope) ── */
 .doctorRoot {
-  --teal: #2DBFB8;
-  --teal-dark: #1fa09a;
-  --orange: #F5A623;
-  --orange-dark: #d4901e;
-  --bg: #f5f7f7;
-  --text: #1a2a2a;
-  --muted: #7a9090;
-  --nav-h: 70px;
-
   height: 100%;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   position: fixed;
   inset: 0;
+  /* Override the Vite starter's `#root { text-align: center }` so the doctor
+     page's headers, subtitles and other content align to the left as intended.
+     Individual components that need centered text set it locally. */
+  text-align: left;
+  transition: background var(--t-med) ease, color var(--t-med) ease;
+}
+
+/* ── THEME TOGGLE (icon button in doctor header) ── */
+.themeToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--t-fast) ease, transform var(--t-fast) ease, border-color var(--t-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.themeToggle:hover,
+.themeToggle:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  outline: none;
+}
+
+.themeToggle:active {
+  transform: scale(0.94);
+}
+
+/* ── NOTIFICATION BELL (icon + badge + popover) ── */
+.notifWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.notifButton {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--t-fast) ease, transform var(--t-fast) ease, border-color var(--t-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.notifButton:hover,
+.notifButton:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  outline: none;
+}
+
+.notifButton:active {
+  transform: scale(0.94);
+}
+
+.notifBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px var(--teal);
+  animation: notifBadgePop .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+@keyframes notifBadgePop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+.notifPopover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 2rem);
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-popup);
+  z-index: 150;
+  overflow: hidden;
+  animation: notifPopoverPop .18s ease-out;
+  color: var(--text);
+}
+
+/* Em telas estreitas, o `right: 0` anchor faz o popover extrapolar a esquerda
+   do viewport. Fixa em relação à janela com margem em ambos os lados. */
+@media (max-width: 640px) {
+  .notifPopover {
+    position: fixed;
+    top: 5.5rem;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@keyframes notifPopoverPop {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.notifPopoverHeader {
+  padding: .9rem 1rem .7rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notifPopoverTitle {
+  font-size: .95rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.notifPopoverSubtitle {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.notifPopoverBody {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notifEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .4rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.notifEmpty svg {
+  color: var(--muted);
+  opacity: .55;
+  margin-bottom: .2rem;
+}
+
+.notifEmptyText {
+  font-size: .85rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.notifEmptyHint {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.notifList {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.notifItem {
+  padding: .7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--t-fast) ease;
+}
+
+.notifItem:last-child {
+  border-bottom: none;
+}
+
+.notifItem:hover {
+  background: var(--surface-alt);
+}
+
+.notifItemUnread {
+  background: var(--tint);
+}
+
+.notifItemTitle {
+  font-size: .85rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.notifItemMessage {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── LANGUAGE SWITCHER (icon + popover with supported languages) ── */
+.langWrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.langButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  transition: background var(--t-fast) ease, transform var(--t-fast) ease, border-color var(--t-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.langButton:hover,
+.langButton:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  outline: none;
+}
+
+.langButton:active {
+  transform: scale(0.96);
+}
+
+.langCode {
+  font-weight: 900;
+}
+
+.langList {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow-popup);
+  padding: 6px;
+  list-style: none;
+  margin: 0;
+  z-index: 150;
+  animation: langListPop .16s ease-out;
+}
+
+@keyframes langListPop {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.langItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-family: var(--font-sans);
+  font-size: .84rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--t-fast) ease, color var(--t-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.langItem:hover,
+.langItem:focus-visible {
+  background: var(--tint);
+  color: var(--teal-dark);
+  outline: none;
+}
+
+.langItemActive {
+  background: linear-gradient(135deg, rgba(45, 191, 184, 0.15), rgba(77, 214, 168, 0.12));
+  color: var(--teal-dark);
+}
+
+.langItemCode {
+  font-size: .7rem;
+  font-weight: 900;
+  color: var(--muted);
+  min-width: 24px;
+  letter-spacing: .04em;
+}
+
+.langItemActive .langItemCode {
+  color: var(--teal);
+}
+
+.langItemName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.langItemCheck {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--teal);
 }
 
 *, *::before, *::after {
@@ -87,7 +411,7 @@
 }
 
 .bioPanel {
-  background: #fff;
+  background: var(--surface);
   border-radius: 20px 20px 0 0;
   margin: -2rem 1rem 0;
   flex: 1;
@@ -96,7 +420,7 @@
   flex-direction: column;
   align-items: center;
   padding: 1.8rem 1.5rem 2rem;
-  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  box-shadow: var(--shadow-panel);
 }
 
 .faceWrap {
@@ -111,7 +435,7 @@
   height: 100%;
   border-radius: 50%;
   border: 3px dashed var(--teal);
-  background: #f8fffe;
+  background: var(--tint);
   animation: pulseOval 2.2s ease-in-out infinite;
 }
 
@@ -232,7 +556,7 @@
 
 /* ── LOADING ── */
 .screenLoading {
-  background: #fff;
+  background: var(--surface);
   justify-content: center;
 }
 
@@ -336,14 +660,14 @@
 
 /* ── PANEL SURFACE ── */
 .panelSurface {
-  background: #fff;
+  background: var(--surface);
   border-radius: 20px 20px 0 0;
   margin: -2rem 1rem 0;
   flex: 1;
   width: calc(100% - 2rem);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  box-shadow: var(--shadow-panel);
   overflow: hidden;
 }
 
@@ -376,11 +700,11 @@
 }
 
 .homeCard {
-  background: #fff;
+  background: var(--surface);
   border-radius: 20px;
   padding: 1.4rem;
   margin: 0 1.4rem 1rem;
-  box-shadow: 0 3px 14px rgba(0,0,0,.06);
+  box-shadow: var(--shadow-card);
   text-align: center;
 }
 
@@ -410,11 +734,11 @@
   padding: 1.4rem 1.4rem 1.4rem;
   text-align: center;
   gap: .5rem;
-  background: #fff;
+  background: var(--surface);
   border-radius: 20px 20px 0 0;
   margin: -2rem 1rem 0;
   width: calc(100% - 2rem);
-  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  box-shadow: var(--shadow-panel);
 }
 
 .confirmName {
@@ -499,12 +823,51 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: .75rem;
   margin-bottom: .5rem;
+}
+
+.pageHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  min-width: 0; /* let the flex item shrink so long names ellipsize */
+  flex: 1 1 auto;
+}
+
+.pageHeaderText {
+  min-width: 0;
+}
+
+.pageHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  flex-shrink: 0;
+}
+
+.pageHeaderClock {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.pageHeaderClockLabel {
+  font-size: .7rem;
+  font-weight: 600;
+  opacity: .8;
+}
+
+.pageHeaderClockTime {
+  font-size: 1.2rem;
+  font-weight: 900;
 }
 
 .pageTitle {
   font-size: 1.2rem;
   font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pageSubtitle {
@@ -513,10 +876,139 @@
   opacity: .85;
 }
 
+/* On very narrow screens, hide the clock label to make more room */
+@media (max-width: 480px) {
+  .pageHeaderClockLabel { display: none; }
+}
+
+/* ── CUSTOM CLINIC PICKER (multi-clinic dropdown in header) ── */
+.clinicPicker {
+  position: relative;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.clinicPickerTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  padding: 4px 10px 4px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  max-width: 240px;
+  transition: background .15s, border-color .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.clinicPickerTrigger:hover,
+.clinicPickerTrigger:focus-visible {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.clinicPickerTrigger:active {
+  transform: scale(.97);
+}
+
+.clinicPickerLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.clinicPickerChevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform .18s ease;
+}
+
+.clinicPickerChevronOpen {
+  transform: rotate(180deg);
+}
+
+.clinicPickerList {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  max-width: 280px;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 6px;
+  list-style: none;
+  margin: 0;
+  z-index: 150;
+  animation: clinicPickerPop .16s ease-out;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+@keyframes clinicPickerPop {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.clinicPickerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: .84rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s, color .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.clinicPickerItem:hover,
+.clinicPickerItem:focus-visible {
+  background: var(--tint);
+  color: var(--teal-dark);
+  outline: none;
+}
+
+.clinicPickerItemActive {
+  background: linear-gradient(135deg, rgba(45, 191, 184, 0.15), rgba(77, 214, 168, 0.12));
+  color: var(--teal-dark);
+}
+
+.clinicPickerItemName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clinicPickerItemCheck {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--teal);
+}
+
 .relBody {
-  width: calc(100% - 2rem);
-  margin: -2rem 1rem 0;
-  padding: 0;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -524,7 +1016,7 @@
 }
 
 .card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 20px;
   padding: 1.2rem 1.3rem;
   margin-bottom: .9rem;
@@ -547,7 +1039,7 @@
 }
 
 .statBox {
-  background: #f5fdfc;
+  background: var(--input-bg);
   border-radius: 14px;
   padding: .8rem .6rem;
   text-align: center;
@@ -594,7 +1086,7 @@
   width: 100%;
   appearance: none;
   -webkit-appearance: none;
-  background: #f5fdfc;
+  background: var(--input-bg);
   border: 1.5px solid rgba(45,191,184,.25);
   border-radius: 12px;
   padding: .65rem 2.2rem .65rem .9rem;
@@ -621,22 +1113,348 @@
   pointer-events: none;
 }
 
-.dateInputWrap input[type="date"] {
-  width: 100%;
-  background: #f5fdfc;
-  border: 1.5px solid rgba(45,191,184,.25);
-  border-radius: 12px;
-  padding: .6rem .75rem;
-  font-family: 'Nunito', sans-serif;
-  font-size: .82rem;
-  font-weight: 700;
-  color: var(--text);
-  outline: none;
-  cursor: pointer;
+.dateInputWrap {
+  position: relative;
 }
 
+.dateInputWrap input[type="date"] {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: .65rem .95rem;
+  font-family: var(--font-sans);
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--t-fast) ease, box-shadow var(--t-fast) ease, background var(--t-fast) ease;
+  /* Faz o Chrome/Edge renderizar o popup do calendário respeitando o
+     tema atual (dia claro branco / dia escuro cinza-escuro) e também
+     inverter o ícone do calendário no botão nativo. */
+  color-scheme: light;
+}
+
+[data-theme="dark"] .dateInputWrap input[type="date"] {
+  color-scheme: dark;
+  color: var(--text);
+}
+
+.dateInputWrap input[type="date"]:hover,
 .dateInputWrap input[type="date"]:focus {
   border-color: var(--teal);
+  background: var(--input-bg-hover);
+  box-shadow: 0 0 0 3px rgba(45, 191, 184, 0.1);
+}
+
+/* Estiliza o ícone nativo do calendário (Chrome/Edge/Safari) */
+.dateInputWrap input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: opacity(0.6);
+  cursor: pointer;
+  transition: filter var(--t-fast) ease;
+}
+
+.dateInputWrap input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: opacity(1);
+}
+
+/* ── DATE FIELD (custom, com react-day-picker) ─────────────── */
+.dateFieldWrapper {
+  position: relative;
+}
+
+.dateFieldTrigger {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  width: 100%;
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: .7rem .95rem;
+  font-family: var(--font-sans);
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--t-fast) ease, box-shadow var(--t-fast) ease, background var(--t-fast) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dateFieldTrigger:hover,
+.dateFieldTrigger:focus-visible {
+  border-color: var(--teal);
+  background: var(--input-bg-hover);
+  box-shadow: 0 0 0 3px rgba(45, 191, 184, 0.1);
+}
+
+.dateFieldTrigger > svg {
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.dateFieldLabel {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dateFieldPlaceholder {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.dateFieldClear {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: .85rem;
+  line-height: 1;
+  transition: background var(--t-fast) ease, color var(--t-fast) ease;
+}
+
+.dateFieldClear:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.dateFieldPopover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 150;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-popup);
+  padding: .8rem .75rem;
+  min-width: 300px;
+  animation: notifPopoverPop .18s ease-out;
+  color: var(--text);
+  font-family: var(--font-sans);
+
+  /* Tokens do react-day-picker v9 — casam com o nosso tema */
+  --rdp-accent-color: var(--teal);
+  --rdp-accent-background-color: rgba(45, 191, 184, 0.15);
+  --rdp-background-color: var(--surface);
+  --rdp-day-height: 34px;
+  --rdp-day-width: 34px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+  --rdp-day_button-border-radius: 10px;
+  --rdp-day_button-border: 1px solid transparent;
+  --rdp-selected-border: none;
+  --rdp-today-color: var(--teal);
+  --rdp-weekday-text-color: var(--muted);
+  --rdp-weekday-text-transform: uppercase;
+  --rdp-weekday-font-size: .7rem;
+  --rdp-weekday-font-weight: 800;
+  --rdp-caption-font-size: .95rem;
+  --rdp-caption-font-weight: 800;
+  --rdp-nav_button-height: 30px;
+  --rdp-nav_button-width: 30px;
+  --rdp-months-gap: .5rem;
+  --rdp-disabled-opacity: 0.3;
+  --rdp-outside-opacity: 0.4;
+}
+
+/* Em telas estreitas, o popover ocupa o pai */
+@media (max-width: 420px) {
+  .dateFieldPopover {
+    left: 0;
+    right: auto;
+    min-width: 280px;
+  }
+}
+
+/* Header custom com 4 setas + label do mês/ano */
+.dateFieldHeader {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .1rem .2rem .5rem;
+}
+
+.dateFieldHeaderLabel {
+  flex: 1;
+  text-align: center;
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dateFieldNavBtn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--teal);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--t-fast) ease, border-color var(--t-fast) ease, transform var(--t-fast) ease;
+}
+
+.dateFieldNavBtn:hover:not(:disabled),
+.dateFieldNavBtn:focus-visible {
+  background: var(--input-bg-hover);
+  border-color: var(--teal);
+  outline: none;
+}
+
+.dateFieldNavBtn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.dateFieldNavBtn:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+/* Ajustes finos aos componentes internos.
+   Uso :global() porque as classes do react-day-picker (.rdp-*) são globais,
+   e sem isso o CSS Modules hashearia elas junto e nada casaria. */
+.dateFieldPopover :global(.rdp) {
+  margin: 0;
+}
+
+.dateFieldPopover :global(.rdp-caption_label),
+.dateFieldPopover :global(.rdp-dropdown),
+.dateFieldPopover :global(.rdp-dropdowns select) {
+  font-weight: 800;
+  color: var(--text);
+  background: transparent;
+}
+
+.dateFieldPopover :global(.rdp-day_button) {
+  font-weight: 700;
+  color: var(--text);
+  transition: background var(--t-fast) ease, color var(--t-fast) ease;
+}
+
+.dateFieldPopover :global(.rdp-day_button:hover:not([disabled])) {
+  background: var(--input-bg-hover);
+  color: var(--teal-dark);
+}
+
+.dateFieldPopover :global(.rdp-selected .rdp-day_button),
+.dateFieldPopover :global(.rdp-selected:not(.rdp-outside) .rdp-day_button) {
+  background: var(--gradient-teal);
+  color: #fff;
+  border-color: transparent;
+}
+
+.dateFieldPopover :global(.rdp-today:not(.rdp-selected) .rdp-day_button) {
+  color: var(--teal);
+  font-weight: 900;
+}
+
+.dateFieldPopover :global(.rdp-outside) {
+  opacity: .35;
+}
+
+.dateFieldPopover :global(.rdp-disabled) {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+/* Setas prev/next: pílula com contorno leve, ícone teal.
+   O !important garante que o cinza/azul default do browser não vaze. */
+.dateFieldPopover :global(.rdp-button_previous),
+.dateFieldPopover :global(.rdp-button_next) {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--teal) !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast) ease, border-color var(--t-fast) ease, transform var(--t-fast) ease;
+}
+
+.dateFieldPopover :global(.rdp-button_previous:hover:not([disabled])),
+.dateFieldPopover :global(.rdp-button_next:hover:not([disabled])) {
+  background: var(--input-bg-hover);
+  border-color: var(--teal);
+}
+
+.dateFieldPopover :global(.rdp-button_previous:active:not([disabled])),
+.dateFieldPopover :global(.rdp-button_next:active:not([disabled])) {
+  transform: scale(0.94);
+}
+
+.dateFieldPopover :global(.rdp-button_previous[disabled]),
+.dateFieldPopover :global(.rdp-button_next[disabled]) {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+/* Força as setas SVG (Chevron) a herdar a cor teal do botão */
+.dateFieldPopover :global(.rdp-button_previous svg),
+.dateFieldPopover :global(.rdp-button_next svg),
+.dateFieldPopover :global(.rdp-chevron) {
+  fill: var(--teal) !important;
+  color: var(--teal) !important;
+  width: 16px;
+  height: 16px;
+}
+
+.dateFieldPopover :global(.rdp-nav) {
+  gap: .35rem;
+}
+
+/* Caption (nome do mês centralizado) */
+.dateFieldPopover :global(.rdp-month_caption) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 .5rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Se voltar a usar dropdowns algum dia, os estilos abaixo servem
+   pra deixar o gatilho estilizado (o popup é OS-nativo mesmo) */
+.dateFieldPopover :global(.rdp-dropdowns) {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.dateFieldPopover :global(.rdp-dropdown_root) {
+  position: relative;
+  display: inline-block;
+}
+
+.dateFieldPopover :global(.rdp-dropdown) {
+  padding: .3rem .5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color var(--t-fast) ease, background var(--t-fast) ease;
+}
+
+.dateFieldPopover :global(.rdp-dropdown:hover) {
+  border-color: var(--teal);
+  background: var(--input-bg-hover);
 }
 
 .btnBuscar {
@@ -668,7 +1486,7 @@
   justify-content: space-between;
   align-items: center;
   padding: .75rem .9rem;
-  background: #f9f9f9;
+  background: var(--surface-alt);
   border-radius: 12px;
 }
 
@@ -716,7 +1534,7 @@
   left: 0;
   right: 0;
   height: var(--nav-h);
-  background: #fff;
+  background: var(--surface);
   border-top: 1px solid #eee;
   display: flex;
   z-index: 100;
@@ -792,8 +1610,7 @@
 
 .personCard {
   width: 100%;
-  max-width: 310px;
-  background: #f2fbfa;
+  background: var(--tint);
   border: 1.5px solid rgba(45,191,184,.2);
   border-radius: 18px;
   padding: 1rem 1.2rem;
@@ -858,6 +1675,22 @@
   color: var(--teal);
 }
 
+.detailValueOrange {
+  font-weight: 800;
+  color: var(--orange);
+}
+
+/* Orange variant of the person card used in the check-out confirmation.
+   Uses theme tokens so it stays legible in both light and dark modes. */
+.personCardOrange {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+.personRowOrange {
+  border-color: var(--warning-border);
+}
+
 /* ── MODAIS ── */
 .modalOverlay {
   position: fixed;
@@ -865,8 +1698,10 @@
   background: rgba(0,0,0,.45);
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   z-index: 200;
   animation: fadeIn .2s ease;
+  font-family: 'Nunito', sans-serif;
 }
 
 @keyframes fadeIn {
@@ -876,10 +1711,32 @@
 
 .modalSheet {
   width: 100%;
-  background: #fff;
+  max-width: 480px;
+  background: var(--surface);
   border-radius: 24px 24px 0 0;
-  padding: 1.8rem 1.5rem 2.4rem;
+  padding: 1.6rem 1.4rem 1.6rem;
   animation: slideUp .28s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+}
+
+/* On tablet/desktop, float the sheet as a centered card with rounded bottom too */
+@media (min-width: 520px) {
+  .modalOverlay {
+    align-items: center;
+    padding: 1rem;
+  }
+
+  .modalSheet {
+    border-radius: 20px;
+    animation: modalPop .22s ease-out;
+  }
+
+  @keyframes modalPop {
+    from { opacity: 0; transform: translateY(10px) scale(.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
 }
 
 @keyframes slideUp {
@@ -904,9 +1761,826 @@
 .modalBtns {
   display: flex;
   gap: .7rem;
+  margin-top: .4rem;
 }
 
 .modalBtns .btn {
   flex: 1;
   max-width: 100%;
+}
+
+/* Confirm buttons inside the modal footer — same look as LogoutModal.
+   Uses design tokens from theme.css (globally available). */
+.modalBtns .btnTeal {
+  background: var(--gradient-teal);
+  color: #fff;
+  border: none;
+  box-shadow: var(--glow-teal);
+}
+
+.modalBtns .btnOrange {
+  background: var(--gradient-orange);
+  color: #fff;
+  border: none;
+  box-shadow: var(--glow-orange);
+}
+
+.modalBtns .btnGhost {
+  background: var(--surface);
+  border: 1.5px solid rgba(45, 191, 184, 0.4);
+  color: var(--teal);
+  box-shadow: none;
+}
+
+/* Neutral variant matching the original mockup style for the "Não" button:
+   muted gray text with a subtle gray border instead of teal. */
+.modalBtns .btnGhostNeutral {
+  color: var(--muted);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Disabled state: fade a bit but keep colors visible */
+.modalBtns .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ── MODAL FIELDS (attendance confirmation modal) ── */
+.modalField {
+  margin-bottom: 1rem;
+}
+
+.modalFieldLabel {
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: .35rem;
+}
+
+.modalFieldReadonly {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  background: var(--input-bg);
+  border: 1.5px solid rgba(45, 191, 184, 0.25);
+  border-radius: 12px;
+  padding: .65rem .9rem;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--text);
+  color: var(--teal-dark);
+}
+
+.modalFieldReadonly svg {
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+/* Select styled like the original mockup's custom-select-wrap */
+.modalSelectWrap {
+  position: relative;
+}
+
+.modalSelect {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: var(--input-bg);
+  border: 1.5px solid rgba(45, 191, 184, 0.25);
+  border-radius: 12px;
+  padding: .7rem 2.2rem .7rem .95rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.modalSelect:hover:not(:disabled),
+.modalSelect:focus-visible {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(45, 191, 184, 0.12);
+}
+
+.modalSelect:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.modalSelect option {
+  color: var(--text);
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.modalSelectArrow {
+  position: absolute;
+  right: .8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--teal);
+  pointer-events: none;
+}
+
+/* ── ATTENDANCE (PRESENÇA) SCREEN ── */
+.screenAttendance {
+  background: var(--bg);
+  justify-content: flex-start;
+  padding-bottom: calc(var(--nav-h) + 1rem);
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+.attendanceBody {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+/* Desktop: mostra os dois cards lado a lado */
+@media (min-width: 720px) {
+  .attendanceBody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.attendanceSection {
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  padding: 1.2rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .9rem;
+}
+
+.attendanceSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+}
+
+.attendanceSectionIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.attendanceSectionTitle {
+  font-size: 1rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.attendanceSectionSubtitle {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.attendanceEmpty {
+  padding: 1.4rem 1rem;
+  text-align: center;
+  border: 1.5px dashed var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  color: var(--muted);
+}
+
+.attendanceEmptyIcon {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--muted);
+  opacity: .6;
+}
+
+.attendanceEmptyText {
+  font-size: .88rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.attendanceEmptyHint {
+  font-size: .74rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* ── SHIFTS (PLANTÕES) SCREEN ── */
+.screenShifts {
+  background: var(--bg);
+  justify-content: flex-start;
+  padding-bottom: calc(var(--nav-h) + 1rem);
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+.shiftsBody {
+  /* Não sobrepõe o gradient (evita título do grupo sumindo) e limita
+     largura em desktops pra não esticar horrendamente. */
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.shiftGroupExpandBtn {
+  align-self: center;
+  margin-top: .3rem;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--teal);
+  padding: .5rem 1.2rem;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: .78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background var(--t-fast) ease, border-color var(--t-fast) ease;
+}
+
+.shiftGroupExpandBtn:hover {
+  background: var(--input-bg-hover);
+  border-color: var(--teal);
+}
+
+.shiftGroup {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.shiftGroupTitle {
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--muted);
+  padding: 0 .3rem;
+}
+
+.shiftGroupList {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+
+.shiftItem {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  background: var(--surface);
+  border-radius: 14px;
+  padding: .85rem 1rem;
+  box-shadow: var(--shadow-card);
+  border-left: 3px solid transparent;
+  transition: transform var(--t-fast) ease;
+}
+
+.shiftItem:hover {
+  transform: translateX(2px);
+}
+
+.shiftItemToday {
+  border-left-color: var(--teal);
+  background: linear-gradient(90deg, rgba(45, 191, 184, 0.08), var(--surface) 30%);
+}
+
+.shiftItemDate {
+  min-width: 88px;
+  flex-shrink: 0;
+}
+
+.shiftItemDay {
+  font-size: .82rem;
+  font-weight: 900;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.shiftItemHours {
+  font-size: .68rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.shiftItemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.shiftItemTitle {
+  font-size: .88rem;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shiftItemClinic {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shiftItemClinic svg {
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+/* ── SETTINGS SCREEN ── */
+.screenSettings {
+  background: var(--bg);
+  justify-content: flex-start;
+  padding-bottom: calc(var(--nav-h) + 1rem);
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+.settingsBody {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 1rem 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.settingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.settingsSectionTitle {
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--muted);
+  padding: 0 .3rem;
+}
+
+.settingsCard {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.settingsRow {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  width: 100%;
+  padding: .95rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-sans);
+  text-align: left;
+}
+
+.settingsRowClickable {
+  cursor: pointer;
+  transition: background var(--t-fast) ease;
+}
+
+.settingsRowClickable:hover,
+.settingsRowClickable:focus-visible {
+  background: var(--surface-alt);
+  outline: none;
+}
+
+.settingsRowBordered {
+  border-top: 1px solid var(--border);
+}
+
+.settingsRowIcon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--tint);
+  color: var(--teal);
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.settingsRowFlag {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--tint);
+  color: var(--teal-dark);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  flex-shrink: 0;
+}
+
+.settingsRowText {
+  flex: 1;
+  min-width: 0;
+}
+
+.settingsRowLabel {
+  font-size: .95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.settingsRowHint {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.settingsRowCheck {
+  width: 18px;
+  height: 18px;
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.settingsRowDanger .settingsRowIcon {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.settingsRowDanger .settingsRowLabel {
+  color: var(--danger);
+}
+
+/* Segmented control for the light/dark theme toggle */
+.settingsSegmented {
+  display: inline-flex;
+  background: var(--surface-alt);
+  border-radius: 999px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.settingsSegBtn {
+  padding: .35rem .85rem;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: .78rem;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background var(--t-fast) ease, color var(--t-fast) ease;
+}
+
+.settingsSegBtn:hover {
+  color: var(--text);
+}
+
+.settingsSegBtnActive {
+  background: var(--surface);
+  color: var(--teal);
+  box-shadow: var(--shadow-card);
+}
+
+/* ── CUSTOM CLINIC PICKER INSIDE MODAL ── */
+.modalPicker {
+  position: relative;
+}
+
+.modalPickerTrigger {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  background: var(--input-bg);
+  border: 1.5px solid rgba(45, 191, 184, 0.25);
+  border-radius: 12px;
+  padding: .7rem .95rem;
+  font-family: 'Nunito', sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modalPickerTrigger:hover:not(:disabled),
+.modalPickerTrigger:focus-visible {
+  border-color: var(--teal);
+  background: var(--input-bg-hover);
+  box-shadow: 0 0 0 3px rgba(45, 191, 184, 0.1);
+}
+
+.modalPickerTrigger:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.modalPickerTrigger svg:first-of-type {
+  color: var(--teal);
+  flex-shrink: 0;
+}
+
+.modalPickerLabel {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modalPickerChevron {
+  width: 16px;
+  height: 16px;
+  color: var(--teal);
+  flex-shrink: 0;
+  transition: transform .18s ease;
+}
+
+.modalPickerChevronOpen {
+  transform: rotate(180deg);
+}
+
+.modalPickerList {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 6px;
+  list-style: none;
+  margin: 0;
+  z-index: 10;
+  max-height: 240px;
+  overflow-y: auto;
+  animation: modalPickerPop .16s ease-out;
+}
+
+@keyframes modalPickerPop {
+  from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modalPickerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: 'Nunito', sans-serif;
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s, color .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modalPickerItem:hover,
+.modalPickerItem:focus-visible {
+  background: var(--tint);
+  color: var(--teal-dark);
+  outline: none;
+}
+
+.modalPickerItemActive {
+  background: linear-gradient(135deg, rgba(45, 191, 184, 0.15), rgba(77, 214, 168, 0.12));
+  color: var(--teal-dark);
+}
+
+.modalPickerItemName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modalPickerItemCheck {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--teal);
+}
+
+.modalOptionList {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.modalOption {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  width: 100%;
+  background: var(--surface);
+  border: 1.5px solid rgba(45, 191, 184, 0.2);
+  border-radius: 14px;
+  padding: .75rem .9rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Nunito', sans-serif;
+  transition: border-color .15s, background .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.modalOption:hover:not(:disabled) {
+  border-color: rgba(45, 191, 184, 0.5);
+  background: var(--input-bg);
+}
+
+.modalOption:active:not(:disabled) {
+  transform: scale(.98);
+}
+
+.modalOption:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.modalOptionActive {
+  border-color: var(--teal);
+  background: linear-gradient(135deg, rgba(45, 191, 184, 0.1), rgba(77, 214, 168, 0.08));
+}
+
+.modalOptionText {
+  flex: 1;
+  min-width: 0;
+}
+
+.modalOptionPrimary {
+  font-size: .9rem;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modalOptionSecondary {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.modalOptionRadio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgba(45, 191, 184, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color .15s;
+}
+
+.modalOptionActive .modalOptionRadio {
+  border-color: var(--teal);
+}
+
+.modalOptionRadioDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: modalRadioPop .18s ease-out;
+}
+
+@keyframes modalRadioPop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+.modalEmpty {
+  background: var(--warning-bg);
+  border: 1.5px solid rgba(245, 166, 35, 0.25);
+  border-radius: 12px;
+  padding: .8rem 1rem;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--orange-dark);
+  line-height: 1.4;
+}
+
+/* Aviso quando o modal exibe dados vindos do cache local (offline) */
+.modalOfflineHint {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--warning-bg);
+  border: 1.5px solid var(--warning-border);
+  border-radius: 10px;
+  padding: .55rem .8rem;
+  margin-bottom: .9rem;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--orange-dark);
+  line-height: 1.35;
+}
+
+.modalOfflineHint svg {
+  color: var(--orange);
+  flex-shrink: 0;
+}
+
+/* Blocked state: user tried check-in but already has an active shift */
+.modalBlocked {
+  background: var(--warning-bg);
+  border: 1.5px solid var(--warning-border);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.modalBlockedTitle {
+  font-size: .95rem;
+  font-weight: 900;
+  color: var(--orange-dark);
+}
+
+.modalBlockedBody {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.modalBlockedBody strong {
+  font-weight: 800;
+}
+
+.modalBlockedHint {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.modalError {
+  background: var(--danger-bg);
+  border: 1.5px solid rgba(229, 62, 62, 0.25);
+  border-radius: 12px;
+  padding: .65rem .9rem;
+  margin-bottom: 1rem;
+  font-size: .82rem;
+  font-weight: 700;
+  color: #e53e3e;
+  line-height: 1.4;
 }

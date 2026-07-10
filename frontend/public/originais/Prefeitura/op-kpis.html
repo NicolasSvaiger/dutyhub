@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 – Indicadores de Desempenho</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:        #2DBFB8;
+  --teal-dark:   #1fa09a;
+  --teal-light:  #e8faf9;
+  --orange:      #F5A623;
+  --orange-light:#fff4e2;
+  --bg:          #f0f4f4;
+  --surface:     #ffffff;
+  --text:        #1a2a2a;
+  --muted:       #7a9090;
+  --border:      rgba(45,191,184,.18);
+  --nav-w:       240px;
+  --green:       #22c55e;
+  --green-light: #dcfce7;
+  --yellow:      #f59e0b;
+  --yellow-light:#fef3c7;
+  --red:         #ef4444;
+  --red-light:   #fee2e2;
+  --purple:      #8b5cf6;
+  --purple-light:#ede9fe;
+  --blue:        #3b82f6;
+  --blue-light:  #eff6ff;
+}
+
+html, body { min-height:100vh; font-family:'Nunito Sans',sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+
+/* ══ SIDEBAR ══ */
+.sidebar { position:fixed; top:0; left:0; bottom:0; width:var(--nav-w); background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; padding:1.8rem 0; z-index:50; overflow-y:auto; }
+.sidebar-logo { display:flex; align-items:center; gap:.7rem; padding:0 1.4rem 1.8rem; border-bottom:1px solid var(--border); margin-bottom:1.4rem; }
+.sidebar-logo-name { font-family:'Nunito',sans-serif; font-size:1.5rem; font-weight:900; color:var(--teal); letter-spacing:-1px; line-height:1; }
+.sidebar-logo-tag  { font-size:.6rem; font-weight:700; color:var(--muted); letter-spacing:.03em; line-height:1.3; }
+.nav-section-label { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); padding:0 1.4rem; margin-bottom:.4rem; margin-top:.8rem; }
+.nav-item { display:flex; align-items:center; gap:.7rem; padding:.7rem 1.4rem; font-size:.85rem; font-weight:700; color:var(--muted); cursor:pointer; transition:all .15s; border-left:3px solid transparent; text-decoration:none; }
+.nav-item:hover  { background:var(--teal-light); color:var(--teal); }
+.nav-item.active { background:var(--teal-light); color:var(--teal); border-left-color:var(--teal); }
+.sidebar-footer { margin-top:auto; padding:1.2rem 1.4rem 0; border-top:1px solid var(--border); }
+.sidebar-user { display:flex; align-items:center; gap:.7rem; }
+.sidebar-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--teal),var(--orange)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sidebar-user-name { font-size:.78rem; font-weight:800; color:var(--text); line-height:1.2; }
+.sidebar-user-role { font-size:.65rem; font-weight:600; color:var(--muted); }
+.logout-btn { background:none; border:none; color:var(--muted); cursor:pointer; margin-left:auto; padding:4px; transition:color .15s; }
+.logout-btn:hover { color:var(--teal); }
+
+/* ══ MAIN ══ */
+.main { margin-left:var(--nav-w); min-height:100vh; display:flex; flex-direction:column; }
+.topbar { background:#fff; border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+.topbar-title { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text); }
+.topbar-sub   { font-size:.72rem; font-weight:600; color:var(--muted); margin-top:1px; }
+.topbar-right { display:flex; align-items:center; gap:.7rem; }
+.btn-export { display:flex; align-items:center; gap:.4rem; padding:.5rem 1rem; border-radius:10px; font-family:'Nunito',sans-serif; font-size:.78rem; font-weight:800; cursor:pointer; transition:all .15s; border:1.5px solid; }
+.btn-pdf  { color:#e05555; border-color:rgba(224,85,85,.3); background:rgba(224,85,85,.06); }
+.btn-pdf:hover  { background:rgba(224,85,85,.12); }
+
+.content { flex:1; padding:2rem; animation:fadeUp .35s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ══ PERÍODO ══ */
+.periodo-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:16px; padding:.9rem 1.4rem;
+  margin-bottom:1.4rem; flex-wrap:wrap; gap:.8rem;
+}
+.periodo-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); margin-bottom:.3rem; }
+.periodo-tabs  { display:flex; background:var(--bg); border-radius:10px; padding:3px; border:1.5px solid var(--border); }
+.periodo-tab   { padding:.4rem 1rem; border-radius:8px; border:none; font-family:'Nunito',sans-serif; font-size:.78rem; font-weight:800; cursor:pointer; transition:all .15s; background:none; color:var(--muted); }
+.periodo-tab.active { background:var(--surface); color:var(--teal); box-shadow:0 1px 4px rgba(0,0,0,.1); }
+.periodo-select-wrap { display:flex; align-items:center; gap:.6rem; }
+.periodo-select { appearance:none; background:var(--bg); border:1.5px solid var(--border); border-radius:10px; padding:.5rem .9rem; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:700; color:var(--text); outline:none; cursor:pointer; }
+.periodo-select:focus { border-color:var(--teal); }
+.vs-badge { display:flex; align-items:center; gap:.4rem; padding:.4rem .8rem; border-radius:10px; font-size:.72rem; font-weight:800; }
+.vs-up   { background:var(--green-light); color:#16a34a; }
+.vs-down { background:var(--red-light); color:#dc2626; }
+.vs-flat { background:var(--yellow-light); color:#b45309; }
+
+/* ══ KPI HERO ══ */
+.kpi-hero {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:1rem;
+  margin-bottom:1.4rem;
+}
+.kpi-hero-card {
+  background:var(--surface); border-radius:20px;
+  border:1.5px solid var(--border);
+  padding:1.4rem 1.5rem;
+  position:relative; overflow:hidden;
+  transition:transform .15s, box-shadow .15s;
+}
+.kpi-hero-card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(0,0,0,.08); }
+.kpi-hero-card.featured {
+  background:linear-gradient(135deg, var(--teal) 0%, #1a8a85 60%, var(--orange) 100%);
+  border:none; color:#fff;
+}
+.kpi-hero-card.featured::before {
+  content:''; position:absolute; width:160px; height:160px; border-radius:50%;
+  border:25px solid rgba(255,255,255,.07); right:-40px; top:-40px;
+}
+.kpi-hero-bg-icon { position:absolute; right:1rem; bottom:.8rem; opacity:.07; }
+.kpi-hero-label { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.4rem; }
+.kpi-hero-card.featured .kpi-hero-label { color:rgba(255,255,255,.8); }
+.kpi-hero-val { font-family:'Nunito',sans-serif; font-size:2.4rem; font-weight:900; line-height:1; margin-bottom:.3rem; }
+.kpi-hero-sub { font-size:.72rem; font-weight:600; color:var(--muted); }
+.kpi-hero-card.featured .kpi-hero-sub { color:rgba(255,255,255,.75); }
+.kpi-trend { display:inline-flex; align-items:center; gap:.25rem; font-size:.7rem; font-weight:800; padding:.2rem .55rem; border-radius:10px; margin-top:.4rem; }
+.trend-up   { background:var(--green-light); color:#16a34a; }
+.trend-down { background:var(--red-light); color:#dc2626; }
+.trend-flat { background:var(--yellow-light); color:#b45309; }
+.kpi-hero-card.featured .kpi-trend { background:rgba(255,255,255,.2); color:#fff; }
+
+/* ══ GRID MEIO ══ */
+.mid-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem; }
+.card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); overflow:hidden; }
+.card-header { padding:1.1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.card-title  { font-family:'Nunito',sans-serif; font-size:.92rem; font-weight:900; color:var(--text); }
+.card-sub    { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:2px; }
+.card-body   { padding:1.2rem 1.4rem; }
+
+/* ── RANKING UPAS ── */
+.upa-rank-list { display:flex; flex-direction:column; gap:.7rem; }
+.upa-rank-item { display:flex; align-items:center; gap:.9rem; }
+.upa-rank-pos  { font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:900; min-width:22px; text-align:center; }
+.pos-1 { color:#f59e0b; }
+.pos-2 { color:#94a3b8; }
+.pos-3 { color:#b45309; }
+.pos-4 { color:var(--muted); }
+.upa-rank-bar-wrap { flex:1; }
+.upa-rank-name { font-size:.78rem; font-weight:800; color:var(--text); margin-bottom:.35rem; display:flex; justify-content:space-between; align-items:center; }
+.upa-rank-pct  { font-family:'Nunito',sans-serif; font-size:.82rem; font-weight:900; }
+.upa-rank-bg   { height:10px; border-radius:10px; background:var(--bg); overflow:hidden; }
+.upa-rank-fill { height:100%; border-radius:10px; transition:width .7s cubic-bezier(.4,0,.2,1); }
+
+/* ── LINHA DO TEMPO MENSAL ── */
+.chart-line-wrap { position:relative; height:160px; margin-top:.5rem; }
+canvas#chart-evolucao { width:100%; height:100%; }
+
+/* ── BOTTOM GRID ── */
+.bottom-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1rem; margin-bottom:1rem; }
+
+/* ── MÉDICOS DESTAQUE ── */
+.med-list { display:flex; flex-direction:column; gap:.55rem; }
+.med-item { display:flex; align-items:center; gap:.7rem; padding:.6rem .8rem; border-radius:12px; background:var(--bg); }
+.med-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:900; color:#fff; flex-shrink:0; }
+.med-info { flex:1; }
+.med-name { font-size:.78rem; font-weight:800; color:var(--text); }
+.med-upa  { font-size:.65rem; font-weight:600; color:var(--muted); margin-top:1px; }
+.med-stat { font-family:'Nunito',sans-serif; font-size:.88rem; font-weight:900; }
+
+/* ── DESTAQUES PARA RELATÓRIO ── */
+.destaque-list { display:flex; flex-direction:column; gap:.6rem; }
+.destaque-item { display:flex; gap:.7rem; align-items:flex-start; padding:.8rem .9rem; border-radius:12px; border:1px solid; }
+.destaque-item.positivo { background:var(--green-light); border-color:rgba(34,197,94,.2); }
+.destaque-item.negativo { background:var(--red-light);   border-color:rgba(239,68,68,.2); }
+.destaque-item.neutro   { background:var(--blue-light);  border-color:rgba(59,130,246,.2); }
+.destaque-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.destaque-item.positivo .destaque-icon { background:rgba(34,197,94,.15); color:var(--green); }
+.destaque-item.negativo .destaque-icon { background:rgba(239,68,68,.1); color:var(--red); }
+.destaque-item.neutro   .destaque-icon { background:rgba(59,130,246,.1); color:var(--blue); }
+.destaque-text { font-size:.77rem; font-weight:700; line-height:1.4; }
+.destaque-item.positivo .destaque-text { color:#166534; }
+.destaque-item.negativo .destaque-text { color:#991b1b; }
+.destaque-item.neutro   .destaque-text { color:#1d4ed8; }
+
+/* ══ TOAST ══ */
+.toast { position:fixed; bottom:2rem; right:2rem; background:#1a2a2a; color:#fff; border-radius:12px; padding:.9rem 1.4rem; display:flex; align-items:center; gap:.7rem; font-size:.82rem; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.2); transform:translateY(80px); opacity:0; transition:transform .3s ease, opacity .3s ease; z-index:200; }
+.toast.show { transform:translateY(0); opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="34" height="34" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2DBFB8"/><stop offset="100%" stop-color="#F5A623"/></linearGradient></defs>
+      <circle cx="44" cy="44" r="44" fill="url(#sg)"/>
+      <path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/>
+      <polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="37,24 42,30 52,20" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div><div class="sidebar-logo-name">24p7</div><div class="sidebar-logo-tag">Órgão Público</div></div>
+  </div>
+
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="op-welcome.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+    Início
+  </a>
+  <a class="nav-item" href="op-realtime.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Tempo Real
+  </a>
+  <a class="nav-item" href="op-tv.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    Painel TV
+  </a>
+
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="op-frequencia.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+    Frequência
+  </a>
+  <a class="nav-item" href="op-ausencias.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Ausências
+  </a>
+  <a class="nav-item" href="op-atrasos.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Atrasos
+  </a>
+  
+  <div class="nav-section-label">Gestão</div>
+  <a class="nav-item" href="op-historico.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Histórico UPA
+  </a>
+  <a class="nav-item" href="op-escalas.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Escalas
+  </a>
+  <a class="nav-item active" href="op-kpis.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Indicadores (KPIs)
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div><div class="sidebar-user-name">Valmir C. Sousa</div><div class="sidebar-user-role">Gestor Público</div></div>
+      <button class="logout-btn" onclick="window.location.href='op-login.html'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;flex-direction:column;">
+      <div class="topbar-title">Indicadores de Desempenho</div>
+      <div class="topbar-sub" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-export btn-pdf" onclick="exportar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Gerar Relatório PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- PERÍODO -->
+    <div class="periodo-bar">
+      <div>
+        <div class="periodo-label">Período de análise</div>
+        <div class="periodo-tabs" id="periodo-tabs">
+          <button class="periodo-tab" onclick="setPeriodo('jan')">Jan</button>
+          <button class="periodo-tab" onclick="setPeriodo('fev')">Fev</button>
+          <button class="periodo-tab" onclick="setPeriodo('mar')">Mar</button>
+          <button class="periodo-tab" onclick="setPeriodo('abr')">Abr</button>
+          <button class="periodo-tab active" onclick="setPeriodo('mai')">Mai</button>
+        </div>
+      </div>
+      <div class="periodo-select-wrap">
+        <div>
+          <div class="periodo-label">Comparar com</div>
+          <select class="periodo-select" id="compare-sel" onchange="render()">
+            <option value="mes-ant">Mês anterior (Abril/2026)</option>
+            <option value="mesmo-ano-ant">Maio/2025</option>
+            <option value="media">Média dos últimos 3 meses</option>
+          </select>
+        </div>
+      </div>
+      <div id="periodo-info" style="text-align:right;">
+        <div class="periodo-label">Referência</div>
+        <div style="font-family:'Nunito',sans-serif;font-size:.92rem;font-weight:900;color:var(--text);" id="periodo-ref">Maio 2026</div>
+        <div style="font-size:.68rem;font-weight:700;color:var(--muted);">vs Abril 2026</div>
+      </div>
+    </div>
+
+    <!-- KPI HERO -->
+    <div class="kpi-hero">
+      <div class="kpi-hero-card featured">
+        <div class="kpi-hero-bg-icon"><svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <div class="kpi-hero-label">Taxa de cumprimento global</div>
+        <div class="kpi-hero-val" id="k-taxa">88,6%</div>
+        <div class="kpi-hero-sub">dos plantões foram cumpridos</div>
+        <div class="kpi-trend" id="k-taxa-trend">↑ +2,1% vs mês anterior</div>
+      </div>
+      <div class="kpi-hero-card">
+        <div class="kpi-hero-bg-icon"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <div class="kpi-hero-label">Total de ausências</div>
+        <div class="kpi-hero-val" style="color:var(--red);" id="k-aus">28</div>
+        <div class="kpi-hero-sub">plantões não cumpridos</div>
+        <div class="kpi-trend trend-down" id="k-aus-trend">↑ +4 vs mês anterior</div>
+      </div>
+      <div class="kpi-hero-card">
+        <div class="kpi-hero-bg-icon"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="var(--yellow)" stroke-width="1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="kpi-hero-label">Total de atrasos</div>
+        <div class="kpi-hero-val" style="color:var(--yellow);" id="k-atr">20</div>
+        <div class="kpi-hero-sub">acima de 15 min de tolerância</div>
+        <div class="kpi-trend trend-up" id="k-atr-trend">↓ −3 vs mês anterior</div>
+      </div>
+      <div class="kpi-hero-card">
+        <div class="kpi-hero-bg-icon"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="1"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div class="kpi-hero-label">Médicos ativos</div>
+        <div class="kpi-hero-val" style="color:var(--purple);" id="k-med">14</div>
+        <div class="kpi-hero-sub">em 4 UPAs monitoradas</div>
+        <div class="kpi-trend trend-flat" id="k-med-trend">→ Igual ao mês anterior</div>
+      </div>
+    </div>
+
+    <!-- GRID MEIO -->
+    <div class="mid-grid">
+
+      <!-- RANKING UPAS -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Desempenho por UPA</div>
+            <div class="card-sub">Taxa de cumprimento de escalas no período</div>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="upa-rank-list" id="upa-rank-list"></div>
+        </div>
+      </div>
+
+      <!-- GRÁFICO EVOLUÇÃO -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Evolução Mensal</div>
+            <div class="card-sub">Taxa de cumprimento — últimos 5 meses</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-line-wrap">
+            <canvas id="chart-evolucao"></canvas>
+          </div>
+          <div style="display:flex;justify-content:center;gap:1.2rem;margin-top:.8rem;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:700;color:var(--muted);"><div style="width:24px;height:3px;background:var(--teal);border-radius:2px;"></div>Cumprimento (%)</div>
+            <div style="display:flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:700;color:var(--muted);"><div style="width:24px;height:3px;background:var(--red);border-radius:2px;border-style:dashed;border-width:0 0 2px;"></div>Ausências</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- BOTTOM GRID -->
+    <div class="bottom-grid">
+
+      <!-- MÉDICOS COM MAIS AUSÊNCIAS -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Maiores ausências</div>
+            <div class="card-sub">Médicos com mais faltas no período</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="med-list" id="med-ausencias"></div>
+        </div>
+      </div>
+
+      <!-- MÉDICOS COM MELHOR FREQUÊNCIA -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Melhor frequência</div>
+            <div class="card-sub">Médicos com 100% de presença</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="med-list" id="med-destaque"></div>
+        </div>
+      </div>
+
+      <!-- DESTAQUES PARA RELATÓRIO -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Pontos para o relatório</div>
+            <div class="card-sub">Destaques positivos e negativos do mês</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="card-body">
+          <div class="destaque-list" id="destaque-list"></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+  <span id="toast-msg">Relatório PDF gerado com sucesso!</span>
+</div>
+
+<script>
+// ══════════════════════════════
+// DADOS MOCADOS POR MÊS
+// ══════════════════════════════
+const PERIODOS = {
+  jan: { label:'Janeiro 2026', taxa:82.4, aus:38, atr:26, upas:[{n:'UPA – Zona Norte',p:94},{n:'UPA – Vila Pereira',p:89},{n:'UPA – Zona Sul',p:78},{n:'UPA – Centro',p:68}] },
+  fev: { label:'Fevereiro 2026', taxa:84.1, aus:34, atr:24, upas:[{n:'UPA – Vila Pereira',p:95},{n:'UPA – Zona Norte',p:91},{n:'UPA – Centro',p:76},{n:'UPA – Zona Sul',p:74}] },
+  mar: { label:'Março 2026', taxa:85.8, aus:31, atr:25, upas:[{n:'UPA – Vila Pereira',p:96},{n:'UPA – Zona Norte',p:92},{n:'UPA – Zona Sul',p:80},{n:'UPA – Centro',p:75}] },
+  abr: { label:'Abril 2026', taxa:86.5, aus:24, atr:23, upas:[{n:'UPA – Vila Pereira',p:97},{n:'UPA – Zona Norte',p:94},{n:'UPA – Centro',p:80},{n:'UPA – Zona Sul',p:75}] },
+  mai: { label:'Maio 2026',   taxa:88.6, aus:28, atr:20, upas:[{n:'UPA – Vila Pereira',p:97},{n:'UPA – Zona Norte',p:94},{n:'UPA – Centro',p:82},{n:'UPA – Zona Sul',p:81}] },
+};
+
+const EVOL_MESES  = ['Jan','Fev','Mar','Abr','Mai'];
+const EVOL_TAXA   = [82.4, 84.1, 85.8, 86.5, 88.6];
+const EVOL_AUS    = [38,   34,   31,   24,   28];
+
+const MED_AUSENCIAS = [
+  { ini:'RS', nome:'Dra. Renata Silva',  upa:'UPA – Centro',      aus:7, cor:'#ef4444' },
+  { ini:'MD', nome:'Dr. Marcelo Dias',   upa:'UPA – Zona Sul',    aus:5, cor:'#f59e0b' },
+  { ini:'MC', nome:'Dra. Mariana Costa', upa:'UPA – Centro',      aus:4, cor:'#f59e0b' },
+  { ini:'PT', nome:'Dra. Priscila Teles',upa:'UPA – Zona Sul',    aus:4, cor:'#f59e0b' },
+  { ini:'AS', nome:'Dr. André Souza',    upa:'UPA – Vila Pereira', aus:2, cor:'#7a9090' },
+];
+
+const MED_DESTAQUE = [
+  { ini:'JL', nome:'Dra. Jessica Lima',  upa:'UPA – Vila Pereira', pct:100, cor:'#22c55e' },
+  { ini:'PH', nome:'Dr. Paulo Henrique', upa:'UPA – Centro',        pct:100, cor:'#22c55e' },
+  { ini:'CN', nome:'Dr. Carlos Nunes',   upa:'UPA – Zona Norte',    pct:100, cor:'#22c55e' },
+  { ini:'CF', nome:'Dra. Camila Ferraz', upa:'UPA – Vila Pereira',  pct:100, cor:'#22c55e' },
+];
+
+// ══════════════════════════════
+// ESTADO
+// ══════════════════════════════
+let periodoAtual = 'mai';
+
+function setPeriodo(p) {
+  periodoAtual = p;
+  document.querySelectorAll('.periodo-tab').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  render();
+}
+
+// ══════════════════════════════
+// RENDER
+// ══════════════════════════════
+function render() {
+  const d = PERIODOS[periodoAtual];
+  const keys = Object.keys(PERIODOS);
+  const idx  = keys.indexOf(periodoAtual);
+  const prev = idx > 0 ? PERIODOS[keys[idx-1]] : null;
+
+  // KPIs
+  document.getElementById('k-taxa').textContent = d.taxa.toFixed(1).replace('.',',') + '%';
+  document.getElementById('k-aus').textContent  = d.aus;
+  document.getElementById('k-atr').textContent  = d.atr;
+
+  if (prev) {
+    const dtaxa = d.taxa - prev.taxa;
+    const daus  = d.aus  - prev.aus;
+    const datr  = d.atr  - prev.atr;
+
+    const tEl = document.getElementById('k-taxa-trend');
+    tEl.textContent = (dtaxa>=0?'↑ +':'↓ ') + Math.abs(dtaxa).toFixed(1).replace('.',',') + '% vs mês anterior';
+    tEl.className   = 'kpi-trend ' + (dtaxa>=0?'trend-up':'trend-down');
+
+    const aEl = document.getElementById('k-aus-trend');
+    aEl.textContent = (daus>0?'↑ +':'↓ ') + Math.abs(daus) + ' vs mês anterior';
+    aEl.className   = 'kpi-trend ' + (daus>0?'trend-down':'trend-up');
+
+    const rEl = document.getElementById('k-atr-trend');
+    rEl.textContent = (datr>0?'↑ +':'↓ ') + Math.abs(datr) + ' vs mês anterior';
+    rEl.className   = 'kpi-trend ' + (datr>0?'trend-down':'trend-up');
+  }
+
+  document.getElementById('periodo-ref').textContent = d.label;
+
+  // UPA RANKING
+  const cores = ['#22c55e','#2DBFB8','#f59e0b','#ef4444'];
+  const ranks = ['pos-1','pos-2','pos-3','pos-4'];
+  document.getElementById('upa-rank-list').innerHTML = d.upas.map((u,i) => `
+    <div class="upa-rank-item">
+      <div class="upa-rank-pos ${ranks[i]}">${i+1}º</div>
+      <div class="upa-rank-bar-wrap">
+        <div class="upa-rank-name">
+          ${u.n}
+          <span class="upa-rank-pct" style="color:${cores[i]};">${u.p}%</span>
+        </div>
+        <div class="upa-rank-bg">
+          <div class="upa-rank-fill" style="width:${u.p}%;background:${cores[i]};"></div>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // MÉDICOS AUSÊNCIAS
+  document.getElementById('med-ausencias').innerHTML = MED_AUSENCIAS.map(m => `
+    <div class="med-item">
+      <div class="med-avatar" style="background:${m.cor};">${m.ini}</div>
+      <div class="med-info">
+        <div class="med-name">${m.nome}</div>
+        <div class="med-upa">${m.upa}</div>
+      </div>
+      <div class="med-stat" style="color:${m.cor};">${m.aus} falta${m.aus>1?'s':''}</div>
+    </div>`).join('');
+
+  // MÉDICOS DESTAQUE
+  document.getElementById('med-destaque').innerHTML = MED_DESTAQUE.map(m => `
+    <div class="med-item">
+      <div class="med-avatar" style="background:${m.cor};">${m.ini}</div>
+      <div class="med-info">
+        <div class="med-name">${m.nome}</div>
+        <div class="med-upa">${m.upa}</div>
+      </div>
+      <div class="med-stat" style="color:${m.cor};">${m.pct}%</div>
+    </div>`).join('');
+
+  // DESTAQUES
+  const melhor = d.upas[0];
+  const pior   = d.upas[d.upas.length-1];
+  document.getElementById('destaque-list').innerHTML = `
+    <div class="destaque-item positivo">
+      <div class="destaque-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="destaque-text"><strong>${melhor.n}</strong> foi a unidade com melhor desempenho: <strong>${melhor.p}%</strong> de cumprimento.</div>
+    </div>
+    <div class="destaque-item ${pior.p < 80 ? 'negativo' : 'neutro'}">
+      <div class="destaque-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${pior.p < 80 ? '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>' : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'}</svg></div>
+      <div class="destaque-text"><strong>${pior.n}</strong> registrou o menor índice: <strong>${pior.p}%</strong>. ${pior.p < 80 ? 'Recomenda-se acionar a OS para justificativas.' : 'Resultado dentro do esperado.'}</div>
+    </div>
+    <div class="destaque-item negativo">
+      <div class="destaque-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+      <div class="destaque-text"><strong>Dra. Renata Silva</strong> concentrou o maior número de ausências: <strong>7 faltas</strong> no período. Requer acionamento formal.</div>
+    </div>
+    <div class="destaque-item positivo">
+      <div class="destaque-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+      <div class="destaque-text"><strong>4 médicos</strong> atingiram <strong>100% de frequência</strong> no período — Dra. Jessica Lima, Dr. Paulo Henrique, Dr. Carlos Nunes e Dra. Camila Ferraz.</div>
+    </div>
+    <div class="destaque-item neutro">
+      <div class="destaque-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+      <div class="destaque-text">Taxa global de <strong>${d.taxa.toFixed(1).replace('.',',')}%</strong> — ${d.taxa >= 90 ? 'acima da meta contratual de 90%.' : 'abaixo da meta contratual de 90%. Acompanhamento necessário.'}</div>
+    </div>`;
+}
+
+// ══════════════════════════════
+// GRÁFICO DE LINHA (Canvas)
+// ══════════════════════════════
+function desenharGrafico() {
+  const canvas = document.getElementById('chart-evolucao');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width = W; canvas.height = H;
+
+  const pad  = { top:16, right:16, bottom:28, left:36 };
+  const gW   = W - pad.left - pad.right;
+  const gH   = H - pad.top  - pad.bottom;
+  const n    = EVOL_MESES.length;
+  const xStep = gW / (n - 1);
+
+  const taxa_min = 78, taxa_max = 100;
+  const aus_min  = 0,  aus_max  = 45;
+
+  function xPos(i)    { return pad.left + i * xStep; }
+  function yTaxa(v)   { return pad.top + gH - ((v - taxa_min) / (taxa_max - taxa_min)) * gH; }
+  function yAus(v)    { return pad.top + gH - ((v - aus_min)  / (aus_max  - aus_min))  * gH; }
+
+  ctx.clearRect(0, 0, W, H);
+
+  // grades horizontais
+  ctx.strokeStyle = 'rgba(0,0,0,.06)'; ctx.lineWidth = 1;
+  [0,.25,.5,.75,1].forEach(t => {
+    const y = pad.top + gH * t;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+  });
+
+  // linha de AUSÊNCIAS (dashed, vermelho)
+  ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+  ctx.setLineDash([5,4]);
+  ctx.beginPath();
+  EVOL_AUS.forEach((v,i) => { i===0 ? ctx.moveTo(xPos(i), yAus(v)) : ctx.lineTo(xPos(i), yAus(v)); });
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // área sob a curva de TAXA
+  ctx.beginPath();
+  EVOL_TAXA.forEach((v,i) => { i===0 ? ctx.moveTo(xPos(i), yTaxa(v)) : ctx.lineTo(xPos(i), yTaxa(v)); });
+  ctx.lineTo(xPos(n-1), pad.top + gH); ctx.lineTo(xPos(0), pad.top + gH); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + gH);
+  grad.addColorStop(0, 'rgba(45,191,184,.18)'); grad.addColorStop(1, 'rgba(45,191,184,.01)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // linha de TAXA (sólida, teal)
+  ctx.strokeStyle = '#2DBFB8'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  EVOL_TAXA.forEach((v,i) => { i===0 ? ctx.moveTo(xPos(i), yTaxa(v)) : ctx.lineTo(xPos(i), yTaxa(v)); });
+  ctx.stroke();
+
+  // pontos + labels TAXA
+  EVOL_TAXA.forEach((v,i) => {
+    ctx.beginPath(); ctx.arc(xPos(i), yTaxa(v), 4, 0, Math.PI*2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.strokeStyle = '#2DBFB8'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = '#1a2a2a'; ctx.font = 'bold 10px Nunito Sans'; ctx.textAlign = 'center';
+    ctx.fillText(v.toFixed(1)+'%', xPos(i), yTaxa(v) - 8);
+  });
+
+  // labels meses (eixo X)
+  ctx.fillStyle = '#7a9090'; ctx.font = '700 10px Nunito Sans'; ctx.textAlign = 'center';
+  EVOL_MESES.forEach((m,i) => ctx.fillText(m, xPos(i), H - 6));
+}
+
+// ══════════════════════════════
+// EXPORTAR
+// ══════════════════════════════
+function exportar() {
+  const toast = document.getElementById('toast');
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+render();
+setTimeout(desenharGrafico, 100);
+window.addEventListener('resize', desenharGrafico);
+
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR',{
+  weekday:'long', day:'2-digit', month:'long', year:'numeric'
+});
+</script>
+</body>
+</html>

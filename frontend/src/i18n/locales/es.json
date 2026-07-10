@@ -1,0 +1,205 @@
+{
+  "language": {
+    "switcher": "Idioma"
+  },
+
+  "offline": {
+    "message": "Sin conexión — las acciones se guardan localmente y se sincronizarán cuando vuelvas a estar en línea."
+  },
+
+  "login": {
+    "eyebrow": "Área del profesional",
+    "title": "Bienvenido(a) de vuelta",
+    "subtitle": "Registra tus guardias y horas con un toque",
+    "emailLabel": "Correo electrónico",
+    "emailPlaceholder": "tu@hospital.com",
+    "passwordLabel": "Contraseña",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "Mostrar contraseña",
+    "hidePassword": "Ocultar contraseña",
+    "forgot": "Olvidé mi contraseña",
+    "forgotHint": "Contacta al administrador de tu clínica para restablecer tu contraseña.",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "errorGeneric": "No fue posible iniciar sesión. Verifica tus credenciales.",
+    "heroTagline": "Tecnología para quienes no paran",
+    "heroTitle": "Tus guardias,\nsiempre organizadas",
+    "heroSub": "Check-in y check-out en un toque, historial completo e informes listos.",
+    "feature1": "Check-in por GPS en segundos",
+    "feature2": "Historial e informes de horas",
+    "feature3": "Funciona sin conexión y sincroniza después"
+  },
+
+  "doctor": {
+    "role": "Profesional",
+
+    "home": {
+      "greeting": "¡Hola, {{name}}!",
+      "welcome": "Bienvenido(a) de nuevo",
+      "now": "Ahora son",
+      "selectOption": "Selecciona una opción",
+      "checkin": "Registrar entrada",
+      "checkout": "Registrar salida",
+      "offlineCheckin": "Sin conexión. Entrada guardada sin conexión.",
+      "offlineCheckout": "Sin conexión. Salida guardada sin conexión."
+    },
+
+    "nav": {
+      "home": "Inicio",
+      "checkin": "Entrada",
+      "checkout": "Salida",
+      "attendance": "Presencia",
+      "shifts": "Turnos",
+      "reports": "Informes",
+      "settings": "Ajustes",
+      "logout": "Salir",
+      "professionalArea": "Área profesional"
+    },
+
+    "attendance": {
+      "lastCheckin": "Última entrada",
+      "lastCheckout": "Última salida"
+    },
+
+    "shifts": {
+      "loading": "Cargando turnos…",
+      "errorLoading": "Error al cargar turnos",
+      "empty": "Aún no tienes turnos asignados.",
+      "today": "Hoy",
+      "upcoming": "Próximos",
+      "past": "Pasados",
+      "showMore_one": "Ver 1 turno más",
+      "showMore_other": "Ver {{count}} turnos más",
+      "showLess": "Ver menos"
+    },
+
+    "settings": {
+      "appearance": "Apariencia",
+      "theme": "Tema",
+      "language": "Idioma",
+      "account": "Cuenta",
+      "logoutHint": "Cerrar tu sesión en este dispositivo"
+    },
+
+    "reports": {
+      "loading": "Cargando…",
+      "errorLoading": "Error al cargar informes",
+      "retry": "Reintentar",
+      "summary": "Resumen",
+      "shifts": "Turnos",
+      "hours": "Horas",
+      "avgPerShift": "Prom./Turno",
+      "filters": "Filtros",
+      "startDate": "Fecha inicial",
+      "endDate": "Fecha final",
+      "datePlaceholder": "Seleccionar fecha",
+      "clearDate": "Limpiar fecha",
+      "prevYear": "Año anterior",
+      "nextYear": "Próximo año",
+      "prevMonth": "Mes anterior",
+      "nextMonth": "Próximo mes",
+      "clinic": "Clínica",
+      "allClinics": "Todas las clínicas",
+      "search": "Buscar",
+      "records": "Registros",
+      "noRecords": "No se encontraron registros",
+      "entry": "Entrada",
+      "exit": "Salida",
+      "badgeIn": "ENTRADA",
+      "badgeOut": "SALIDA"
+    },
+
+    "modal": {
+      "title": {
+        "checkin": "¿Registrar entrada?",
+        "checkout": "¿Registrar salida?"
+      },
+      "subtitle": {
+        "checkin": "Selecciona el turno que estás iniciando ahora.",
+        "checkout": "Selecciona el turno que estás cerrando."
+      },
+      "unit": "Unidad de atención",
+      "unitFallback": "Unidad",
+      "shift": "Turno",
+      "loading": "Cargando turnos…",
+      "empty": {
+        "checkin": "No tienes un turno asignado para hoy en esta clínica. Habla con tu gestor.",
+        "checkout": "No tienes ningún turno en curso para cerrar en este momento."
+      },
+      "blocked": {
+        "title": "Ya tienes un turno en curso",
+        "body": "Entrada a las <strong>{{time}}</strong> en <strong>{{clinic}}</strong>.",
+        "hint": "Finaliza ese turno con Registrar salida antes de iniciar uno nuevo."
+      },
+      "checkinAt": "Entrada a las {{time}}",
+      "selectClinic": "Selecciona una clínica",
+      "no": "No",
+      "close": "Cerrar",
+      "confirm": "Confirmar",
+      "processing": "Procesando…",
+      "offlineCacheHint": "Sin conexión — mostrando la última lista sincronizada. Tu acción se enviará cuando vuelvas a estar en línea.",
+      "offlineNoCache": "Sin conexión y sin datos guardados para mostrar. Vuelve a conectarte e inténtalo de nuevo."
+    },
+
+    "logout": {
+      "title": "Cerrar sesión",
+      "message": "¿Realmente deseas cerrar sesión?",
+      "cancel": "Cancelar",
+      "confirm": "Cerrar sesión"
+    },
+
+    "confirmation": {
+      "header": {
+        "checkinTitle": "Entrada",
+        "checkinSubtitle": "Registro de entrada",
+        "checkoutTitle": "Salida",
+        "checkoutSubtitle": "Registro de salida"
+      },
+      "checkinDone": "¡Entrada registrada!",
+      "checkoutDone": "¡Salida registrada!",
+      "identityConfirmed": "Identidad confirmada con éxito",
+      "date": "Fecha",
+      "checkinTime": "Hora de entrada",
+      "checkoutTime": "Hora de salida",
+      "location": "Ubicación",
+      "status": "Estado",
+      "confirmed": "Confirmado",
+      "goodWork": "¡Buen trabajo!",
+      "goodRest": "¡Que descanses!",
+      "emptyCheckin": {
+        "title": "Sin entrada registrada",
+        "hint": "Registra tu entrada desde la pantalla inicial para ver la información aquí."
+      },
+      "emptyCheckout": {
+        "title": "Sin salida registrada",
+        "hint": "La salida aparecerá aquí después de que finalices tu turno."
+      }
+    },
+
+    "notifications": {
+      "title": "Notificaciones",
+      "unread_one": "{{count}} sin leer",
+      "unread_other": "{{count}} sin leer",
+      "empty": "Sin notificaciones por ahora",
+      "emptyHint": "Te avisaremos por aquí cuando ocurra algo nuevo.",
+      "loading": "Cargando…",
+      "ariaLabel": "Notificaciones",
+      "ariaLabelWithCount": "Notificaciones ({{count}} sin leer)"
+    },
+
+    "theme": {
+      "toActivateLight": "Activar tema claro",
+      "toActivateDark": "Activar tema oscuro",
+      "light": "Tema claro",
+      "dark": "Tema oscuro"
+    },
+
+    "errors": {
+      "geolocation": "No se pudo obtener tu ubicación",
+      "checkin": "Error al registrar entrada",
+      "checkout": "Error al registrar salida",
+      "generic": "Error al procesar la solicitud",
+      "loading": "Error al cargar los datos"
+    }
+  }
+}

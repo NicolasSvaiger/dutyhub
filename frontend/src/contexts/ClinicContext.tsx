@@ -8,6 +8,8 @@ export interface ClinicContextType {
   activeClinic: Clinic | null;
   setActiveClinic: (clinic: Clinic) => void;
   loading: boolean;
+  /** Resolve o nome de uma clínica pelo ID. Fallback pra 'Unidade' se não encontrada. */
+  resolveClinicName: (clinicId: string) => string;
 }
 
 export const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
@@ -64,11 +66,20 @@ export function ClinicProvider({ children }: ClinicProviderProps) {
     void fetchClinics();
   }, [isAuthenticated]);
 
+  const resolveClinicName = useCallback(
+    (clinicId: string): string => {
+      const found = clinics.find((c) => c.id === clinicId);
+      return found?.name ?? 'Unidade';
+    },
+    [clinics],
+  );
+
   const value: ClinicContextType = {
     clinics,
     activeClinic,
     setActiveClinic,
     loading,
+    resolveClinicName,
   };
 
   return <ClinicContext value={value}>{children}</ClinicContext>;

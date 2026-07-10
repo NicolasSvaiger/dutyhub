@@ -30,6 +30,36 @@ public class ShiftsController : ControllerBase
     }
 
     /// <summary>
+    /// Listar plantões atribuídos ao profissional logado, na clínica ativa, para hoje.
+    /// Usado pelo modal de check-in do médico.
+    /// </summary>
+    [Authorize(Policy = "Profissional")]
+    [HttpGet("me/today")]
+    [ProducesResponseType(typeof(IEnumerable<ShiftResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyToday()
+    {
+        var shifts = await _shiftService.GetMyTodayShiftsAsync();
+        return Ok(shifts);
+    }
+
+    /// <summary>
+    /// Listar TODOS os plantões atribuídos ao profissional logado, em todas as
+    /// clínicas em que ele atua. Usado pela tela "Plantões" do médico.
+    /// </summary>
+    [Authorize(Policy = "Profissional")]
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(IEnumerable<ShiftResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMine()
+    {
+        var shifts = await _shiftService.GetMyShiftsAsync();
+        return Ok(shifts);
+    }
+
+    /// <summary>
     /// Criar novo plantão. Apenas AdminClinica.
     /// </summary>
     [Authorize(Policy = "AdminClinica")]

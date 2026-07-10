@@ -39,20 +39,33 @@ public class ClinicService : IClinicService
         }
         else
         {
-            var clinicId = _tenantService.GetCurrentClinicId();
-            if (clinicId is null)
+            // Non-admin users: return every clinic they are authorized to work at
+            // (multi-clinic support). The authorized set comes from the JWT claim.
+            var authorized = _tenantService.GetAuthorizedClinicIds().ToList();
+            if (authorized.Count == 0)
             {
                 return Enumerable.Empty<ClinicResponse>();
             }
 
+            var userId = _tenantService.GetCurrentUserId();
+            var cacheKey = userId.HasValue
+                ? CacheKeys.ClinicsForUser(userId.Value)
+                : CacheKeys.Clinics(authorized[0]);
+
             var results = await _cacheService.GetOrSetAsync(
-                CacheKeys.Clinics(clinicId.Value),
+                cacheKey,
                 async () =>
                 {
-                    var clinic = await _clinicRepository.GetByIdAsync(clinicId.Value);
-                    return clinic is not null
-                        ? new List<ClinicResponse> { MapToResponse(clinic) }
-                        : new List<ClinicResponse>();
+                    var list = new List<ClinicResponse>();
+                    foreach (var id in authorized)
+                    {
+                        var clinic = await _clinicRepository.GetByIdAsync(id);
+                        if (clinic is not null)
+                        {
+                            list.Add(MapToResponse(clinic));
+                        }
+                    }
+                    return list;
                 });
 
             return results ?? Enumerable.Empty<ClinicResponse>();

@@ -120,6 +120,48 @@ public class ShiftService : IShiftService
         return MapToResponse(shift);
     }
 
+    public async Task<IEnumerable<ShiftResponse>> GetMyTodayShiftsAsync()
+    {
+        var userId = _tenantService.GetCurrentUserId();
+        if (userId is null)
+        {
+            return Enumerable.Empty<ShiftResponse>();
+        }
+
+        var clinicId = _tenantService.GetCurrentClinicId();
+        if (clinicId is null)
+        {
+            return Enumerable.Empty<ShiftResponse>();
+        }
+
+        var today = DateTime.UtcNow.Date;
+
+        var userShifts = await _shiftRepository.GetByUserIdAsync(userId.Value);
+        return userShifts
+            .Where(s => s.ClinicId == clinicId.Value && s.Date.Date == today)
+            .OrderBy(s => s.StartTime)
+            .Select(MapToResponse);
+    }
+
+    public async Task<IEnumerable<ShiftResponse>> GetMyShiftsAsync()
+    {
+        var userId = _tenantService.GetCurrentUserId();
+        if (userId is null)
+        {
+            return Enumerable.Empty<ShiftResponse>();
+        }
+
+        // All shifts across all authorized clinics — used by the "Plantões" screen
+        var authorized = _tenantService.GetAuthorizedClinicIds().ToHashSet();
+        var userShifts = await _shiftRepository.GetByUserIdAsync(userId.Value);
+
+        return userShifts
+            .Where(s => authorized.Count == 0 || authorized.Contains(s.ClinicId))
+            .OrderByDescending(s => s.Date)
+            .ThenBy(s => s.StartTime)
+            .Select(MapToResponse);
+    }
+
     public async Task AssignProfessionalAsync(Guid shiftId, AssignShiftRequest request)
     {
         var roles = _tenantService.GetCurrentRoles();

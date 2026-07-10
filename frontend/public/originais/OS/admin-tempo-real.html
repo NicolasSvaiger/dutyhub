@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 Admin – Tempo Real</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --teal:#2DBFB8;--teal-light:#e8faf9;
+  --indigo:#6366f1;--indigo-dark:#4f46e5;--indigo-light:#eef2ff;
+  --bg:#f4f5f9;--surface:#fff;--text:#1a1f36;--muted:#6b7280;
+  --border:rgba(99,102,241,.14);--nav-w:260px;
+  --green:#22c55e;--green-light:#dcfce7;
+  --yellow:#f59e0b;--yellow-light:#fef3c7;
+  --red:#ef4444;--red-light:#fee2e2;
+  --purple:#8b5cf6;--purple-light:#ede9fe;
+  --orange:#f97316;--orange-light:#fff7ed;
+  --blue:#3b82f6;--blue-light:#eff6ff;
+}
+html,body{min-height:100vh;font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+
+/* ══ SIDEBAR ══ */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--nav-w);background:#1a1f36;display:flex;flex-direction:column;padding:1.8rem 0;z-index:50;overflow-y:auto;}
+.sidebar-logo{display:flex;align-items:center;gap:.8rem;padding:0 1.5rem 1.8rem;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:1.4rem;}
+.sidebar-logo-name{font-family:'Nunito',sans-serif;font-size:1.5rem;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1;}
+.sidebar-logo-tag{font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.04em;line-height:1.3;}
+.sidebar-module{display:inline-flex;align-items:center;gap:.35rem;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:.2rem .65rem;font-size:.6rem;font-weight:800;color:#a5b4fc;letter-spacing:.06em;text-transform:uppercase;margin-top:4px;}
+.nav-section-label{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.3);padding:0 1.5rem;margin-bottom:.35rem;margin-top:.9rem;}
+.nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.5rem;font-size:.83rem;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;border-left:3px solid transparent;text-decoration:none;position:relative;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);}
+.nav-item.active{background:rgba(99,102,241,.15);color:#a5b4fc;border-left-color:var(--indigo);}
+.nav-item svg{flex-shrink:0;opacity:.7;}.nav-item.active svg{opacity:1;}
+.nav-badge{position:absolute;right:1.2rem;top:50%;transform:translateY(-50%);background:var(--red);color:#fff;font-size:.58rem;font-weight:900;padding:.15rem .45rem;border-radius:20px;min-width:18px;text-align:center;line-height:1.4;}
+.sidebar-footer{margin-top:auto;padding:1.2rem 1.5rem 0;border-top:1px solid rgba(255,255,255,.08);}
+.sidebar-user{display:flex;align-items:center;gap:.75rem;}
+.sidebar-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--indigo),var(--teal));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;color:#fff;flex-shrink:0;}
+.sidebar-user-name{font-size:.78rem;font-weight:800;color:rgba(255,255,255,.85);line-height:1.2;}
+.sidebar-user-role{font-size:.62rem;font-weight:600;color:rgba(255,255,255,.4);}
+.logout-btn{background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;margin-left:auto;padding:4px;transition:color .15s;}
+.logout-btn:hover{color:rgba(255,255,255,.8);}
+
+/* ══ MAIN ══ */
+.main{margin-left:var(--nav-w);min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-left{display:flex;flex-direction:column;}
+.topbar-title{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);}
+.topbar-sub{font-size:.7rem;font-weight:600;color:var(--muted);margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:.7rem;}
+.relogio{font-family:'Nunito',sans-serif;font-size:1.1rem;font-weight:900;color:var(--indigo);background:var(--indigo-light);padding:.35rem .9rem;border-radius:10px;letter-spacing:.03em;}
+.live-badge{display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:800;color:var(--green);background:var(--green-light);border:1px solid rgba(34,197,94,.2);border-radius:20px;padding:.3rem .8rem;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-g 1.4s ease infinite;}
+@keyframes pulse-g{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.7)}}
+.btn-atualizar{display:flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border:1.5px solid var(--border);border-radius:10px;background:none;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;color:var(--muted);cursor:pointer;transition:all .15s;}
+.btn-atualizar:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light);}
+.content{flex:1;padding:2rem;animation:fadeUp .35s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ RESUMO GLOBAL ══ */
+.resumo-global{
+  background:linear-gradient(135deg,#1a1f36 0%,#2d3561 55%,#3d4a8a 100%);
+  border-radius:20px;padding:1.4rem 2rem;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1.5rem;flex-wrap:wrap;
+  margin-bottom:1.4rem;position:relative;overflow:hidden;
+}
+.resumo-global::before{content:'';position:absolute;width:280px;height:280px;border-radius:50%;border:40px solid rgba(255,255,255,.04);right:-90px;top:-100px;}
+.resumo-global::after{content:'';position:absolute;background-image:radial-gradient(rgba(255,255,255,.05) 1.5px,transparent 1.5px);background-size:24px 24px;inset:0;}
+.rg-titulo{position:relative;z-index:1;}
+.rg-titulo-label{font-size:.68rem;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem;}
+.rg-titulo-val{font-family:'Nunito',sans-serif;font-size:1.8rem;font-weight:900;color:#fff;line-height:1;}
+.rg-titulo-sub{font-size:.75rem;font-weight:600;color:rgba(255,255,255,.65);margin-top:.3rem;}
+.rg-stats{display:flex;gap:1.2rem;flex-wrap:wrap;position:relative;z-index:1;}
+.rg-stat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:.75rem 1.1rem;text-align:center;min-width:90px;}
+.rg-stat-val{font-family:'Nunito',sans-serif;font-size:1.5rem;font-weight:900;color:#fff;line-height:1;}
+.rg-stat-val.ok   {color:#4ade80;}
+.rg-stat-val.warn {color:#fbbf24;}
+.rg-stat-val.crit {color:#f87171;}
+.rg-stat-lbl{font-size:.62rem;font-weight:700;color:rgba(255,255,255,.6);margin-top:.25rem;text-transform:uppercase;letter-spacing:.05em;}
+
+/* ══ FILTROS CONTRATO ══ */
+.contrato-tabs{display:flex;gap:.6rem;margin-bottom:1.4rem;flex-wrap:wrap;}
+.contrato-tab{display:flex;align-items:center;gap:.5rem;padding:.55rem 1.1rem;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);cursor:pointer;transition:all .15s;}
+.contrato-tab:hover{border-color:var(--indigo);background:var(--indigo-light);}
+.contrato-tab.active{border-color:var(--indigo);background:var(--indigo-light);}
+.contrato-tab-nome{font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:900;color:var(--text);}
+.contrato-tab.active .contrato-tab-nome{color:var(--indigo);}
+.contrato-tab-count{font-size:.65rem;font-weight:800;background:var(--bg);padding:.15rem .5rem;border-radius:8px;color:var(--muted);}
+.contrato-tab.active .contrato-tab-count{background:rgba(99,102,241,.15);color:var(--indigo);}
+
+/* ══ GRID DE UPAs ══ */
+.upas-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.2rem;margin-bottom:1.4rem;}
+
+.upa-card{background:var(--surface);border-radius:20px;border:1.5px solid var(--border);overflow:hidden;transition:transform .15s,box-shadow .15s;}
+.upa-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.08);}
+.upa-card.ok    {border-top:4px solid var(--green);}
+.upa-card.warn  {border-top:4px solid var(--yellow);}
+.upa-card.critico{border-top:4px solid var(--red);}
+
+/* cabeçalho UPA */
+.upa-header{padding:1rem 1.4rem;display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;border-bottom:1px solid var(--border);}
+.upa-header-left{display:flex;align-items:center;gap:.8rem;}
+.upa-semaforo{width:14px;height:14px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px currentColor;animation:pulse-sem 2s ease infinite;}
+.upa-semaforo.ok    {background:var(--green);color:rgba(34,197,94,.25);}
+.upa-semaforo.warn  {background:var(--yellow);color:rgba(245,158,11,.25);}
+.upa-semaforo.critico{background:var(--red);color:rgba(239,68,68,.25);}
+@keyframes pulse-sem{0%,100%{box-shadow:0 0 0 3px currentColor}50%{box-shadow:0 0 0 6px transparent}}
+.upa-nome{font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:var(--text);line-height:1.2;}
+.upa-contrato{font-size:.68rem;font-weight:700;color:var(--muted);margin-top:2px;}
+.upa-status-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:800;padding:.28rem .7rem;border-radius:20px;white-space:nowrap;}
+.upa-status-badge.ok    {background:var(--green-light);color:#16a34a;}
+.upa-status-badge.warn  {background:var(--yellow-light);color:#b45309;}
+.upa-status-badge.critico{background:var(--red-light);color:#dc2626;}
+
+/* TURNOS */
+.upa-turnos{padding:.9rem 1.4rem;display:flex;flex-direction:column;gap:.6rem;border-bottom:1px solid var(--border);}
+.turno-row{background:var(--bg);border-radius:12px;padding:.65rem .9rem;display:flex;align-items:center;gap:.8rem;}
+.turno-label{font-size:.72rem;font-weight:900;color:var(--text);min-width:52px;}
+.turno-horario{font-size:.64rem;font-weight:700;color:var(--muted);min-width:80px;}
+.turno-medicos{display:flex;gap:.3rem;flex-wrap:wrap;flex:1;}
+.med-chip{display:flex;align-items:center;gap:.3rem;padding:.22rem .55rem;border-radius:8px;font-size:.68rem;font-weight:800;}
+.med-chip.presente  {background:var(--green-light);color:#166534;}
+.med-chip.atrasado  {background:var(--yellow-light);color:#92400e;}
+.med-chip.ausente   {background:var(--red-light);color:#991b1b;}
+.med-chip.escalado  {background:var(--indigo-light);color:var(--indigo);}
+.med-chip.futuro    {background:var(--bg);color:var(--muted);border:1px solid var(--border);}
+.med-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.52rem;font-weight:900;color:#fff;flex-shrink:0;}
+.turno-vagas{font-size:.64rem;font-weight:800;padding:.18rem .55rem;border-radius:8px;white-space:nowrap;}
+.turno-vagas.ok  {background:var(--green-light);color:#16a34a;}
+.turno-vagas.warn{background:var(--yellow-light);color:#b45309;}
+.turno-vagas.crit{background:var(--red-light);color:#dc2626;}
+
+/* STATS UPA */
+.upa-stats{padding:.8rem 1.4rem;display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;}
+.upa-stat{background:var(--bg);border-radius:9px;padding:.5rem .6rem;text-align:center;}
+.upa-stat-val{font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;line-height:1;}
+.upa-stat-lbl{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:2px;}
+
+/* FOOTER UPA */
+.upa-footer{padding:.65rem 1.4rem;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.upa-footer-info{font-size:.68rem;font-weight:600;color:var(--muted);}
+.upa-footer-actions{display:flex;gap:.4rem;}
+.btn-upa{display:flex;align-items:center;gap:.3rem;padding:.3rem .75rem;border-radius:8px;border:1.5px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-size:.7rem;font-weight:800;color:var(--muted);cursor:pointer;transition:all .15s;}
+.btn-upa:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light);}
+.btn-upa.alerta{border-color:rgba(239,68,68,.3);color:var(--red);background:var(--red-light);}
+.btn-upa.alerta:hover{background:rgba(239,68,68,.15);}
+
+/* ══ EVENTOS RECENTES ══ */
+.eventos-card{background:var(--surface);border-radius:18px;border:1.5px solid var(--border);overflow:hidden;margin-bottom:1.4rem;}
+.eventos-header{padding:.9rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.eventos-title{font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:900;color:var(--text);}
+.eventos-list{display:flex;flex-direction:column;max-height:280px;overflow-y:auto;}
+.eventos-list::-webkit-scrollbar{width:4px;}
+.eventos-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,.08);border-radius:4px;}
+.evento-item{display:flex;align-items:center;gap:.8rem;padding:.7rem 1.4rem;border-bottom:1px solid rgba(0,0,0,.04);transition:background .12s;}
+.evento-item:last-child{border-bottom:none;}
+.evento-item:hover{background:#f8f9ff;}
+.evento-hora{font-size:.68rem;font-weight:800;color:var(--muted);min-width:44px;font-family:'Nunito',sans-serif;}
+.evento-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.evento-texto{flex:1;font-size:.78rem;font-weight:700;color:var(--text);line-height:1.3;}
+.evento-texto span{font-weight:600;color:var(--muted);}
+.evento-upa{font-size:.65rem;font-weight:800;padding:.15rem .5rem;border-radius:8px;background:var(--bg);color:var(--muted);white-space:nowrap;}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1a1f36;color:#fff;border-radius:12px;padding:.9rem 1.4rem;display:flex;align-items:center;gap:.7rem;font-size:.82rem;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:transform .3s ease,opacity .3s ease;z-index:200;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="36" height="36" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(99,102,241,.6)"/><stop offset="100%" stop-color="rgba(45,191,184,.5)"/></linearGradient></defs><circle cx="44" cy="44" r="44" fill="url(#sg)"/><path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/><polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="37,24 42,30 52,20" fill="none" stroke="#6366f1" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><div class="sidebar-logo-name">24p7</div><div class="sidebar-logo-tag">Tecnologia para quem não para</div><div class="sidebar-module">Admin OS</div></div>
+  </div>
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="admin-welcome.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>Início</a>
+  <a class="nav-item active" href="admin-tempo-real.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Tempo Real</a>
+  <a class="nav-item" href="admin-alertas.html">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Central de Alertas
+  </a>
+  <div class="nav-section-label">Cadastros</div>
+  <a class="nav-item" href="admin-usuarios.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários da OS</a>
+  <a class="nav-item" href="admin-orgaos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Órgãos Públicos</a>
+  <a class="nav-item" href="admin-gestores.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Gestores do Órgão</a>
+  <a class="nav-item" href="admin-upas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Unidades (UPAs)</a>
+  <a class="nav-item" href="admin-medicos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 11v4"/><path d="M9 14h6"/></svg>Médicos / Enfermeiros</a>
+  <div class="nav-section-label">Operacional</div>
+  <a class="nav-item" href="admin-escalas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Escalas</a>
+  <a class="nav-item" href="admin-substituicoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Substituições</a>
+  <a class="nav-item" href="admin-disponibilidade.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilidade</a>
+  <a class="nav-item" href="admin-justificativas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Justificativas</a>
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="admin-gerencial.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Gerencial</a>
+  <a class="nav-item" href="admin-faturamento.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Faturamento</a>
+  <div class="nav-section-label">Sistema</div>
+  <a class="nav-item" href="admin-configuracoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>Configurações</a>
+  <a class="nav-item" href="admin-auditoria.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoria</a>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">SG</div>
+      <div><div class="sidebar-user-name">Sileide G. Rocha</div><div class="sidebar-user-role">Administradora · OS</div></div>
+      <button class="logout-btn" onclick="window.location.href='admin-login.html'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Tempo Real — Todos os Contratos</div>
+      <div class="topbar-sub">Visão simultânea de todas as UPAs em operação</div>
+    </div>
+    <div class="topbar-right">
+      <div class="relogio" id="relogio">--:--:--</div>
+      <div class="live-badge"><div class="live-dot"></div>Ao vivo</div>
+      <button class="btn-atualizar" onclick="atualizar()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.5"/></svg>
+        Atualizar
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- RESUMO GLOBAL -->
+    <div class="resumo-global">
+      <div class="rg-titulo">
+        <div class="rg-titulo-label">Status global agora</div>
+        <div class="rg-titulo-val" id="rg-status">⚠ Atenção requerida</div>
+        <div class="rg-titulo-sub">2 contratos · 4 UPAs em operação · Turno da manhã</div>
+      </div>
+      <div class="rg-stats">
+        <div class="rg-stat">
+          <div class="rg-stat-val ok" id="rg-presentes">11</div>
+          <div class="rg-stat-lbl">Presentes</div>
+        </div>
+        <div class="rg-stat">
+          <div class="rg-stat-val warn" id="rg-atrasados">2</div>
+          <div class="rg-stat-lbl">Atrasados</div>
+        </div>
+        <div class="rg-stat">
+          <div class="rg-stat-val crit" id="rg-ausentes">1</div>
+          <div class="rg-stat-lbl">Ausentes</div>
+        </div>
+        <div class="rg-stat">
+          <div class="rg-stat-val crit" id="rg-vagas">2</div>
+          <div class="rg-stat-lbl">Vagas abertas</div>
+        </div>
+        <div class="rg-stat">
+          <div class="rg-stat-val" id="rg-sla" style="color:#a5b4fc;">88%</div>
+          <div class="rg-stat-lbl">SLA hoje</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABS DE CONTRATO -->
+    <div class="contrato-tabs">
+      <div class="contrato-tab active" onclick="filtrarContrato('todos',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+        <div class="contrato-tab-nome">Todas as UPAs</div>
+        <div class="contrato-tab-count">4 unidades</div>
+      </div>
+      <div class="contrato-tab" onclick="filtrarContrato('sp',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <div class="contrato-tab-nome">Pref. São Paulo</div>
+        <div class="contrato-tab-count">CT-2024-0087 · 2 UPAs</div>
+      </div>
+      <div class="contrato-tab" onclick="filtrarContrato('gru',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <div class="contrato-tab-nome">Pref. Guarulhos</div>
+        <div class="contrato-tab-count">CT-2023-0142 · 2 UPAs</div>
+      </div>
+    </div>
+
+    <!-- CARDS DE UPAs -->
+    <div class="upas-grid" id="upas-grid"></div>
+
+    <!-- EVENTOS RECENTES -->
+    <div class="eventos-card">
+      <div class="eventos-header">
+        <div class="eventos-title">Feed de eventos — hoje</div>
+        <span style="font-size:.7rem;font-weight:700;color:var(--muted);">Atualiza automaticamente</span>
+      </div>
+      <div class="eventos-list" id="eventos-list"></div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast"><span id="toast-msg"></span></div>
+
+<script>
+// ════════════════════════
+// DADOS
+// ════════════════════════
+const UPAS_DATA = [
+  {
+    id:'vila-pereira', contrato:'sp',
+    nome:'UPA – Vila Pereira', prefeitura:'Pref. São Paulo · CT-2024-0087',
+    status:'ok', statusLabel:'Normal',
+    turnos:[
+      { label:'Manhã', horario:'07h–19h', ativo:true,
+        medicos:[
+          {ini:'JL',nome:'Dra. Jessica Lima',  cor:'#6366f1',status:'presente', hora:'07:02'},
+          {ini:'RA',nome:'Dr. Roberto Alves',  cor:'#2DBFB8',status:'presente', hora:'07:08'},
+          {ini:'CF',nome:'Dra. Camila Ferraz', cor:'#22c55e',status:'atrasado', hora:'07:28'},
+          {ini:'AS',nome:'Dr. André Souza',    cor:'#f97316',status:'presente', hora:'07:05'},
+        ]},
+      { label:'Noite', horario:'19h–07h', ativo:false,
+        medicos:[
+          {ini:'JL',nome:'Dra. Jessica Lima',  cor:'#6366f1',status:'escalado'},
+          {ini:'RA',nome:'Dr. Roberto Alves',  cor:'#2DBFB8',status:'escalado'},
+        ]},
+    ],
+    stats:{ presentes:3, atrasados:1, ausentes:0, vagas:0, sla:97 },
+    ultimoEvento:'Dra. Camila Ferraz check-in 07:28',
+  },
+  {
+    id:'centro', contrato:'sp',
+    nome:'UPA – Centro', prefeitura:'Pref. São Paulo · CT-2024-0087',
+    status:'critico', statusLabel:'Atenção crítica',
+    turnos:[
+      { label:'Manhã', horario:'07h–19h', ativo:true,
+        medicos:[
+          {ini:'PH',nome:'Dr. Paulo Henrique', cor:'#8b5cf6',status:'presente', hora:'07:00'},
+          {ini:'MC',nome:'Dra. Mariana Costa', cor:'#f59e0b',status:'atrasado', hora:'07:45'},
+          {ini:'FM',nome:'Dr. Fábio Melo',     cor:'#3b82f6',status:'presente', hora:'07:03'},
+          {ini:'RS',nome:'Dra. Renata Silva',  cor:'#ef4444',status:'ausente',  hora:'—'},
+        ]},
+      { label:'Noite', horario:'19h–07h', ativo:false,
+        medicos:[
+          {ini:'PH',nome:'Dr. Paulo Henrique', cor:'#8b5cf6',status:'escalado'},
+          {ini:null,nome:'Vaga em aberto',     cor:'#6b7280',status:'vaga'},
+        ]},
+    ],
+    stats:{ presentes:2, atrasados:1, ausentes:1, vagas:1, sla:75 },
+    ultimoEvento:'Dra. Renata Silva ausência detectada 07:05',
+  },
+  {
+    id:'zona-norte', contrato:'gru',
+    nome:'UPA – Zona Norte', prefeitura:'Pref. Guarulhos · CT-2023-0142',
+    status:'ok', statusLabel:'Normal',
+    turnos:[
+      { label:'Manhã', horario:'07h–19h', ativo:true,
+        medicos:[
+          {ini:'CN',nome:'Dr. Carlos Nunes',   cor:'#0f766e',status:'presente', hora:'06:55'},
+          {ini:'TR',nome:'Dra. Tatiane Rocha', cor:'#7c3aed',status:'presente', hora:'07:00'},
+          {ini:'LP',nome:'Dr. Lucas Prado',    cor:'#059669',status:'presente', hora:'07:01'},
+        ]},
+      { label:'Noite', horario:'19h–07h', ativo:false,
+        medicos:[
+          {ini:'CN',nome:'Dr. Carlos Nunes',   cor:'#0f766e',status:'escalado'},
+          {ini:'TR',nome:'Dra. Tatiane Rocha', cor:'#7c3aed',status:'escalado'},
+        ]},
+    ],
+    stats:{ presentes:3, atrasados:0, ausentes:0, vagas:0, sla:100 },
+    ultimoEvento:'Dr. Carlos Nunes check-in antecipado 06:55',
+  },
+  {
+    id:'zona-sul', contrato:'gru',
+    nome:'UPA – Zona Sul', prefeitura:'Pref. Guarulhos · CT-2023-0142',
+    status:'warn', statusLabel:'Atenção',
+    turnos:[
+      { label:'Manhã', horario:'07h–19h', ativo:true,
+        medicos:[
+          {ini:'BL',nome:'Dra. Beatriz Lima',   cor:'#be185d',status:'presente', hora:'07:12'},
+          {ini:'MD',nome:'Dr. Marcelo Dias',    cor:'#b45309',status:'atrasado', hora:'07:38'},
+          {ini:null,nome:'Vaga em aberto',      cor:'#6b7280',status:'vaga'},
+        ]},
+      { label:'Noite', horario:'19h–07h', ativo:false,
+        medicos:[
+          {ini:'BL',nome:'Dra. Beatriz Lima',   cor:'#be185d',status:'escalado'},
+          {ini:'MD',nome:'Dr. Marcelo Dias',    cor:'#b45309',status:'escalado'},
+          {ini:'PT',nome:'Dra. Priscila Teles', cor:'#6b7280',status:'escalado'},
+        ]},
+    ],
+    stats:{ presentes:1, atrasados:1, ausentes:0, vagas:1, sla:81 },
+    ultimoEvento:'Dr. Marcelo Dias check-in 07:38 (38 min de atraso)',
+  },
+];
+
+const EVENTOS = [
+  { hora:'11:23', tipo:'critico', icon:'🔴', texto:'Turno da noite sem cobertura detectado', upa:'UPA – Centro' },
+  { hora:'10:45', tipo:'warn',    icon:'🟡', texto:'Atraso de 38 min registrado — Dr. Marcelo Dias', upa:'UPA – Zona Sul' },
+  { hora:'09:30', tipo:'ok',      icon:'🟢', texto:'Check-out realizado — Dr. Roberto Alves (noite)', upa:'UPA – Vila Pereira' },
+  { hora:'08:50', tipo:'ok',      icon:'🟢', texto:'Substituto confirmado para turno da tarde', upa:'UPA – Vila Pereira' },
+  { hora:'07:45', tipo:'warn',    icon:'🟡', texto:'Check-in com 45 min de atraso — Dra. Mariana Costa', upa:'UPA – Centro' },
+  { hora:'07:28', tipo:'warn',    icon:'🟡', texto:'Check-in com 28 min de atraso — Dra. Camila Ferraz', upa:'UPA – Vila Pereira' },
+  { hora:'07:12', tipo:'ok',      icon:'🟢', texto:'Check-in realizado — Dra. Beatriz Lima', upa:'UPA – Zona Sul' },
+  { hora:'07:05', tipo:'critico', icon:'🔴', texto:'Ausência não comunicada — Dra. Renata Silva', upa:'UPA – Centro' },
+  { hora:'07:01', tipo:'ok',      icon:'🟢', texto:'Check-in realizado — Dr. Lucas Prado', upa:'UPA – Zona Norte' },
+  { hora:'07:00', tipo:'ok',      icon:'🟢', texto:'Check-in realizado — Dr. Carlos Nunes (antecipado)', upa:'UPA – Zona Norte' },
+  { hora:'07:00', tipo:'ok',      icon:'🟢', texto:'Check-in realizado — Dr. Paulo Henrique', upa:'UPA – Centro' },
+  { hora:'07:02', tipo:'ok',      icon:'🟢', texto:'Check-in realizado — Dra. Jessica Lima', upa:'UPA – Vila Pereira' },
+];
+
+// ════════════════════════
+// ESTADO
+// ════════════════════════
+let filtroContrato = 'todos';
+
+function filtrarContrato(c, el) {
+  filtroContrato = c;
+  document.querySelectorAll('.contrato-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderUPAs();
+}
+
+// ════════════════════════
+// RENDER UPAs
+// ════════════════════════
+const STATUS_CHIP = {
+  presente: { cls:'presente', label:'✓' },
+  atrasado: { cls:'atrasado', label:'⏱' },
+  ausente:  { cls:'ausente',  label:'✗' },
+  escalado: { cls:'escalado', label:'📅' },
+  vaga:     { cls:'ausente',  label:'!' },
+};
+
+function renderUPAs() {
+  const dados = filtroContrato === 'todos'
+    ? UPAS_DATA
+    : UPAS_DATA.filter(u => u.contrato === filtroContrato);
+
+  document.getElementById('upas-grid').innerHTML = dados.map(u => {
+    const turnosHTML = u.turnos.map(t => {
+      const medsHTML = t.medicos.map(m => {
+        const sc = STATUS_CHIP[m.status] || STATUS_CHIP.escalado;
+        const nome = m.ini ? m.nome.split(' ').slice(0,2).join(' ') : 'Vaga aberta';
+        return `<div class="med-chip ${sc.cls}" title="${m.nome}${m.hora?(' · '+m.hora):''}">
+          <div class="med-av" style="background:${m.cor};">${m.ini||'!'}</div>
+          <span>${nome}</span>
+        </div>`;
+      }).join('');
+
+      const vagasAbertas = t.medicos.filter(m => m.status === 'vaga').length;
+      const vagasChip = vagasAbertas > 0
+        ? `<span class="turno-vagas crit">${vagasAbertas} vaga${vagasAbertas>1?'s':''} aberta${vagasAbertas>1?'s':''}</span>`
+        : t.ativo
+          ? `<span class="turno-vagas ok">Completo</span>`
+          : '';
+
+      return `<div class="turno-row" style="${!t.ativo?'opacity:.65':''}">
+        <div class="turno-label">${t.label}</div>
+        <div class="turno-horario">${t.horario}</div>
+        <div class="turno-medicos">${medsHTML}</div>
+        ${vagasChip}
+        ${!t.ativo ? '<span style="font-size:.62rem;font-weight:700;color:var(--muted);">Próximo turno</span>' : ''}
+      </div>`;
+    }).join('');
+
+    const corStat = s => s === 100 ? 'var(--green)' : s >= 85 ? 'var(--yellow)' : 'var(--red)';
+
+    const temAlerta = u.status === 'critico' || u.status === 'warn';
+
+    return `<div class="upa-card ${u.status}">
+      <div class="upa-header">
+        <div class="upa-header-left">
+          <div class="upa-semaforo ${u.status}"></div>
+          <div>
+            <div class="upa-nome">${u.nome}</div>
+            <div class="upa-contrato">${u.prefeitura}</div>
+          </div>
+        </div>
+        <span class="upa-status-badge ${u.status}">${u.statusLabel}</span>
+      </div>
+      <div class="upa-turnos">${turnosHTML}</div>
+      <div class="upa-stats">
+        <div class="upa-stat"><div class="upa-stat-val" style="color:var(--green);">${u.stats.presentes}</div><div class="upa-stat-lbl">Presentes</div></div>
+        <div class="upa-stat"><div class="upa-stat-val" style="color:${u.stats.atrasados>0?'var(--yellow)':'var(--muted)'};">${u.stats.atrasados}</div><div class="upa-stat-lbl">Atrasados</div></div>
+        <div class="upa-stat"><div class="upa-stat-val" style="color:${u.stats.ausentes>0?'var(--red)':'var(--muted)'};">${u.stats.ausentes}</div><div class="upa-stat-lbl">Ausentes</div></div>
+        <div class="upa-stat"><div class="upa-stat-val" style="color:${corStat(u.stats.sla)};">${u.stats.sla}%</div><div class="upa-stat-lbl">SLA hoje</div></div>
+      </div>
+      <div class="upa-footer">
+        <div class="upa-footer-info">Último evento: ${u.ultimoEvento}</div>
+        <div class="upa-footer-actions">
+          ${temAlerta ? `<button class="btn-upa alerta" onclick="toast('Abrindo Central de Alertas para ${u.nome}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Alerta</button>` : ''}
+          <button class="btn-upa" onclick="toast('Abrindo histórico de ${u.nome}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Detalhes</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════
+// EVENTOS
+// ════════════════════════
+function renderEventos() {
+  const TIPO_ICON_BG = { critico:'var(--red-light)', warn:'var(--yellow-light)', ok:'var(--green-light)' };
+  document.getElementById('eventos-list').innerHTML = EVENTOS.map(e => `
+    <div class="evento-item">
+      <div class="evento-hora">${e.hora}</div>
+      <div class="evento-icon" style="background:${TIPO_ICON_BG[e.tipo]};">${e.icon}</div>
+      <div class="evento-texto">${e.texto} <span>· ${e.upa}</span></div>
+      <div class="evento-upa">${e.upa.replace('UPA – ','')}</div>
+    </div>`).join('');
+}
+
+// ════════════════════════
+// RELÓGIO
+// ════════════════════════
+function atualizarRelogio() {
+  const n = new Date();
+  const h = String(n.getHours()).padStart(2,'0');
+  const m = String(n.getMinutes()).padStart(2,'0');
+  const s = String(n.getSeconds()).padStart(2,'0');
+  document.getElementById('relogio').textContent = h+':'+m+':'+s;
+}
+
+function atualizar() {
+  toast('✅ Dados atualizados com sucesso!');
+  renderUPAs();
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ════════════════════════
+// INIT
+// ════════════════════════
+renderUPAs();
+renderEventos();
+atualizarRelogio();
+setInterval(atualizarRelogio, 1000);
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR', {
+  weekday:'long', day:'2-digit', month:'long', year:'numeric'
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 Admin – Central de Alertas</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --teal:#2DBFB8;--teal-light:#e8faf9;
+  --indigo:#6366f1;--indigo-dark:#4f46e5;--indigo-light:#eef2ff;
+  --bg:#f4f5f9;--surface:#fff;--text:#1a1f36;--muted:#6b7280;
+  --border:rgba(99,102,241,.14);--nav-w:260px;
+  --green:#22c55e;--green-light:#dcfce7;
+  --yellow:#f59e0b;--yellow-light:#fef3c7;
+  --red:#ef4444;--red-light:#fee2e2;
+  --purple:#8b5cf6;--purple-light:#ede9fe;
+  --orange:#f97316;--orange-light:#fff7ed;
+  --blue:#3b82f6;--blue-light:#eff6ff;
+}
+html,body{min-height:100vh;font-family:'Nunito Sans',sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;}
+
+/* ══ SIDEBAR ══ */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--nav-w);background:#1a1f36;display:flex;flex-direction:column;padding:1.8rem 0;z-index:50;overflow-y:auto;}
+.sidebar-logo{display:flex;align-items:center;gap:.8rem;padding:0 1.5rem 1.8rem;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:1.4rem;}
+.sidebar-logo-name{font-family:'Nunito',sans-serif;font-size:1.5rem;font-weight:900;color:#fff;letter-spacing:-1px;line-height:1;}
+.sidebar-logo-tag{font-size:.58rem;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:.04em;line-height:1.3;}
+.sidebar-module{display:inline-flex;align-items:center;gap:.35rem;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:.2rem .65rem;font-size:.6rem;font-weight:800;color:#a5b4fc;letter-spacing:.06em;text-transform:uppercase;margin-top:4px;}
+.nav-section-label{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.3);padding:0 1.5rem;margin-bottom:.35rem;margin-top:.9rem;}
+.nav-item{display:flex;align-items:center;gap:.75rem;padding:.7rem 1.5rem;font-size:.83rem;font-weight:700;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;border-left:3px solid transparent;text-decoration:none;position:relative;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85);}
+.nav-item.active{background:rgba(99,102,241,.15);color:#a5b4fc;border-left-color:var(--indigo);}
+.nav-item svg{flex-shrink:0;opacity:.7;}.nav-item.active svg{opacity:1;}
+.nav-badge{position:absolute;right:1.2rem;top:50%;transform:translateY(-50%);background:var(--red);color:#fff;font-size:.58rem;font-weight:900;padding:.15rem .45rem;border-radius:20px;min-width:18px;text-align:center;line-height:1.4;}
+.sidebar-footer{margin-top:auto;padding:1.2rem 1.5rem 0;border-top:1px solid rgba(255,255,255,.08);}
+.sidebar-user{display:flex;align-items:center;gap:.75rem;}
+.sidebar-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--indigo),var(--teal));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;color:#fff;flex-shrink:0;}
+.sidebar-user-name{font-size:.78rem;font-weight:800;color:rgba(255,255,255,.85);line-height:1.2;}
+.sidebar-user-role{font-size:.62rem;font-weight:600;color:rgba(255,255,255,.4);}
+.logout-btn{background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;margin-left:auto;padding:4px;transition:color .15s;}
+.logout-btn:hover{color:rgba(255,255,255,.8);}
+
+/* ══ MAIN ══ */
+.main{margin-left:var(--nav-w);min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-title{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);}
+.topbar-sub{font-size:.7rem;font-weight:600;color:var(--muted);margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:.7rem;}
+.btn-marcar-todos{display:flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:10px;border:1.5px solid var(--border);background:none;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:800;color:var(--muted);cursor:pointer;transition:all .15s;}
+.btn-marcar-todos:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light);}
+.content{flex:1;padding:2rem;animation:fadeUp .35s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ KPI STRIP ══ */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.4rem;}
+.kpi-s{background:var(--surface);border-radius:16px;border:1.5px solid var(--border);padding:.9rem 1.1rem;position:relative;overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;}
+.kpi-s:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.07);}
+.kpi-s.selecionado{box-shadow:0 0 0 2.5px var(--indigo);}
+.kpi-s::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;}
+.kpi-s.todos::after  {background:var(--indigo);}
+.kpi-s.critico::after{background:var(--red);}
+.kpi-s.atencao::after{background:var(--yellow);}
+.kpi-s.info::after   {background:var(--blue);}
+.kpi-s.resolvido::after{background:var(--green);}
+.kpi-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.2rem;}
+.kpi-val{font-family:'Nunito',sans-serif;font-size:1.7rem;font-weight:900;line-height:1;}
+.kpi-s.todos   .kpi-val{color:var(--indigo);}
+.kpi-s.critico .kpi-val{color:var(--red);}
+.kpi-s.atencao .kpi-val{color:var(--yellow);}
+.kpi-s.info    .kpi-val{color:var(--blue);}
+.kpi-s.resolvido .kpi-val{color:var(--green);}
+.kpi-sub{font-size:.65rem;font-weight:600;color:var(--muted);margin-top:.2rem;}
+
+/* ══ LAYOUT ══ */
+.alertas-layout{display:grid;grid-template-columns:1fr 320px;gap:1.2rem;align-items:start;}
+
+/* ══ FILTROS / TABS ══ */
+.filter-bar{display:flex;align-items:center;gap:.7rem;margin-bottom:1rem;flex-wrap:wrap;}
+.tipo-tabs{display:flex;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:3px;gap:2px;flex-wrap:wrap;}
+.tipo-tab{padding:.38rem .85rem;border-radius:9px;border:none;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:800;cursor:pointer;transition:all .15s;background:none;color:var(--muted);white-space:nowrap;}
+.tipo-tab.active{background:var(--indigo);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.3);}
+.tipo-tab:hover:not(.active){background:var(--indigo-light);color:var(--indigo);}
+.search-wrap{position:relative;flex:1;min-width:200px;}
+.search-wrap svg{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;}
+.search-input{width:100%;padding:.6rem 1rem .6rem 2.4rem;border:1.5px solid var(--border);border-radius:10px;font-family:'Nunito Sans',sans-serif;font-size:.82rem;font-weight:600;color:var(--text);background:var(--surface);outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:var(--indigo);}
+.filter-select{appearance:none;-webkit-appearance:none;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:.6rem 2.1rem .6rem .85rem;font-family:'Nunito Sans',sans-serif;font-size:.78rem;font-weight:700;color:var(--text);outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .6rem center;}
+.filter-select:focus{border-color:var(--indigo);}
+
+/* ══ LISTA DE ALERTAS ══ */
+.alertas-list{display:flex;flex-direction:column;gap:.7rem;}
+
+.alerta-card{
+  background:var(--surface);border-radius:16px;
+  border:1.5px solid var(--border);
+  border-left:4px solid;
+  overflow:hidden;
+  transition:transform .15s,box-shadow .15s;
+  animation:fadeUp .3s ease;
+}
+.alerta-card:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.07);}
+.alerta-card.critico{border-left-color:var(--red);}
+.alerta-card.atencao{border-left-color:var(--yellow);}
+.alerta-card.info   {border-left-color:var(--blue);}
+.alerta-card.resolvido{border-left-color:var(--green);opacity:.75;}
+
+.alerta-body{padding:.9rem 1.2rem;display:flex;align-items:flex-start;gap:.9rem;}
+.alerta-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.alerta-card.critico .alerta-icon{background:var(--red-light);color:var(--red);}
+.alerta-card.atencao .alerta-icon{background:var(--yellow-light);color:var(--yellow);}
+.alerta-card.info    .alerta-icon{background:var(--blue-light);color:var(--blue);}
+.alerta-card.resolvido .alerta-icon{background:var(--green-light);color:var(--green);}
+
+.alerta-content{flex:1;min-width:0;}
+.alerta-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;margin-bottom:.25rem;}
+.alerta-titulo{font-family:'Nunito',sans-serif;font-size:.92rem;font-weight:900;color:var(--text);line-height:1.3;}
+.alerta-card.resolvido .alerta-titulo{color:var(--muted);}
+.alerta-tempo{font-size:.68rem;font-weight:800;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+.alerta-desc{font-size:.78rem;font-weight:600;color:var(--muted);line-height:1.5;margin-bottom:.55rem;}
+.alerta-desc strong{color:var(--text);}
+.alerta-meta{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+
+.badge{display:inline-flex;align-items:center;gap:.28rem;font-size:.62rem;font-weight:800;padding:.2rem .6rem;border-radius:20px;white-space:nowrap;}
+.badge-critico  {background:var(--red-light);color:#dc2626;}
+.badge-atencao  {background:var(--yellow-light);color:#b45309;}
+.badge-info     {background:var(--blue-light);color:var(--blue);}
+.badge-resolvido{background:var(--green-light);color:#16a34a;}
+.badge-upa      {background:var(--bg);color:var(--muted);border:1px solid rgba(0,0,0,.06);}
+.badge-tipo     {background:var(--indigo-light);color:var(--indigo);}
+
+.alerta-footer{padding:.65rem 1.2rem;border-top:1px solid rgba(0,0,0,.05);display:flex;align-items:center;justify-content:space-between;gap:.6rem;background:rgba(0,0,0,.015);}
+.alerta-footer-info{font-size:.68rem;font-weight:700;color:var(--muted);}
+.alerta-acoes{display:flex;gap:.4rem;}
+.btn-acao{display:flex;align-items:center;gap:.35rem;padding:.35rem .8rem;border-radius:8px;border:1.5px solid;font-family:'Nunito',sans-serif;font-size:.72rem;font-weight:800;cursor:pointer;transition:all .15s;}
+.btn-acao.primario{background:var(--indigo);border-color:var(--indigo);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.25);}
+.btn-acao.primario:hover{background:var(--indigo-dark);}
+.btn-acao.secundario{background:none;border-color:var(--border);color:var(--muted);}
+.btn-acao.secundario:hover{border-color:var(--indigo);color:var(--indigo);background:var(--indigo-light);}
+.btn-acao.ok{background:var(--green-light);border-color:rgba(34,197,94,.3);color:#16a34a;}
+.btn-acao.ok:hover{background:rgba(34,197,94,.2);}
+.btn-acao.disabled{opacity:.5;cursor:not-allowed;pointer-events:none;}
+
+/* sem alertas */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem;background:var(--surface);border-radius:16px;border:1.5px solid var(--border);gap:.7rem;}
+.empty-icon{width:56px;height:56px;border-radius:50%;background:var(--green-light);display:flex;align-items:center;justify-content:center;}
+.empty-title{font-family:'Nunito',sans-serif;font-size:1rem;font-weight:900;color:var(--green);}
+.empty-sub{font-size:.8rem;font-weight:600;color:var(--muted);text-align:center;}
+
+/* ══ PAINEL DIREITO ══ */
+.side-stack{display:flex;flex-direction:column;gap:.9rem;}
+.side-card{background:var(--surface);border-radius:16px;border:1.5px solid var(--border);overflow:hidden;}
+.side-header{padding:.85rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.side-title{font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:900;color:var(--text);}
+.side-body{padding:.9rem 1.1rem;}
+
+/* estatísticas rápidas */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.stat-item{background:var(--bg);border-radius:10px;padding:.65rem .8rem;text-align:center;}
+.stat-val{font-family:'Nunito',sans-serif;font-size:1.3rem;font-weight:900;line-height:1;}
+.stat-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px;}
+
+/* responsáveis */
+.resp-list{display:flex;flex-direction:column;gap:.45rem;}
+.resp-item{display:flex;align-items:center;gap:.6rem;padding:.45rem .5rem;border-radius:9px;background:var(--bg);}
+.resp-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;color:#fff;flex-shrink:0;}
+.resp-name{font-size:.75rem;font-weight:800;color:var(--text);flex:1;}
+.resp-count{font-family:'Nunito',sans-serif;font-size:.82rem;font-weight:900;padding:.18rem .55rem;border-radius:8px;}
+.resp-count.critico{background:var(--red-light);color:#dc2626;}
+.resp-count.ok{background:var(--green-light);color:#16a34a;}
+
+/* linha do tempo de hoje */
+.timeline-hoje{display:flex;flex-direction:column;gap:0;position:relative;padding-left:1.4rem;}
+.timeline-hoje::before{content:'';position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:linear-gradient(to bottom,var(--indigo),rgba(99,102,241,.1));border-radius:2px;}
+.tl-item{position:relative;padding:.4rem 0 .4rem .2rem;font-size:.74rem;}
+.tl-dot{position:absolute;left:-1.1rem;top:9px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px currentColor;}
+.tl-item.critico .tl-dot{color:var(--red);background:var(--red);}
+.tl-item.atencao .tl-dot{color:var(--yellow);background:var(--yellow);}
+.tl-item.info    .tl-dot{color:var(--blue);background:var(--blue);}
+.tl-item.resolvido .tl-dot{color:var(--green);background:var(--green);}
+.tl-hora{font-weight:800;color:var(--muted);font-size:.65rem;display:block;}
+.tl-txt{font-weight:700;color:var(--text);line-height:1.3;}
+
+/* MODAL AÇÃO */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:1rem;}
+.modal-overlay.open{display:flex;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:#fff;border-radius:20px;width:100%;max-width:460px;box-shadow:0 20px 60px rgba(0,0,0,.15);animation:popIn .3s cubic-bezier(.34,1.56,.64,1);overflow:hidden;}
+@keyframes popIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-header{padding:1.3rem 1.6rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.7rem;}
+.modal-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.modal-title{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);flex:1;}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;line-height:0;}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:1.4rem 1.6rem;}
+.modal-desc{font-size:.85rem;font-weight:600;color:var(--muted);line-height:1.6;margin-bottom:1.2rem;}
+.modal-desc strong{color:var(--text);}
+.modal-field{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem;}
+.modal-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);}
+.modal-select,.modal-textarea{padding:.7rem .9rem;border:1.5px solid var(--border);border-radius:10px;font-family:'Nunito Sans',sans-serif;font-size:.85rem;font-weight:600;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s;width:100%;}
+.modal-select:focus,.modal-textarea:focus{border-color:var(--indigo);background:#fff;}
+.modal-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .8rem center;background-color:var(--bg);cursor:pointer;}
+.modal-textarea{resize:vertical;min-height:80px;}
+.modal-footer{padding:1rem 1.6rem;border-top:1px solid var(--border);display:flex;gap:.7rem;}
+.btn-confirmar{flex:1;padding:.8rem;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--indigo),var(--indigo-dark));transition:transform .14s;}
+.btn-confirmar:hover{transform:translateY(-1px);}
+.btn-cancelar{padding:.8rem 1.2rem;border:1.5px solid var(--border);border-radius:12px;font-family:'Nunito',sans-serif;font-size:.88rem;font-weight:700;color:var(--muted);cursor:pointer;background:none;}
+.btn-cancelar:hover{border-color:var(--indigo);color:var(--indigo);}
+
+/* TOAST */
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1a1f36;color:#fff;border-radius:12px;padding:.9rem 1.4rem;display:flex;align-items:center;gap:.7rem;font-size:.82rem;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.2);transform:translateY(80px);opacity:0;transition:transform .3s ease,opacity .3s ease;z-index:200;}
+.toast.show{transform:translateY(0);opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="36" height="36" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="rgba(99,102,241,.6)"/><stop offset="100%" stop-color="rgba(45,191,184,.5)"/></linearGradient></defs><circle cx="44" cy="44" r="44" fill="url(#sg)"/><path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/><polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><polyline points="37,24 42,30 52,20" fill="none" stroke="#6366f1" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><div class="sidebar-logo-name">24p7</div><div class="sidebar-logo-tag">Tecnologia para quem não para</div><div class="sidebar-module">Admin OS</div></div>
+  </div>
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="admin-welcome.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>Início</a>
+  <a class="nav-item" href="admin-tempo-real.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Tempo Real</a>
+  <a class="nav-item active" href="admin-alertas.html">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    Central de Alertas
+    <span class="nav-badge" id="nav-badge">3</span>
+  </a>
+  <div class="nav-section-label">Cadastros</div>
+  <a class="nav-item" href="admin-usuarios.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Usuários da OS</a>
+  <a class="nav-item" href="admin-orgaos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Órgãos Públicos</a>
+  <a class="nav-item" href="admin-gestores.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Gestores do Órgão</a>
+  <a class="nav-item" href="admin-upas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Unidades (UPAs)</a>
+  <a class="nav-item" href="admin-medicos.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 11v4"/><path d="M9 14h6"/></svg>Médicos / Enfermeiros</a>
+  <div class="nav-section-label">Operacional</div>
+  <a class="nav-item" href="admin-escalas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Escalas</a>
+  <a class="nav-item" href="admin-substituicoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>Substituições</a>
+  <a class="nav-item" href="admin-disponibilidade.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Disponibilidade</a>
+  <a class="nav-item" href="admin-justificativas.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Justificativas</a>
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="admin-gerencial.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Gerencial</a>
+  <a class="nav-item" href="admin-faturamento.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Faturamento</a>
+  <div class="nav-section-label">Sistema</div>
+  <a class="nav-item" href="admin-configuracoes.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>Configurações</a>
+  <a class="nav-item" href="admin-auditoria.html"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Auditoria</a>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">SG</div>
+      <div><div class="sidebar-user-name">Sileide G. Rocha</div><div class="sidebar-user-role">Administradora · OS</div></div>
+      <button class="logout-btn" onclick="window.location.href='admin-login.html'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">Central de Alertas</div>
+      <div class="topbar-sub" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-marcar-todos" onclick="resolverTodos()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Marcar todos como resolvido
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- KPIs clicáveis -->
+    <div class="kpi-strip">
+      <div class="kpi-s todos selecionado" id="kpi-todos" onclick="filtrarPorKpi('todos',this)">
+        <div class="kpi-lbl">Todos</div>
+        <div class="kpi-val" id="kv-todos">—</div>
+        <div class="kpi-sub">alertas registrados hoje</div>
+      </div>
+      <div class="kpi-s critico" id="kpi-critico" onclick="filtrarPorKpi('critico',this)">
+        <div class="kpi-lbl">🔴 Crítico</div>
+        <div class="kpi-val" id="kv-critico">—</div>
+        <div class="kpi-sub">ação imediata</div>
+      </div>
+      <div class="kpi-s atencao" id="kpi-atencao" onclick="filtrarPorKpi('atencao',this)">
+        <div class="kpi-lbl">🟡 Atenção</div>
+        <div class="kpi-val" id="kv-atencao">—</div>
+        <div class="kpi-sub">monitorar</div>
+      </div>
+      <div class="kpi-s info" id="kpi-info" onclick="filtrarPorKpi('info',this)">
+        <div class="kpi-lbl">🔵 Informativo</div>
+        <div class="kpi-val" id="kv-info">—</div>
+        <div class="kpi-sub">sem ação necessária</div>
+      </div>
+      <div class="kpi-s resolvido" id="kpi-resolvido" onclick="filtrarPorKpi('resolvido',this)">
+        <div class="kpi-lbl">🟢 Resolvidos</div>
+        <div class="kpi-val" id="kv-resolvido">—</div>
+        <div class="kpi-sub">tratados hoje</div>
+      </div>
+    </div>
+
+    <div class="alertas-layout">
+
+      <!-- LISTA DE ALERTAS -->
+      <div>
+        <div class="filter-bar">
+          <div class="tipo-tabs" id="tipo-tabs">
+            <button class="tipo-tab active" onclick="filtrarTipo('',this)">Todos</button>
+            <button class="tipo-tab" onclick="filtrarTipo('Ausência',this)">Ausência</button>
+            <button class="tipo-tab" onclick="filtrarTipo('Turno',this)">Turno descoberto</button>
+            <button class="tipo-tab" onclick="filtrarTipo('Atraso',this)">Atraso</button>
+            <button class="tipo-tab" onclick="filtrarTipo('SLA',this)">SLA</button>
+            <button class="tipo-tab" onclick="filtrarTipo('Contrato',this)">Contrato</button>
+          </div>
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="search-input" type="text" placeholder="Buscar alerta..." id="search-alertas" oninput="renderAlertas()">
+          </div>
+          <select class="filter-select" id="filter-upa" onchange="renderAlertas()">
+            <option value="">Todas as UPAs</option>
+            <option>UPA – Vila Pereira</option>
+            <option>UPA – Centro</option>
+            <option>UPA – Zona Norte</option>
+            <option>UPA – Zona Sul</option>
+          </select>
+        </div>
+
+        <div class="alertas-list" id="alertas-list"></div>
+      </div>
+
+      <!-- PAINEL DIREITO -->
+      <div class="side-stack">
+
+        <!-- ESTATÍSTICAS -->
+        <div class="side-card">
+          <div class="side-header"><div class="side-title">Hoje em números</div></div>
+          <div class="side-body">
+            <div class="stat-grid">
+              <div class="stat-item"><div class="stat-val" style="color:var(--red);">2</div><div class="stat-lbl">Turnos descobertos</div></div>
+              <div class="stat-item"><div class="stat-val" style="color:var(--yellow);">4</div><div class="stat-lbl">Atrasos detectados</div></div>
+              <div class="stat-item"><div class="stat-val" style="color:var(--orange);">1</div><div class="stat-lbl">Ausências hoje</div></div>
+              <div class="stat-item"><div class="stat-val" style="color:var(--green);">3</div><div class="stat-lbl">Já resolvidos</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RESPONSÁVEIS -->
+        <div class="side-card">
+          <div class="side-header"><div class="side-title">Alertas por coordenador</div></div>
+          <div class="side-body">
+            <div class="resp-list">
+              <div class="resp-item"><div class="resp-av" style="background:#6366f1;">SG</div><div class="resp-name">Sileide G. Rocha</div><div class="resp-count critico">3 abertos</div></div>
+              <div class="resp-item"><div class="resp-av" style="background:#2DBFB8;">CM</div><div class="resp-name">Carlos Mendes</div><div class="resp-count critico">2 abertos</div></div>
+              <div class="resp-item"><div class="resp-av" style="background:#22c55e;">FC</div><div class="resp-name">Fernanda Castro</div><div class="resp-count ok">Nenhum</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LINHA DO TEMPO HOJE -->
+        <div class="side-card">
+          <div class="side-header"><div class="side-title">Timeline de hoje</div></div>
+          <div class="side-body">
+            <div class="timeline-hoje">
+              <div class="tl-item critico"><div class="tl-dot"></div><span class="tl-hora">11h23</span><span class="tl-txt">Turno sem cobertura — UPA Centro noite</span></div>
+              <div class="tl-item atencao"><div class="tl-dot"></div><span class="tl-hora">10h45</span><span class="tl-txt">Atraso de 38 min — Dr. Marcelo Dias</span></div>
+              <div class="tl-item atencao"><div class="tl-dot"></div><span class="tl-hora">09h12</span><span class="tl-txt">SLA Guarulhos abaixo de 85%</span></div>
+              <div class="tl-item resolvido"><div class="tl-dot"></div><span class="tl-hora">08h50</span><span class="tl-txt">✓ Substituto designado — UPA Vila Pereira</span></div>
+              <div class="tl-item info"><div class="tl-dot"></div><span class="tl-hora">08h00</span><span class="tl-txt">Escala da semana publicada com sucesso</span></div>
+              <div class="tl-item resolvido"><div class="tl-dot"></div><span class="tl-hora">07h30</span><span class="tl-txt">✓ Check-in confirmado — 4 médicos UPA VP</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- MODAL AÇÃO -->
+<div class="modal-overlay" id="modal" onclick="fecharModalOverlay(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-icon" id="modal-icon"></div>
+      <div class="modal-title" id="modal-title">—</div>
+      <button class="modal-close" onclick="fecharModal()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-confirmar" id="modal-confirmar">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toast-msg"></span></div>
+
+<script>
+// ════════════════════════
+// DADOS
+// ════════════════════════
+let ALERTAS = [
+  {
+    id:'ALT-041', nivel:'critico', tipo:'Turno', upa:'UPA – Centro',
+    titulo:'Turno da noite sem cobertura',
+    desc:'Nenhum médico está escalado para o turno <strong>19h–07h de amanhã (12/05)</strong> na UPA Centro. Sem ação, o turno ficará completamente descoberto.',
+    tempo:'Agora', hora:'11:23', resolvido:false,
+    acaoPrincipal:'Designar substituto', acaoSecundaria:'Ver escalas',
+  },
+  {
+    id:'ALT-040', nivel:'critico', tipo:'Ausência', upa:'UPA – Centro',
+    titulo:'Ausência não comunicada — Dra. Renata Silva',
+    desc:'Dra. Renata Silva não realizou check-in no plantão da <strong>manhã de hoje (07h00)</strong> e não comunicou a ausência. Esta é a <strong>7ª ocorrência</strong> no mês.',
+    tempo:'4h atrás', hora:'07:05', resolvido:false,
+    acaoPrincipal:'Registrar substituição', acaoSecundaria:'Notificar médico',
+  },
+  {
+    id:'ALT-039', nivel:'atencao', tipo:'Atraso', upa:'UPA – Zona Sul',
+    titulo:'Atraso de 38 min — Dr. Marcelo Dias',
+    desc:'Dr. Marcelo Dias realizou check-in às <strong>07:38h</strong>, com <strong>38 minutos</strong> de atraso no turno da manhã (tolerância: 15 min). Terceira ocorrência consecutiva.',
+    tempo:'1h atrás', hora:'10:45', resolvido:false,
+    acaoPrincipal:'Registrar ocorrência', acaoSecundaria:'Ver histórico',
+  },
+  {
+    id:'ALT-038', nivel:'atencao', tipo:'SLA', upa:'Guarulhos',
+    titulo:'SLA abaixo da meta — Prefeitura de Guarulhos',
+    desc:'O cumprimento de SLA do contrato <strong>CT-2023-0142</strong> caiu para <strong>81,4%</strong>, abaixo da meta contratual de <strong>85%</strong>. Risco de penalidade contratual.',
+    tempo:'2h atrás', hora:'09:12', resolvido:false,
+    acaoPrincipal:'Ver relatório gerencial', acaoSecundaria:'Contatar prefeitura',
+  },
+  {
+    id:'ALT-037', nivel:'atencao', tipo:'Atraso', upa:'UPA – Vila Pereira',
+    titulo:'Atraso de 22 min — Dr. André Souza',
+    desc:'Dr. André Souza realizou check-in às <strong>07:22h</strong> no turno da manhã. Tolerância padrão de 15 minutos excedida.',
+    tempo:'3h atrás', hora:'07:22', resolvido:false,
+    acaoPrincipal:'Registrar ocorrência', acaoSecundaria:'Ignorar',
+  },
+  {
+    id:'ALT-036', nivel:'info', tipo:'Contrato', upa:'Guarulhos',
+    titulo:'Contrato Guarulhos vence em 45 dias',
+    desc:'O contrato <strong>CT-2023-0142</strong> com a Prefeitura de Guarulhos vence em <strong>25/06/2026</strong>. Recomenda-se iniciar tratativas de renovação.',
+    tempo:'Hoje', hora:'08:00', resolvido:false,
+    acaoPrincipal:'Ver contrato', acaoSecundaria:'Marcar como ciente',
+  },
+  {
+    id:'ALT-035', nivel:'info', tipo:'Turno', upa:'UPA – Zona Norte',
+    titulo:'2 confirmações de plantão pendentes',
+    desc:'Dr. Lucas Prado e Dra. Tatiane Rocha ainda não confirmaram presença nos turnos de <strong>14/05 e 15/05</strong>. Prazo de confirmação: amanhã.',
+    tempo:'Hoje', hora:'08:00', resolvido:false,
+    acaoPrincipal:'Enviar lembrete', acaoSecundaria:'Ver escalas',
+  },
+  {
+    id:'ALT-034', nivel:'resolvido', tipo:'Turno', upa:'UPA – Vila Pereira',
+    titulo:'Substituto designado — turno resolvido',
+    desc:'Dr. Roberto Alves foi designado para cobrir o plantão da noite de <strong>09/05</strong> após ausência de Dra. Camila Ferraz. Turno garantido.',
+    tempo:'08:50', hora:'08:50', resolvido:true,
+    acaoPrincipal:null, acaoSecundaria:'Ver substituição',
+  },
+  {
+    id:'ALT-033', nivel:'resolvido', tipo:'Ausência', upa:'UPA – Zona Norte',
+    titulo:'Justificativa aceita — Dr. Carlos Nunes',
+    desc:'A justificativa de ausência de Dr. Carlos Nunes referente ao dia <strong>07/05</strong> foi aprovada com atestado médico válido.',
+    tempo:'Ontem', hora:'16:20', resolvido:true,
+    acaoPrincipal:null, acaoSecundaria:'Ver justificativa',
+  },
+  {
+    id:'ALT-032', nivel:'resolvido', tipo:'Atraso', upa:'UPA – Centro',
+    titulo:'Ocorrência registrada — Dra. Mariana Costa',
+    desc:'O atraso de 45 min de Dra. Mariana Costa em <strong>07/05</strong> foi formalmente registrado no histórico da profissional.',
+    tempo:'Ontem', hora:'14:30', resolvido:true,
+    acaoPrincipal:null, acaoSecundaria:'Ver histórico',
+  },
+];
+
+let filtroNivel = 'todos';
+let filtroTipo  = '';
+
+// ════════════════════════
+// KPIs
+// ════════════════════════
+function atualizarKPIs() {
+  const abertos   = ALERTAS.filter(a => !a.resolvido);
+  document.getElementById('kv-todos').textContent    = ALERTAS.length;
+  document.getElementById('kv-critico').textContent  = abertos.filter(a=>a.nivel==='critico').length;
+  document.getElementById('kv-atencao').textContent  = abertos.filter(a=>a.nivel==='atencao').length;
+  document.getElementById('kv-info').textContent     = abertos.filter(a=>a.nivel==='info').length;
+  document.getElementById('kv-resolvido').textContent= ALERTAS.filter(a=>a.resolvido).length;
+  // badge do menu
+  const pendentes = abertos.filter(a=>a.nivel==='critico').length;
+  const badge = document.getElementById('nav-badge');
+  badge.textContent = pendentes;
+  badge.style.display = pendentes > 0 ? 'block' : 'none';
+}
+
+// ════════════════════════
+// FILTROS
+// ════════════════════════
+function filtrarPorKpi(nivel, el) {
+  filtroNivel = nivel;
+  document.querySelectorAll('.kpi-s').forEach(k => k.classList.remove('selecionado'));
+  el.classList.add('selecionado');
+  renderAlertas();
+}
+
+function filtrarTipo(tipo, el) {
+  filtroTipo = tipo;
+  document.querySelectorAll('.tipo-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderAlertas();
+}
+
+// ════════════════════════
+// RENDER
+// ════════════════════════
+const ICOS_NIVEL = {
+  critico: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+  atencao: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  info:    '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  resolvido:'<polyline points="20 6 9 17 4 12"/>',
+};
+
+function renderAlertas() {
+  const busca  = document.getElementById('search-alertas').value.toLowerCase();
+  const fUpa   = document.getElementById('filter-upa').value;
+
+  let dados = ALERTAS.filter(a => {
+    if (filtroNivel === 'resolvido' && !a.resolvido) return false;
+    if (filtroNivel !== 'todos' && filtroNivel !== 'resolvido' && (a.nivel !== filtroNivel || a.resolvido)) return false;
+    if (filtroNivel === 'todos' && false) return false;
+    if (filtroTipo && !a.tipo.includes(filtroTipo)) return false;
+    if (fUpa && !a.upa.includes(fUpa.replace('UPA – ',''))) return false;
+    if (busca && !a.titulo.toLowerCase().includes(busca) && !a.desc.toLowerCase().includes(busca)) return false;
+    return true;
+  });
+
+  const container = document.getElementById('alertas-list');
+  if (!dados.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div><div class="empty-title">Nenhum alerta encontrado</div><div class="empty-sub">Não há alertas para os filtros selecionados.</div></div>`;
+    return;
+  }
+
+  container.innerHTML = dados.map(a => {
+    const BADGE_NIVEL = { critico:'badge-critico', atencao:'badge-atencao', info:'badge-info', resolvido:'badge-resolvido' };
+    const NIVEL_LABEL = { critico:'Crítico', atencao:'Atenção', info:'Informativo', resolvido:'Resolvido' };
+    const botoes = a.resolvido
+      ? `<button class="btn-acao secundario" onclick="verDetalhe('${a.id}')">${a.acaoSecundaria||'Ver detalhes'}</button>`
+      : `${a.acaoPrincipal ? `<button class="btn-acao primario" onclick="abrirAcao('${a.id}')">${a.acaoPrincipal}</button>` : ''}
+         ${a.acaoSecundaria ? `<button class="btn-acao secundario" onclick="toast('Ação: ${a.acaoSecundaria}')">${a.acaoSecundaria}</button>` : ''}
+         <button class="btn-acao ok" onclick="resolver('${a.id}')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Resolver</button>`;
+    return `
+    <div class="alerta-card ${a.nivel}" id="card-${a.id}">
+      <div class="alerta-body">
+        <div class="alerta-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">${ICOS_NIVEL[a.nivel]}</svg>
+        </div>
+        <div class="alerta-content">
+          <div class="alerta-top">
+            <div class="alerta-titulo">${a.titulo}</div>
+            <div class="alerta-tempo">${a.tempo}</div>
+          </div>
+          <div class="alerta-desc">${a.desc}</div>
+          <div class="alerta-meta">
+            <span class="badge ${BADGE_NIVEL[a.nivel]}">${NIVEL_LABEL[a.nivel]}</span>
+            <span class="badge badge-upa">${a.upa}</span>
+            <span class="badge badge-tipo">${a.tipo}</span>
+            <span style="font-size:.62rem;font-weight:700;color:var(--muted);">${a.id}</span>
+          </div>
+        </div>
+      </div>
+      <div class="alerta-footer">
+        <div class="alerta-footer-info">${a.resolvido ? '✓ Tratado às '+a.hora : '⏱ Registrado às '+a.hora}</div>
+        <div class="alerta-acoes">${botoes}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════
+// RESOLVER
+// ════════════════════════
+function resolver(id) {
+  const a = ALERTAS.find(x => x.id === id);
+  if (!a) return;
+  a.resolvido = true;
+  a.nivel = 'resolvido';
+  a.tempo = 'Agora';
+  atualizarKPIs();
+  renderAlertas();
+  toast('✅ Alerta '+id+' marcado como resolvido!');
+}
+
+function resolverTodos() {
+  ALERTAS.forEach(a => { if (!a.resolvido) { a.resolvido = true; a.nivel = 'resolvido'; } });
+  atualizarKPIs();
+  renderAlertas();
+  toast('✅ Todos os alertas foram marcados como resolvidos!');
+}
+
+// ════════════════════════
+// MODAL AÇÃO
+// ════════════════════════
+let alertaModal = null;
+
+function abrirAcao(id) {
+  const a = ALERTAS.find(x => x.id === id);
+  if (!a) return;
+  alertaModal = a;
+
+  const cfgIcon = {
+    critico:  { bg:'var(--red-light)',    clr:'var(--red)' },
+    atencao:  { bg:'var(--yellow-light)', clr:'var(--yellow)' },
+    info:     { bg:'var(--blue-light)',   clr:'var(--blue)' },
+  };
+  const ic = cfgIcon[a.nivel] || cfgIcon.info;
+  document.getElementById('modal-icon').innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${ic.clr}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">${ICOS_NIVEL[a.nivel]}</svg>`;
+  document.getElementById('modal-icon').style.cssText = `background:${ic.bg};width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;`;
+  document.getElementById('modal-title').textContent = a.acaoPrincipal;
+
+  let bodyHTML = `<div class="modal-desc">${a.desc}</div>`;
+
+  if (a.acaoPrincipal === 'Designar substituto' || a.acaoPrincipal === 'Registrar substituição') {
+    bodyHTML += `
+      <div class="modal-field"><label class="modal-label">Médico substituto</label>
+        <select class="modal-select">
+          <option>Selecione um médico disponível...</option>
+          <option>Dr. Roberto Alves — UPA Vila Pereira</option>
+          <option>Dra. Jessica Lima — UPA Vila Pereira</option>
+          <option>Dr. André Souza — UPA Vila Pereira</option>
+          <option>Dr. Fábio Melo — UPA Centro</option>
+        </select>
+      </div>
+      <div class="modal-field"><label class="modal-label">Observação interna</label>
+        <textarea class="modal-textarea" placeholder="Motivo da substituição ou orientações..."></textarea>
+      </div>`;
+    document.getElementById('modal-confirmar').textContent = 'Confirmar substituição';
+  } else if (a.acaoPrincipal === 'Registrar ocorrência') {
+    bodyHTML += `
+      <div class="modal-field"><label class="modal-label">Tipo de ocorrência</label>
+        <select class="modal-select"><option>Atraso registrado</option><option>Advertência verbal</option><option>Advertência formal</option></select>
+      </div>
+      <div class="modal-field"><label class="modal-label">Observações</label>
+        <textarea class="modal-textarea" placeholder="Detalhes da ocorrência..."></textarea>
+      </div>`;
+    document.getElementById('modal-confirmar').textContent = 'Registrar ocorrência';
+  } else if (a.acaoPrincipal === 'Enviar lembrete') {
+    bodyHTML += `
+      <div class="modal-field"><label class="modal-label">Canal de envio</label>
+        <select class="modal-select"><option>E-mail + SMS</option><option>Somente e-mail</option><option>Somente SMS</option></select>
+      </div>
+      <div class="modal-field"><label class="modal-label">Mensagem (opcional)</label>
+        <textarea class="modal-textarea" placeholder="Personalizar mensagem do lembrete...">Por favor, confirme sua presença no plantão escalado até amanhã às 18h.</textarea>
+      </div>`;
+    document.getElementById('modal-confirmar').textContent = 'Enviar lembrete';
+  } else {
+    document.getElementById('modal-confirmar').textContent = 'Confirmar';
+  }
+
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal-confirmar').onclick = () => {
+    fecharModal();
+    resolver(a.id);
+    toast('✅ ' + a.acaoPrincipal + ' realizado com sucesso!');
+  };
+  document.getElementById('modal').classList.add('open');
+}
+
+function verDetalhe(id) {
+  const a = ALERTAS.find(x => x.id === id);
+  if (a) toast('Abrindo: ' + a.titulo);
+}
+
+function fecharModal() { document.getElementById('modal').classList.remove('open'); }
+function fecharModalOverlay(e) { if (e.target === document.getElementById('modal')) fecharModal(); }
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ════════════════════════
+// INIT
+// ════════════════════════
+atualizarKPIs();
+renderAlertas();
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR', {
+  weekday:'long', day:'2-digit', month:'long', year:'numeric'
+});
+</script>
+</body>
+</html>

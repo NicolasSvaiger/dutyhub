@@ -362,7 +362,7 @@ describe('Property 11: Pending indicator visibility', () => {
 });
 
 
-import { formatDate } from '../DoctorCheckInConfirmScreen';
+import { formatDate } from '../dateFormat';
 
 /**
  * **Property 5: Confirmation screen data completeness**

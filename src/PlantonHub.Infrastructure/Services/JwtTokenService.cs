@@ -23,10 +23,19 @@ public class JwtTokenService : IJwtTokenService
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        // All clinics the user is authorized to operate on (for multi-clinic support)
+        var authorizedClinicIds = user.UserClinicRoles
+            .Select(ucr => ucr.ClinicId.ToString())
+            .Distinct()
+            .ToList();
+
         var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim("name", user.Name),
             new Claim("clinicId", clinicId.ToString()),
+            new Claim("clinicIds", string.Join(",", authorizedClinicIds)),
             new Claim("roles", string.Join(",", roles.Select(r => r.ToString()))),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };

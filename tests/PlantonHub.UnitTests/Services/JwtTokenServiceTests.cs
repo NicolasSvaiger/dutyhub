@@ -152,4 +152,120 @@ public class JwtTokenServiceTests
 
         result.Should().BeNull();
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Novos testes: claims name / email / clinicIds
+    // (introduzidos junto com o suporte multi-clínica no médico)
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void GenerateToken_ShouldContainEmailClaim()
+    {
+        var service = CreateService();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "medico@plantonhub.com",
+            Name = "Dr. Médico Teste",
+        };
+
+        var token = service.GenerateToken(user, Guid.NewGuid(), new[] { RoleType.Medico });
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        jwt.Claims.Should().ContainSingle(c => c.Type == JwtRegisteredClaimNames.Email)
+            .Which.Value.Should().Be("medico@plantonhub.com");
+    }
+
+    [Fact]
+    public void GenerateToken_ShouldContainNameClaim()
+    {
+        var service = CreateService();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "x@x.com",
+            Name = "Dr. Médico Teste",
+        };
+
+        var token = service.GenerateToken(user, Guid.NewGuid(), new[] { RoleType.Medico });
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        jwt.Claims.Should().ContainSingle(c => c.Type == "name")
+            .Which.Value.Should().Be("Dr. Médico Teste");
+    }
+
+    [Fact]
+    public void GenerateToken_WithMultipleUserClinicRoles_ShouldContainAllClinicIdsInClaim()
+    {
+        var service = CreateService();
+        var clinicA = Guid.NewGuid();
+        var clinicB = Guid.NewGuid();
+        var user = UserWithClinics(clinicA, clinicB);
+
+        var token = service.GenerateToken(user, clinicA, new[] { RoleType.Medico });
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        var raw = jwt.Claims.Single(c => c.Type == "clinicIds").Value;
+        var ids = raw.Split(',');
+
+        ids.Should().HaveCount(2);
+        ids.Should().Contain(clinicA.ToString());
+        ids.Should().Contain(clinicB.ToString());
+    }
+
+    [Fact]
+    public void GenerateToken_WithDuplicateUserClinicRoles_ShouldDeduplicateClinicIds()
+    {
+        var service = CreateService();
+        var clinicA = Guid.NewGuid();
+        // Simula um médico com duas roles (Medico + Enfermeiro) na mesma clínica
+        var userId = Guid.NewGuid();
+        var user = new User { Id = userId, Email = "x@x.com", Name = "X" };
+        user.UserClinicRoles.Add(new UserClinicRole
+        {
+            Id = Guid.NewGuid(), UserId = userId, ClinicId = clinicA, Role = RoleType.Medico,
+        });
+        user.UserClinicRoles.Add(new UserClinicRole
+        {
+            Id = Guid.NewGuid(), UserId = userId, ClinicId = clinicA, Role = RoleType.Enfermeiro,
+        });
+
+        var token = service.GenerateToken(user, clinicA, new[] { RoleType.Medico });
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        var raw = jwt.Claims.Single(c => c.Type == "clinicIds").Value;
+        raw.Split(',').Should().ContainSingle().Which.Should().Be(clinicA.ToString());
+    }
+
+    [Fact]
+    public void GenerateToken_WithNoUserClinicRoles_ShouldContainEmptyClinicIdsClaim()
+    {
+        var service = CreateService();
+        var user = new User { Id = Guid.NewGuid(), Email = "x@x.com", Name = "X" };
+
+        var token = service.GenerateToken(user, Guid.NewGuid(), new[] { RoleType.Medico });
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        jwt.Claims.Should().ContainSingle(c => c.Type == "clinicIds")
+            .Which.Value.Should().BeEmpty();
+    }
+
+    // Helper local: monta um User com N UserClinicRoles.
+    private static User UserWithClinics(params Guid[] clinicIds)
+    {
+        var userId = Guid.NewGuid();
+        var user = new User { Id = userId, Email = "medico@test.com", Name = "Médico" };
+        foreach (var cid in clinicIds)
+        {
+            user.UserClinicRoles.Add(new UserClinicRole
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ClinicId = cid,
+                Role = RoleType.Medico,
+                AssignedAt = DateTime.UtcNow,
+            });
+        }
+        return user;
+    }
 }

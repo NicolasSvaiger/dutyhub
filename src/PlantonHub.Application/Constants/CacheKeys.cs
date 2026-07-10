@@ -10,6 +10,8 @@ public static class CacheKeys
 
     public static string ClinicsAll() => $"{_prefix}:clinics:all";
 
+    public static string ClinicsForUser(Guid userId) => $"{_prefix}:clinics:user:{userId}";
+
     public static string Shifts(Guid clinicId) => $"{_prefix}:shifts:tenant:{clinicId}";
 
     public static string ShiftsUser(Guid clinicId, Guid userId) => $"{_prefix}:shifts:tenant:{clinicId}:user:{userId}";

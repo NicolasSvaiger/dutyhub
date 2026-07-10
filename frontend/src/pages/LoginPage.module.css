@@ -1,0 +1,434 @@
+/*
+ * Login do profissional — layout de duas colunas (hero à esquerda, form à
+ * direita), inspirado nos mockups em /public/originais/OS/admin-login.html.
+ *
+ * Usa os tokens semânticos de `src/styles/theme.css` (`--bg`, `--surface`,
+ * `--text`, `--teal`, ...) para que o tema claro/escuro do app funcione
+ * automaticamente aqui também. Cores hardcoded ficam apenas no hero (que
+ * é sempre um gradient de marca, igual nos dois temas).
+ *
+ * Responsivo: em telas < 780px o hero some e o form ocupa a tela toda.
+ */
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+/* ══ HERO (esquerda) ══ */
+/* Gradient da marca — teal → orange, fixo em ambos os temas. Contraste bom
+   com texto branco sempre. */
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(150deg, var(--teal-dark) 0%, var(--teal) 45%, var(--orange) 100%);
+  color: #fff;
+}
+
+.heroMesh {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 22% 28%, rgba(255, 255, 255, .25) 0%, transparent 55%),
+    radial-gradient(circle at 78% 72%, rgba(255, 255, 255, .18) 0%, transparent 55%);
+}
+.heroDots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, .10) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+}
+.heroRing1 {
+  position: absolute;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  border: 60px solid rgba(255, 255, 255, .07);
+  top: -180px;
+  left: -150px;
+}
+.heroRing2 {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  border: 40px solid rgba(255, 255, 255, .10);
+  bottom: -100px;
+  right: -80px;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 420px;
+}
+
+.heroLogo {
+  margin-bottom: 2rem;
+}
+.heroLogoIcon {
+  width: 92px;
+  height: 92px;
+  margin: 0 auto .6rem;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, .25));
+}
+.heroLogoName {
+  font-family: var(--font-sans);
+  font-size: 2.6rem;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+.heroLogoTag {
+  font-size: .78rem;
+  font-weight: 700;
+  opacity: .82;
+  letter-spacing: .05em;
+  margin-top: .35rem;
+}
+
+.heroModuleTag {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  background: rgba(255, 255, 255, .18);
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 20px;
+  padding: .35rem .9rem;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin: 1rem 0 1.6rem;
+}
+.moduleDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, .9);
+  animation: blink 1.6s ease infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+.heroDivider {
+  width: 36px;
+  height: 3px;
+  background: rgba(255, 255, 255, .35);
+  border-radius: 2px;
+  margin: 0 auto 1.6rem;
+}
+
+.heroTitle {
+  font-family: var(--font-sans);
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin-bottom: .8rem;
+  white-space: pre-line;
+}
+.heroSub {
+  font-size: .88rem;
+  font-weight: 600;
+  line-height: 1.6;
+  opacity: .88;
+  margin-bottom: 1.8rem;
+}
+
+.heroFeatures {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  text-align: left;
+}
+.heroFeat {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 12px;
+  padding: .65rem .9rem;
+  font-size: .82rem;
+  font-weight: 700;
+}
+.featIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, .22);
+  color: #fff;
+}
+
+/* ══ FORM (direita) — respeita tema claro/escuro ══ */
+.formSide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2.5rem;
+  background: var(--surface);
+  color: var(--text);
+}
+.formBox {
+  width: 100%;
+  max-width: 400px;
+  /* Reforça o centro horizontal — align-items no flex pai não é suficiente
+     quando o item tem width:100%, pois o browser trata como stretch. */
+  margin-inline: auto;
+}
+
+.formHeader {
+  margin-bottom: 1.8rem;
+}
+.formEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: var(--tint);
+  border-radius: 20px;
+  padding: .3rem .8rem;
+  font-size: .7rem;
+  font-weight: 800;
+  color: var(--teal-dark);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: .8rem;
+}
+.formTitle {
+  font-family: var(--font-sans);
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: .3rem;
+}
+.formSub {
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.field {
+  margin-bottom: 1.1rem;
+}
+.fieldLabel {
+  display: block;
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin-bottom: .4rem;
+}
+.inputWrap {
+  position: relative;
+}
+.inputIcon {
+  position: absolute;
+  left: .9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+  display: flex;
+}
+.input {
+  width: 100%;
+  padding: .9rem 1rem .9rem 2.6rem;
+  border: 1.5px solid var(--border-neutral);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--input-bg);
+  outline: none;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+}
+.input::placeholder {
+  color: var(--muted);
+  opacity: .7;
+  font-weight: 500;
+}
+/* Neutraliza o autofill amarelo/cinza do Chrome — mantém o mesmo look do
+   input normal, respeitando o tema atual. `inset` de 1000px é o hack padrão
+   pra sobrescrever o `background-color` do autofill sem `!important`. */
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus,
+.input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  caret-color: var(--text);
+  transition: background-color 5000s ease-in-out 0s;
+}
+.input:focus {
+  border-color: var(--teal);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(45, 191, 184, .15);
+}
+.input:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+.inputPassword {
+  padding-right: 2.9rem;
+}
+.eyeBtn {
+  position: absolute;
+  right: .8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px;
+  line-height: 0;
+  border-radius: 6px;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.eyeBtn:hover {
+  color: var(--teal);
+  background: var(--tint);
+}
+.eyeBtn:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 1px;
+}
+
+.forgotRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -.3rem;
+  margin-bottom: 1.2rem;
+}
+.forgotLink {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--teal-dark);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity var(--t-fast);
+}
+.forgotLink:hover {
+  opacity: .7;
+  text-decoration: underline;
+}
+
+.errorBox {
+  background: var(--danger-bg);
+  border: 1.5px solid var(--danger-border);
+  color: var(--danger);
+  font-size: .82rem;
+  font-weight: 700;
+  padding: .7rem .9rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.btnPrimary {
+  width: 100%;
+  padding: .95rem;
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: .02em;
+  cursor: pointer;
+  background: var(--gradient-teal);
+  box-shadow: var(--glow-teal);
+  transition: transform var(--t-fast), box-shadow var(--t-fast), opacity var(--t-fast);
+}
+.btnPrimary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+.btnPrimary:active:not(:disabled) {
+  transform: scale(.98);
+  box-shadow: none;
+}
+.btnPrimary:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.formFooter {
+  margin-top: 1.6rem;
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ══ Toggle de tema no canto superior direito da página ══ */
+.themeToggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-neutral);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: var(--shadow-card);
+  transition: background var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.themeToggle:hover,
+.themeToggle:focus-visible {
+  border-color: var(--teal);
+  color: var(--teal);
+  outline: none;
+}
+.themeToggle:active {
+  transform: scale(0.94);
+}
+
+/* ══ Mobile: hero some, form ocupa a tela ══ */
+@media (max-width: 780px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    display: none;
+  }
+  .formSide {
+    padding: 2.2rem 1.4rem;
+    justify-content: flex-start;
+    padding-top: 3rem;
+    min-height: 100vh;
+  }
+}

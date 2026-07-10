@@ -94,6 +94,11 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    // Preserve original claim names ("sub", "email", "roles", etc.) instead of
+    // remapping them to long ClaimTypes.* URIs. Our authorization policies
+    // check claim types by their original names.
+    options.MapInboundClaims = false;
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,

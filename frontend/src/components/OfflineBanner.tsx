@@ -1,39 +1,41 @@
+import { useTranslation } from 'react-i18next';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import styles from './OfflineBanner.module.css';
 
 /**
- * Visual banner displayed when the app detects the device is offline.
- * Shows at the top of the page with a warning color scheme.
+ * Faixa exibida no topo da tela quando o dispositivo está offline.
+ * Usa os design tokens do app (warning-bg, warning-border, orange-dark),
+ * então se adapta a light/dark automaticamente e combina com o resto da UI.
  */
 export function OfflineBanner() {
+  const { t } = useTranslation();
   const { isOnline } = useNetworkStatus();
 
-  if (isOnline) {
-    return null;
-  }
+  if (isOnline) return null;
 
   return (
-    <div
-      role="alert"
-      aria-live="assertive"
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        padding: '8px 16px',
-        backgroundColor: '#e65100',
-        color: '#fff',
-        fontSize: '0.9rem',
-        fontWeight: 500,
-      }}
-    >
-      <span style={{ fontSize: '1.1rem' }}>⚠️</span>
-      <span>
-        Sem conexão com a internet. Operações serão salvas localmente e sincronizadas quando a conexão voltar.
-      </span>
+    <div className={styles.offlineBanner} role="status" aria-live="polite">
+      <svg
+        className={styles.offlineBannerIcon}
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <line x1="1" y1="1" x2="23" y2="23" />
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+        <line x1="12" y1="20" x2="12.01" y2="20" />
+      </svg>
+      <span className={styles.offlineBannerText}>{t('offline.message')}</span>
     </div>
   );
 }

@@ -1,0 +1,205 @@
+{
+  "language": {
+    "switcher": "Idioma"
+  },
+
+  "offline": {
+    "message": "Sem conexão — operações serão salvas localmente e sincronizadas quando a internet voltar."
+  },
+
+  "login": {
+    "eyebrow": "Área do profissional",
+    "title": "Bem-vindo(a) de volta",
+    "subtitle": "Registre seus plantões e horas com um toque",
+    "emailLabel": "E-mail",
+    "emailPlaceholder": "seu@hospital.com.br",
+    "passwordLabel": "Senha",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "Mostrar senha",
+    "hidePassword": "Ocultar senha",
+    "forgot": "Esqueci minha senha",
+    "forgotHint": "Contate o administrador da sua clínica para redefinir sua senha.",
+    "submit": "Entrar",
+    "submitting": "Entrando…",
+    "errorGeneric": "Falha ao entrar. Verifique suas credenciais.",
+    "heroTagline": "Tecnologia para quem não para",
+    "heroTitle": "Seus plantões,\nsempre em ordem",
+    "heroSub": "Check-in e check-out em um toque, histórico completo e relatórios prontos para você.",
+    "feature1": "Check-in por GPS em segundos",
+    "feature2": "Histórico e relatórios de horas",
+    "feature3": "Funciona offline e sincroniza depois"
+  },
+
+  "doctor": {
+    "role": "Profissional",
+
+    "home": {
+      "greeting": "Olá, {{name}}!",
+      "welcome": "Bem-vindo(a) de volta",
+      "now": "Agora são",
+      "selectOption": "Selecione a opção desejada",
+      "checkin": "Check-in",
+      "checkout": "Check-out",
+      "offlineCheckin": "Sem conexão. Check-in salvo offline.",
+      "offlineCheckout": "Sem conexão. Check-out salvo offline."
+    },
+
+    "nav": {
+      "home": "Início",
+      "checkin": "Check-in",
+      "checkout": "Check-out",
+      "attendance": "Presença",
+      "shifts": "Plantões",
+      "reports": "Relatórios",
+      "settings": "Ajustes",
+      "logout": "Sair",
+      "professionalArea": "Área profissional"
+    },
+
+    "attendance": {
+      "lastCheckin": "Último check-in",
+      "lastCheckout": "Último check-out"
+    },
+
+    "shifts": {
+      "loading": "Carregando plantões…",
+      "errorLoading": "Erro ao carregar plantões",
+      "empty": "Você ainda não tem plantões atribuídos.",
+      "today": "Hoje",
+      "upcoming": "Próximos",
+      "past": "Passados",
+      "showMore_one": "Ver mais 1 plantão",
+      "showMore_other": "Ver mais {{count}} plantões",
+      "showLess": "Ver menos"
+    },
+
+    "settings": {
+      "appearance": "Aparência",
+      "theme": "Tema",
+      "language": "Idioma",
+      "account": "Conta",
+      "logoutHint": "Encerrar sua sessão neste dispositivo"
+    },
+
+    "reports": {
+      "loading": "Carregando…",
+      "errorLoading": "Erro ao carregar relatórios",
+      "retry": "Tentar novamente",
+      "summary": "Resumo",
+      "shifts": "Plantões",
+      "hours": "Horas",
+      "avgPerShift": "Média/Plantão",
+      "filters": "Filtros",
+      "startDate": "Data inicial",
+      "endDate": "Data final",
+      "datePlaceholder": "Selecionar data",
+      "clearDate": "Limpar data",
+      "prevYear": "Ano anterior",
+      "nextYear": "Próximo ano",
+      "prevMonth": "Mês anterior",
+      "nextMonth": "Próximo mês",
+      "clinic": "Unidade",
+      "allClinics": "Todas as unidades",
+      "search": "Buscar",
+      "records": "Registros",
+      "noRecords": "Nenhum registro encontrado",
+      "entry": "Entrada",
+      "exit": "Saída",
+      "badgeIn": "CHECK-IN",
+      "badgeOut": "CHECK-OUT"
+    },
+
+    "modal": {
+      "title": {
+        "checkin": "Realizar Check-In?",
+        "checkout": "Realizar Check-Out?"
+      },
+      "subtitle": {
+        "checkin": "Selecione o plantão que você está iniciando agora.",
+        "checkout": "Selecione o plantão que você está encerrando."
+      },
+      "unit": "Unidade de atendimento",
+      "unitFallback": "Unidade",
+      "shift": "Plantão",
+      "loading": "Carregando plantões…",
+      "empty": {
+        "checkin": "Você não tem plantão atribuído para hoje nesta clínica. Fale com o gestor.",
+        "checkout": "Você não tem nenhum plantão em andamento para encerrar no momento."
+      },
+      "blocked": {
+        "title": "Você já tem um plantão em andamento",
+        "body": "Check-in às <strong>{{time}}</strong> em <strong>{{clinic}}</strong>.",
+        "hint": "Finalize esse plantão pelo Check-Out antes de iniciar um novo."
+      },
+      "checkinAt": "Check-in às {{time}}",
+      "selectClinic": "Selecione uma clínica",
+      "no": "Não",
+      "close": "Fechar",
+      "confirm": "Confirmar",
+      "processing": "Processando…",
+      "offlineCacheHint": "Sem conexão — usando última lista sincronizada. Sua operação será enviada quando a internet voltar.",
+      "offlineNoCache": "Sem conexão e sem dados locais para exibir. Conecte-se à internet e tente novamente."
+    },
+
+    "logout": {
+      "title": "Sair da conta",
+      "message": "Deseja realmente sair?",
+      "cancel": "Cancelar",
+      "confirm": "Sair"
+    },
+
+    "confirmation": {
+      "header": {
+        "checkinTitle": "Check-In",
+        "checkinSubtitle": "Registro de entrada",
+        "checkoutTitle": "Check-Out",
+        "checkoutSubtitle": "Registro de saída"
+      },
+      "checkinDone": "Check-In realizado!",
+      "checkoutDone": "Check-Out realizado!",
+      "identityConfirmed": "Identidade confirmada com sucesso",
+      "date": "Data",
+      "checkinTime": "Hora de entrada",
+      "checkoutTime": "Hora de saída",
+      "location": "Local",
+      "status": "Status",
+      "confirmed": "Confirmado",
+      "goodWork": "Bom trabalho!",
+      "goodRest": "Bom descanso!",
+      "emptyCheckin": {
+        "title": "Nenhum check-in registrado",
+        "hint": "Realize seu check-in na tela inicial para ver as informações aqui."
+      },
+      "emptyCheckout": {
+        "title": "Nenhum check-out registrado",
+        "hint": "O check-out será exibido aqui após você finalizar seu plantão."
+      }
+    },
+
+    "notifications": {
+      "title": "Notificações",
+      "unread_one": "{{count}} não lida",
+      "unread_other": "{{count}} não lidas",
+      "empty": "Nenhuma notificação no momento",
+      "emptyHint": "Você será avisado por aqui quando algo novo acontecer.",
+      "loading": "Carregando…",
+      "ariaLabel": "Notificações",
+      "ariaLabelWithCount": "Notificações ({{count}} não lidas)"
+    },
+
+    "theme": {
+      "toActivateLight": "Ativar tema claro",
+      "toActivateDark": "Ativar tema escuro",
+      "light": "Tema claro",
+      "dark": "Tema escuro"
+    },
+
+    "errors": {
+      "geolocation": "Erro ao obter localização",
+      "checkin": "Erro ao realizar check-in",
+      "checkout": "Erro ao realizar check-out",
+      "generic": "Erro ao processar solicitação",
+      "loading": "Erro ao carregar dados"
+    }
+  }
+}

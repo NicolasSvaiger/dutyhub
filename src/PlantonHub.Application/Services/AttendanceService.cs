@@ -10,15 +10,18 @@ public class AttendanceService : IAttendanceService
 {
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IShiftRepository _shiftRepository;
+    private readonly IClinicRepository _clinicRepository;
     private readonly ITenantService _tenantService;
 
     public AttendanceService(
         IAttendanceRepository attendanceRepository,
         IShiftRepository shiftRepository,
+        IClinicRepository clinicRepository,
         ITenantService tenantService)
     {
         _attendanceRepository = attendanceRepository;
         _shiftRepository = shiftRepository;
+        _clinicRepository = clinicRepository;
         _tenantService = tenantService;
     }
 
@@ -37,11 +40,40 @@ public class AttendanceService : IAttendanceService
             throw new ForbiddenException("Profissional não está atribuído a este plantão.");
         }
 
-        // Validate no duplicate check-in (active check-in without check-out)
-        var hasActiveCheckIn = await _attendanceRepository.HasActiveCheckInAsync(userId, request.ShiftId);
-        if (hasActiveCheckIn)
+        // Rule: professional can only be on one shift at a time. Block if there's
+        // ANY active check-in (any shift, any clinic) that hasn't been closed.
+        var hasAnyActive = await _attendanceRepository.HasAnyActiveCheckInAsync(userId);
+        if (hasAnyActive)
         {
-            throw new ConflictException("Já existe um check-in ativo para este plantão.");
+            // Enriquece o 409 com os dados do check-in ativo — o frontend não
+            // precisa fazer um GET extra pra mostrar a mensagem de bloqueio.
+            ActiveAttendanceInfo? activeInfo = null;
+            foreach (var cId in _tenantService.GetAuthorizedClinicIds())
+            {
+                var actives = await _attendanceRepository.GetActiveByUserAndClinicAsync(userId, cId);
+                var first = actives.FirstOrDefault();
+                if (first is not null)
+                {
+                    var clinic = await _clinicRepository.GetByIdAsync(first.ClinicId);
+                    activeInfo = new ActiveAttendanceInfo
+                    {
+                        Id = first.Id,
+                        ShiftId = first.ShiftId,
+                        ClinicId = first.ClinicId,
+                        ClinicName = clinic?.Name ?? "Unidade",
+                        CheckInTime = first.CheckInTime,
+                    };
+                    break;
+                }
+            }
+
+            throw new ConflictException(
+                "Você já tem um plantão em andamento. Finalize-o antes de iniciar um novo.",
+                new Dictionary<string, object>
+                {
+                    ["code"] = "ACTIVE_CHECKIN_EXISTS",
+                    ["activeAttendance"] = activeInfo!,
+                });
         }
 
         var attendance = new Attendance
@@ -92,20 +124,136 @@ public class AttendanceService : IAttendanceService
         return MapToResponse(attendance);
     }
 
+    public async Task<IEnumerable<AttendanceResponse>> GetMyActiveAsync()
+    {
+        var userId = _tenantService.GetCurrentUserId()
+            ?? throw new UnauthorizedException("User not authenticated.");
+
+        // Active check-ins can exist in ANY clinic the professional works in
+        // (multi-clinic scenario: e.g., doctor checked in at Alpha earlier, then
+        // opened check-out while the header is on Beta). The check-out modal
+        // needs to see all of them regardless of the current active clinic.
+        var authorizedClinicIds = _tenantService.GetAuthorizedClinicIds().ToList();
+        if (authorizedClinicIds.Count == 0)
+        {
+            return Enumerable.Empty<AttendanceResponse>();
+        }
+
+        var result = new List<AttendanceResponse>();
+        foreach (var clinicId in authorizedClinicIds)
+        {
+            var records = await _attendanceRepository.GetActiveByUserAndClinicAsync(userId, clinicId);
+            result.AddRange(records.Select(MapToResponse));
+        }
+
+        return result;
+    }
+
     public async Task<IEnumerable<AttendanceResponse>> GetMyHistoryAsync()
     {
         var userId = _tenantService.GetCurrentUserId()
             ?? throw new UnauthorizedException("User not authenticated.");
 
-        var clinicId = _tenantService.GetCurrentClinicId()
-            ?? throw new UnauthorizedException("No active clinic context.");
+        // O histórico do profissional agrega TODAS as clínicas em que ele
+        // trabalha, não apenas a ativa no header. Motivo: a tela "Presença"
+        // e os relatórios do médico multi-clinic ficavam confusos ao mostrar
+        // "sem check-in" quando, na verdade, havia check-in feito em outra
+        // clínica que o usuário podia acessar.
+        //
+        // Se o chamador precisar filtrar por clínica específica, ele pode
+        // fazer isso no cliente ou usar um endpoint específico no futuro.
+        var authorizedClinicIds = _tenantService.GetAuthorizedClinicIds().ToList();
+        if (authorizedClinicIds.Count == 0)
+        {
+            return Enumerable.Empty<AttendanceResponse>();
+        }
 
-        var records = await _attendanceRepository.GetHistoryByUserAndClinicAsync(userId, clinicId);
+        var all = new List<Attendance>();
+        foreach (var clinicId in authorizedClinicIds)
+        {
+            var records = await _attendanceRepository.GetHistoryByUserAndClinicAsync(userId, clinicId);
+            all.AddRange(records);
+        }
 
-        // Return ordered by date descending (most recent first)
-        return records
+        return all
             .OrderByDescending(a => a.CheckInTime)
             .Select(MapToResponse);
+    }
+
+    /// <summary>
+    /// Endpoint unificado: retorna o "estado atual" do profissional logado em
+    /// relação a check-in/check-out. Agrega toda a lógica num só lugar:
+    ///   - Verifica se tem check-in ativo (qualquer clínica autorizada)
+    ///   - Lista shifts de hoje da clínica ativa
+    ///   - Decide canCheckIn/canCheckOut
+    /// O frontend chama isso UMA vez e renderiza condicionalmente — zero decisões client-side.
+    /// </summary>
+    public async Task<AttendanceStatusResponse> GetStatusAsync()
+    {
+        var userId = _tenantService.GetCurrentUserId()
+            ?? throw new UnauthorizedException("User not authenticated.");
+
+        var clinicId = _tenantService.GetCurrentClinicId();
+        var authorizedClinicIds = _tenantService.GetAuthorizedClinicIds().ToList();
+
+        // 1. Verifica check-in ativo em QUALQUER clínica autorizada
+        Attendance? activeAttendance = null;
+        foreach (var cId in authorizedClinicIds)
+        {
+            var actives = await _attendanceRepository.GetActiveByUserAndClinicAsync(userId, cId);
+            var first = actives.FirstOrDefault();
+            if (first is not null)
+            {
+                activeAttendance = first;
+                break;
+            }
+        }
+
+        var hasActive = activeAttendance is not null;
+
+        // 2. Busca shifts de hoje na clínica ativa (pra check-in)
+        var availableShifts = new List<AvailableShiftInfo>();
+        if (!hasActive && clinicId.HasValue)
+        {
+            var today = DateTime.UtcNow.Date;
+            var userShifts = await _shiftRepository.GetByUserIdAsync(userId);
+            availableShifts = userShifts
+                .Where(s => s.ClinicId == clinicId.Value && s.Date.Date == today)
+                .OrderBy(s => s.StartTime)
+                .Select(s => new AvailableShiftInfo
+                {
+                    ShiftId = s.Id,
+                    ClinicId = s.ClinicId,
+                    Title = s.Title,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                })
+                .ToList();
+        }
+
+        // 3. Resolve nome da clínica do check-in ativo (pra exibir no bloqueio)
+        ActiveAttendanceInfo? activeInfo = null;
+        if (activeAttendance is not null)
+        {
+            var clinic = await _clinicRepository.GetByIdAsync(activeAttendance.ClinicId);
+            activeInfo = new ActiveAttendanceInfo
+            {
+                Id = activeAttendance.Id,
+                ShiftId = activeAttendance.ShiftId,
+                ClinicId = activeAttendance.ClinicId,
+                ClinicName = clinic?.Name ?? "Unidade",
+                CheckInTime = activeAttendance.CheckInTime,
+            };
+        }
+
+        return new AttendanceStatusResponse
+        {
+            HasActiveCheckIn = hasActive,
+            CanCheckIn = !hasActive && availableShifts.Count > 0,
+            CanCheckOut = hasActive,
+            ActiveAttendance = activeInfo,
+            AvailableShiftsToday = availableShifts,
+        };
     }
 
     private static AttendanceResponse MapToResponse(Attendance attendance)

@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 – Escalas</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:        #2DBFB8;
+  --teal-dark:   #1fa09a;
+  --teal-light:  #e8faf9;
+  --orange:      #F5A623;
+  --orange-light:#fff4e2;
+  --bg:          #f0f4f4;
+  --surface:     #ffffff;
+  --text:        #1a2a2a;
+  --muted:       #7a9090;
+  --border:      rgba(45,191,184,.18);
+  --nav-w:       240px;
+  --green:       #22c55e;
+  --green-light: #dcfce7;
+  --yellow:      #f59e0b;
+  --yellow-light:#fef3c7;
+  --red:         #ef4444;
+  --red-light:   #fee2e2;
+  --purple:      #8b5cf6;
+  --purple-light:#ede9fe;
+  --blue:        #3b82f6;
+  --blue-light:  #eff6ff;
+}
+
+html, body { min-height:100vh; font-family:'Nunito Sans',sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+
+/* ══ SIDEBAR ══ */
+.sidebar { position:fixed; top:0; left:0; bottom:0; width:var(--nav-w); background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; padding:1.8rem 0; z-index:50; overflow-y:auto; }
+.sidebar-logo { display:flex; align-items:center; gap:.7rem; padding:0 1.4rem 1.8rem; border-bottom:1px solid var(--border); margin-bottom:1.4rem; }
+.sidebar-logo-name { font-family:'Nunito',sans-serif; font-size:1.5rem; font-weight:900; color:var(--teal); letter-spacing:-1px; line-height:1; }
+.sidebar-logo-tag  { font-size:.6rem; font-weight:700; color:var(--muted); letter-spacing:.03em; line-height:1.3; }
+.nav-section-label { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); padding:0 1.4rem; margin-bottom:.4rem; margin-top:.8rem; }
+.nav-item { display:flex; align-items:center; gap:.7rem; padding:.7rem 1.4rem; font-size:.85rem; font-weight:700; color:var(--muted); cursor:pointer; transition:all .15s; border-left:3px solid transparent; text-decoration:none; }
+.nav-item:hover  { background:var(--teal-light); color:var(--teal); }
+.nav-item.active { background:var(--teal-light); color:var(--teal); border-left-color:var(--teal); }
+.sidebar-footer { margin-top:auto; padding:1.2rem 1.4rem 0; border-top:1px solid var(--border); }
+.sidebar-user { display:flex; align-items:center; gap:.7rem; }
+.sidebar-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--teal),var(--orange)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sidebar-user-name { font-size:.78rem; font-weight:800; color:var(--text); line-height:1.2; }
+.sidebar-user-role { font-size:.65rem; font-weight:600; color:var(--muted); }
+.logout-btn { background:none; border:none; color:var(--muted); cursor:pointer; margin-left:auto; padding:4px; transition:color .15s; }
+.logout-btn:hover { color:var(--teal); }
+
+/* ══ MAIN ══ */
+.main { margin-left:var(--nav-w); min-height:100vh; display:flex; flex-direction:column; }
+.topbar { background:#fff; border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+.topbar-left { display:flex; flex-direction:column; }
+.topbar-title { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text); }
+.topbar-sub   { font-size:.72rem; font-weight:600; color:var(--muted); margin-top:1px; }
+.topbar-right { display:flex; align-items:center; gap:.7rem; }
+.badge-ro { display:flex; align-items:center; gap:.4rem; background:var(--blue-light); border:1px solid rgba(59,130,246,.2); border-radius:20px; padding:.3rem .8rem; font-size:.72rem; font-weight:800; color:var(--blue); }
+
+.content { flex:1; padding:2rem; animation:fadeUp .35s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ══ SELETOR UPA ══ */
+.upa-selector { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.4rem; }
+.upa-opt { background:var(--surface); border:2px solid var(--border); border-radius:18px; padding:1rem 1.2rem; cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:.8rem; position:relative; overflow:hidden; }
+.upa-opt:hover { border-color:var(--teal); transform:translateY(-2px); box-shadow:0 6px 18px rgba(45,191,184,.15); }
+.upa-opt.selected { border-color:var(--teal); background:var(--teal-light); box-shadow:0 4px 16px rgba(45,191,184,.2); }
+.upa-opt.selected::before { content:'✓'; position:absolute; top:8px; right:10px; font-size:.72rem; font-weight:900; color:var(--teal); }
+.upa-opt-icon { width:40px; height:40px; border-radius:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.upa-opt.selected .upa-opt-icon { background:rgba(45,191,184,.2); }
+.upa-opt:not(.selected) .upa-opt-icon { background:var(--bg); }
+.upa-opt-name { font-family:'Nunito',sans-serif; font-size:.88rem; font-weight:900; color:var(--text); line-height:1.2; }
+.upa-opt-stat { font-size:.68rem; font-weight:700; color:var(--muted); margin-top:2px; }
+.upa-opt.selected .upa-opt-name { color:var(--teal-dark); }
+
+/* ══ SEMANA NAV ══ */
+.week-nav { display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1.5px solid var(--border); border-radius:16px; padding:.8rem 1.2rem; margin-bottom:1.2rem; }
+.week-nav-left { display:flex; align-items:center; gap:1rem; }
+.week-title { font-family:'Nunito',sans-serif; font-size:1rem; font-weight:900; color:var(--text); }
+.week-sub   { font-size:.72rem; font-weight:700; color:var(--muted); }
+.week-btn { width:34px; height:34px; border-radius:10px; border:1.5px solid var(--border); background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--muted); transition:all .15s; }
+.week-btn:hover { border-color:var(--teal); color:var(--teal); }
+.week-today { padding:.4rem .9rem; border-radius:10px; border:1.5px solid var(--border); background:none; font-family:'Nunito',sans-serif; font-size:.78rem; font-weight:800; color:var(--teal); cursor:pointer; transition:all .15s; }
+.week-today:hover { background:var(--teal-light); }
+.legend { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; }
+.leg-item { display:flex; align-items:center; gap:.35rem; font-size:.7rem; font-weight:700; color:var(--muted); }
+.leg-dot { width:9px; height:9px; border-radius:50%; }
+
+/* ══ KPIs ══ */
+.kpi-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; margin-bottom:1.2rem; }
+.kpi-s { background:var(--surface); border-radius:14px; border:1.5px solid var(--border); padding:.9rem 1.1rem; display:flex; align-items:center; gap:.8rem; }
+.kpi-s-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.kpi-s-val { font-family:'Nunito',sans-serif; font-size:1.4rem; font-weight:900; line-height:1; }
+.kpi-s-lbl { font-size:.62rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
+
+/* ══ GRADE SEMANAL ══ */
+.grade-wrap { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); overflow:hidden; margin-bottom:1.2rem; }
+.grade-table { width:100%; border-collapse:collapse; }
+
+/* header dos dias */
+.grade-table thead th { padding:.7rem .5rem; text-align:center; font-size:.72rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border); border-right:1px solid rgba(0,0,0,.04); }
+.grade-table thead th:first-child { width:90px; border-right:1px solid var(--border); background:var(--bg); }
+.grade-table thead .th-hoje { background:var(--teal-light); color:var(--teal); }
+.day-num { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; display:block; line-height:1; }
+.day-name-sm { font-size:.62rem; font-weight:700; display:block; margin-top:2px; }
+
+/* linhas de turno */
+.grade-table tbody td { border-right:1px solid rgba(0,0,0,.04); border-bottom:1px solid rgba(0,0,0,.04); vertical-align:top; padding:.7rem .6rem; }
+.grade-table tbody td:first-child { border-right:1px solid var(--border); background:var(--bg); }
+.grade-table tbody tr:last-child td { border-bottom:none; }
+
+.turno-label { font-family:'Nunito',sans-serif; font-size:.72rem; font-weight:900; color:var(--text); text-align:center; }
+.turno-horario { font-size:.6rem; font-weight:700; color:var(--muted); text-align:center; display:block; margin-top:2px; }
+
+/* célula de turno */
+.cell { min-height:90px; display:flex; flex-direction:column; gap:.35rem; }
+
+/* card de médico dentro da célula */
+.med-chip {
+  display:flex; align-items:center; gap:.4rem;
+  padding:.3rem .5rem; border-radius:8px;
+  font-size:.7rem; font-weight:700;
+  transition:transform .15s;
+  cursor:default;
+}
+.med-chip:hover { transform:scale(1.02); }
+.med-chip.confirmado { background:var(--green-light); color:#166534; }
+.med-chip.pendente   { background:var(--yellow-light); color:#92400e; }
+.med-chip.vazio      { background:var(--red-light); color:#991b1b; }
+.med-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.med-chip.confirmado .med-dot { background:var(--green); }
+.med-chip.pendente   .med-dot { background:var(--yellow); }
+.med-chip.vazio      .med-dot { background:var(--red); }
+.med-nome { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px; }
+
+/* célula sem cobertura */
+.cell-alert {
+  min-height:90px; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:repeating-linear-gradient(-45deg, rgba(239,68,68,.04) 0px, rgba(239,68,68,.04) 4px, transparent 4px, transparent 10px);
+  border-radius:8px; border:1.5px dashed rgba(239,68,68,.3);
+  font-size:.7rem; font-weight:800; color:var(--red); text-align:center; gap:.3rem;
+}
+
+/* alerta de semana */
+.alertas-wrap { display:flex; flex-direction:column; gap:.6rem; margin-bottom:1.2rem; }
+.alerta-item {
+  display:flex; align-items:center; gap:.8rem;
+  background:var(--surface); border:1.5px solid;
+  border-radius:14px; padding:.8rem 1.2rem;
+}
+.alerta-item.warn   { border-color:rgba(245,158,11,.3); background:var(--yellow-light); }
+.alerta-item.danger { border-color:rgba(239,68,68,.25); background:var(--red-light); }
+.alerta-item.info   { border-color:rgba(59,130,246,.2); background:var(--blue-light); }
+.alerta-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.alerta-item.warn   .alerta-icon { background:rgba(245,158,11,.2); color:var(--yellow); }
+.alerta-item.danger .alerta-icon { background:rgba(239,68,68,.15); color:var(--red); }
+.alerta-item.info   .alerta-icon { background:rgba(59,130,246,.15); color:var(--blue); }
+.alerta-text { font-size:.82rem; font-weight:700; flex:1; }
+.alerta-item.warn   .alerta-text { color:#92400e; }
+.alerta-item.danger .alerta-text { color:#991b1b; }
+.alerta-item.info   .alerta-text { color:#1d4ed8; }
+.alerta-data { font-size:.72rem; font-weight:600; opacity:.7; }
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="34" height="34" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2DBFB8"/><stop offset="100%" stop-color="#F5A623"/></linearGradient></defs>
+      <circle cx="44" cy="44" r="44" fill="url(#sg)"/>
+      <path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/>
+      <polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="37,24 42,30 52,20" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div><div class="sidebar-logo-name">24p7</div><div class="sidebar-logo-tag">Órgão Público</div></div>
+  </div>
+
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="op-welcome.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+    Início
+  </a>
+  <a class="nav-item" href="op-realtime.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Tempo Real
+  </a>
+  <a class="nav-item" href="op-tv.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    Painel TV
+  </a>
+
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="op-frequencia.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+    Frequência
+  </a>
+  <a class="nav-item" href="op-ausencias.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Ausências
+  </a>
+  <a class="nav-item" href="op-atrasos.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Atrasos
+  </a>
+
+  <div class="nav-section-label">Gestão</div>
+  <a class="nav-item" href="op-historico.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Unidades (UPAs)
+  </a>
+  <a class="nav-item active" href="op-escalas.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Escalas
+  </a>
+  <a class="nav-item" href="op-kpis.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Indicadores (KPIs)
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div><div class="sidebar-user-name">Valmir C. Sousa</div><div class="sidebar-user-role">Gestor Público</div></div>
+      <button class="logout-btn" onclick="window.location.href='op-login.html'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Escalas de Plantão</div>
+      <div class="topbar-sub" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <div class="badge-ro">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Somente visualização
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- SELETOR UPA -->
+    <div class="upa-selector" id="upa-selector"></div>
+
+    <!-- NAVEGAÇÃO DE SEMANA -->
+    <div class="week-nav">
+      <div class="week-nav-left">
+        <button class="week-btn" onclick="mudarSemana(-1)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div>
+          <div class="week-title" id="week-title">—</div>
+          <div class="week-sub" id="week-sub">Semana atual</div>
+        </div>
+        <button class="week-btn" onclick="mudarSemana(1)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="week-today" onclick="irHoje()">Hoje</button>
+      </div>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div>Confirmado</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--yellow)"></div>Pendente</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div>Sem cobertura</div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--blue)"></div>Hoje</div>
+      </div>
+    </div>
+
+    <!-- KPIs DA SEMANA -->
+    <div class="kpi-strip">
+      <div class="kpi-s">
+        <div class="kpi-s-icon" style="background:var(--teal-light);color:var(--teal);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div><div class="kpi-s-val" style="color:var(--teal);" id="k-turnos">—</div><div class="kpi-s-lbl">Turnos na semana</div></div>
+      </div>
+      <div class="kpi-s">
+        <div class="kpi-s-icon" style="background:var(--green-light);color:var(--green);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div><div class="kpi-s-val" style="color:var(--green);" id="k-conf">—</div><div class="kpi-s-lbl">Confirmados</div></div>
+      </div>
+      <div class="kpi-s">
+        <div class="kpi-s-icon" style="background:var(--yellow-light);color:var(--yellow);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div><div class="kpi-s-val" style="color:var(--yellow);" id="k-pend">—</div><div class="kpi-s-lbl">Pendentes</div></div>
+      </div>
+      <div class="kpi-s">
+        <div class="kpi-s-icon" style="background:var(--red-light);color:var(--red);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <div><div class="kpi-s-val" style="color:var(--red);" id="k-vazio">—</div><div class="kpi-s-lbl">Sem cobertura</div></div>
+      </div>
+      <div class="kpi-s">
+        <div class="kpi-s-icon" style="background:var(--purple-light);color:var(--purple);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div><div class="kpi-s-val" style="color:var(--purple);" id="k-medicos">—</div><div class="kpi-s-lbl">Médicos escalados</div></div>
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
+    <div class="alertas-wrap" id="alertas-wrap"></div>
+
+    <!-- GRADE SEMANAL -->
+    <div class="grade-wrap">
+      <table class="grade-table">
+        <thead id="grade-head"></thead>
+        <tbody id="grade-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ══════════════════════════════
+// UPAS
+// ══════════════════════════════
+const UPAS_CONFIG = [
+  { key:'vila-pereira', name:'UPA – Vila Pereira', meta:4 },
+  { key:'centro',       name:'UPA – Centro',       meta:4 },
+  { key:'zona-norte',   name:'UPA – Zona Norte',   meta:3 },
+  { key:'zona-sul',     name:'UPA – Zona Sul',     meta:3 },
+];
+
+const TURNOS = [
+  { key:'manha', label:'Manhã',  horario:'07h–19h' },
+  { key:'noite', label:'Noite',  horario:'19h–07h' },
+];
+
+// ══════════════════════════════
+// DADOS MOCADOS DE ESCALA
+// (indexados por upa > diaSemana(0=Dom) > turno > [médicos])
+// ══════════════════════════════
+const ESCALAS = {
+  'vila-pereira': {
+    manha: {
+      0:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      1:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      2:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      3:['Dra. Jessica Lima','Dr. Roberto Alves',{nome:'Dra. Camila Ferraz',status:'pendente'},'Dr. André Souza'],
+      4:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      5:['Dra. Jessica Lima',{nome:'Dr. Roberto Alves',status:'pendente'},'Dra. Camila Ferraz','Dr. André Souza'],
+      6:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+    },
+    noite: {
+      0:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      1:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz',null],
+      2:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      3:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      4:['Dra. Jessica Lima','Dr. Roberto Alves',null,'Dr. André Souza'],
+      5:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+      6:['Dra. Jessica Lima','Dr. Roberto Alves','Dra. Camila Ferraz','Dr. André Souza'],
+    }
+  },
+  'centro': {
+    manha: {
+      0:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      1:['Dr. Paulo Henrique',{nome:'Dra. Mariana Costa',status:'pendente'},'Dr. Fábio Melo',null],
+      2:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      3:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      4:['Dr. Paulo Henrique','Dra. Mariana Costa',{nome:'Dr. Fábio Melo',status:'pendente'},null],
+      5:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      6:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+    },
+    noite: {
+      0:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      1:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      2:['Dr. Paulo Henrique',null,'Dr. Fábio Melo','Dra. Renata Silva'],
+      3:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo',{nome:'Dra. Renata Silva',status:'pendente'}],
+      4:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      5:[null,'Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+      6:['Dr. Paulo Henrique','Dra. Mariana Costa','Dr. Fábio Melo','Dra. Renata Silva'],
+    }
+  },
+  'zona-norte': {
+    manha: {
+      0:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      1:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      2:['Dr. Carlos Nunes',{nome:'Dra. Tatiane Rocha',status:'pendente'},'Dr. Lucas Prado'],
+      3:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      4:['Dr. Carlos Nunes','Dra. Tatiane Rocha',null],
+      5:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      6:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+    },
+    noite: {
+      0:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      1:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      2:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      3:[null,'Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      4:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+      5:['Dr. Carlos Nunes',{nome:'Dra. Tatiane Rocha',status:'pendente'},'Dr. Lucas Prado'],
+      6:['Dr. Carlos Nunes','Dra. Tatiane Rocha','Dr. Lucas Prado'],
+    }
+  },
+  'zona-sul': {
+    manha: {
+      0:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+      1:[{nome:'Dra. Beatriz Lima',status:'pendente'},null,'Dra. Priscila Teles'],
+      2:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+      3:['Dra. Beatriz Lima','Dr. Marcelo Dias',{nome:'Dra. Priscila Teles',status:'pendente'}],
+      4:[null,'Dr. Marcelo Dias','Dra. Priscila Teles'],
+      5:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+      6:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+    },
+    noite: {
+      0:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+      1:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+      2:['Dra. Beatriz Lima',{nome:'Dr. Marcelo Dias',status:'pendente'},'Dra. Priscila Teles'],
+      3:['Dra. Beatriz Lima','Dr. Marcelo Dias',null],
+      4:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+      5:[null,'Dr. Marcelo Dias','Dra. Priscila Teles'],
+      6:['Dra. Beatriz Lima','Dr. Marcelo Dias','Dra. Priscila Teles'],
+    }
+  }
+};
+
+// ══════════════════════════════
+// ESTADO
+// ══════════════════════════════
+let upaAtual   = 'vila-pereira';
+let semanaOffset = 0;
+const HOJE = new Date();
+HOJE.setHours(0,0,0,0);
+
+const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MESES_PT = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+// ══════════════════════════════
+// SEMANA
+// ══════════════════════════════
+function getInicioSemana(offset) {
+  const d = new Date(HOJE);
+  const dow = d.getDay();
+  d.setDate(d.getDate() - dow + (offset * 7));
+  return d;
+}
+
+function getDiasSemana(offset) {
+  const inicio = getInicioSemana(offset);
+  return Array.from({length:7}, (_,i) => {
+    const d = new Date(inicio);
+    d.setDate(inicio.getDate() + i);
+    return d;
+  });
+}
+
+function irHoje() { semanaOffset = 0; render(); }
+function mudarSemana(dir) { semanaOffset += dir; render(); }
+
+// ══════════════════════════════
+// SELETOR UPA
+// ══════════════════════════════
+function renderUPASelector() {
+  document.getElementById('upa-selector').innerHTML = UPAS_CONFIG.map(u => `
+    <div class="upa-opt ${u.key===upaAtual?'selected':''}" onclick="selecionarUPA('${u.key}')">
+      <div class="upa-opt-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${u.key===upaAtual?'var(--teal)':'#7a9090'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <div>
+        <div class="upa-opt-name">${u.name}</div>
+        <div class="upa-opt-stat">Meta: ${u.meta} médicos/turno</div>
+      </div>
+    </div>`).join('');
+}
+
+function selecionarUPA(key) { upaAtual = key; renderUPASelector(); render(); }
+
+// ══════════════════════════════
+// HELPERS
+// ══════════════════════════════
+function getMedico(m) {
+  if (!m)              return { nome: null,   status:'vazio' };
+  if (typeof m==='string') return { nome:m,   status:'confirmado' };
+  return                      { nome:m.nome,  status:m.status||'confirmado' };
+}
+
+function primeiroNome(nome) {
+  if (!nome) return '';
+  const parts = nome.split(' ');
+  // ex: "Dra. Jessica Lima" → "Dra. Jessica"
+  return parts.slice(0,2).join(' ');
+}
+
+// ══════════════════════════════
+// GRADE
+// ══════════════════════════════
+function renderGrade(dias) {
+  const escala = ESCALAS[upaAtual] || {};
+
+  // HEADER
+  let headHTML = '<tr><th></th>';
+  dias.forEach(d => {
+    const isHoje = d.getTime() === HOJE.getTime();
+    headHTML += `<th class="${isHoje?'th-hoje':''}">
+      <span class="day-num">${d.getDate()}</span>
+      <span class="day-name-sm">${DIAS_PT[d.getDay()]}</span>
+    </th>`;
+  });
+  headHTML += '</tr>';
+  document.getElementById('grade-head').innerHTML = headHTML;
+
+  // BODY
+  let bodyHTML = '';
+  let totalTurnos=0, totalConf=0, totalPend=0, totalVazio=0;
+  const medicosSet = new Set();
+
+  TURNOS.forEach(turno => {
+    bodyHTML += '<tr>';
+    bodyHTML += `<td><div class="turno-label">${turno.label}</div><span class="turno-horario">${turno.horario}</span></td>`;
+
+    dias.forEach(d => {
+      const dow  = d.getDay();
+      const meds = (escala[turno.key]||{})[dow] || [];
+      const isHoje = d.getTime() === HOJE.getTime();
+
+      totalTurnos++;
+      let cellHTML = '';
+      let hasVazio = false;
+
+      if (meds.length === 0) {
+        hasVazio = true;
+        totalVazio++;
+        cellHTML = `<div class="cell-alert">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Sem cobertura
+        </div>`;
+      } else {
+        cellHTML = '<div class="cell">';
+        meds.forEach(m => {
+          const med = getMedico(m);
+          if (!med.nome) {
+            hasVazio = true;
+            totalVazio++;
+            cellHTML += `<div class="med-chip vazio"><div class="med-dot"></div><span class="med-nome">Vaga em aberto</span></div>`;
+          } else {
+            if (med.status==='confirmado') totalConf++;
+            else if (med.status==='pendente') totalPend++;
+            medicosSet.add(med.nome);
+            cellHTML += `<div class="med-chip ${med.status}"><div class="med-dot"></div><span class="med-nome" title="${med.nome}">${primeiroNome(med.nome)}</span></div>`;
+          }
+        });
+        cellHTML += '</div>';
+      }
+
+      const bg = isHoje ? 'background:rgba(59,130,246,.04);' : '';
+      bodyHTML += `<td style="${bg}">${cellHTML}</td>`;
+    });
+
+    bodyHTML += '</tr>';
+  });
+
+  document.getElementById('grade-body').innerHTML = bodyHTML;
+
+  // KPIs
+  document.getElementById('k-turnos').textContent  = totalTurnos;
+  document.getElementById('k-conf').textContent    = totalConf;
+  document.getElementById('k-pend').textContent    = totalPend;
+  document.getElementById('k-vazio').textContent   = totalVazio;
+  document.getElementById('k-medicos').textContent = medicosSet.size;
+
+  return { totalVazio, totalPend };
+}
+
+// ══════════════════════════════
+// ALERTAS
+// ══════════════════════════════
+function renderAlertas(dias, stats) {
+  const upaNome = UPAS_CONFIG.find(u=>u.key===upaAtual)?.name || '';
+  const alertas = [];
+
+  if (stats.totalVazio > 0)
+    alertas.push({ tipo:'danger', icon:'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>', texto:`${stats.totalVazio} vaga${stats.totalVazio>1?'s':''} sem cobertura na semana — ${upaNome}. Solicite reposição imediata à OS responsável.` });
+
+  if (stats.totalPend > 0)
+    alertas.push({ tipo:'warn', icon:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', texto:`${stats.totalPend} confirmação${stats.totalPend>1?'ões':''} pendente${stats.totalPend>1?'s':''} — médicos ainda não confirmaram presença nos turnos indicados.` });
+
+  if (stats.totalVazio === 0 && stats.totalPend === 0)
+    alertas.push({ tipo:'info', icon:'<polyline points="20 6 9 17 4 12"/>', texto:`Todos os turnos de ${upaNome} estão com cobertura confirmada para esta semana. ✓` });
+
+  document.getElementById('alertas-wrap').innerHTML = alertas.map(a => `
+    <div class="alerta-item ${a.tipo}">
+      <div class="alerta-icon">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${a.icon}</svg>
+      </div>
+      <div class="alerta-text">${a.texto}</div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════
+// SEMANA TITLE
+// ══════════════════════════════
+function renderWeekNav(dias) {
+  const ini = dias[0], fim = dias[6];
+  const iniStr = `${ini.getDate()} de ${MESES_PT[ini.getMonth()]}`;
+  const fimStr = `${fim.getDate()} de ${MESES_PT[fim.getMonth()]} de ${fim.getFullYear()}`;
+  document.getElementById('week-title').textContent = `${iniStr} – ${fimStr}`;
+  document.getElementById('week-sub').textContent   = semanaOffset===0 ? 'Semana atual' : semanaOffset > 0 ? `+${semanaOffset} semana${semanaOffset>1?'s':''}` : `${semanaOffset} semana${semanaOffset<-1?'s':''}`;
+}
+
+// ══════════════════════════════
+// RENDER
+// ══════════════════════════════
+function render() {
+  const dias = getDiasSemana(semanaOffset);
+  renderWeekNav(dias);
+  const stats = renderGrade(dias);
+  renderAlertas(dias, stats);
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+renderUPASelector();
+render();
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR',{
+  weekday:'long', day:'2-digit', month:'long', year:'numeric'
+});
+</script>
+</body>
+</html>

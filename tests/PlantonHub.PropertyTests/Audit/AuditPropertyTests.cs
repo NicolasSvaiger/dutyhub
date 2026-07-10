@@ -115,6 +115,8 @@ public class HistoryOrderedByDescendingDatePropertyTests
             var tenantService = new Mock<ITenantService>();
             tenantService.Setup(t => t.GetCurrentUserId()).Returns(input.userId);
             tenantService.Setup(t => t.GetCurrentClinicId()).Returns(input.clinicId);
+            // GetMyHistoryAsync agora agrega por todas as clínicas autorizadas.
+            tenantService.Setup(t => t.GetAuthorizedClinicIds()).Returns(new[] { input.clinicId });
 
             var shiftRepository = new Mock<IShiftRepository>();
             var attendanceRepository = new Mock<IAttendanceRepository>();
@@ -124,6 +126,7 @@ public class HistoryOrderedByDescendingDatePropertyTests
             var service = new AttendanceService(
                 attendanceRepository.Object,
                 shiftRepository.Object,
+                new Mock<IClinicRepository>().Object,
                 tenantService.Object);
 
             // Act

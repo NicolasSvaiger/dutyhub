@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 – Histórico de Plantões</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:        #2DBFB8;
+  --teal-dark:   #1fa09a;
+  --teal-light:  #e8faf9;
+  --orange:      #F5A623;
+  --orange-light:#fff4e2;
+  --bg:          #f0f4f4;
+  --surface:     #ffffff;
+  --text:        #1a2a2a;
+  --muted:       #7a9090;
+  --border:      rgba(45,191,184,.18);
+  --nav-w:       240px;
+  --green:       #22c55e;
+  --green-light: #dcfce7;
+  --yellow:      #f59e0b;
+  --yellow-light:#fef3c7;
+  --red:         #ef4444;
+  --red-light:   #fee2e2;
+  --purple:      #8b5cf6;
+  --purple-light:#ede9fe;
+}
+
+html, body { min-height:100vh; font-family:'Nunito Sans',sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+
+/* ══ SIDEBAR ══ */
+.sidebar { position:fixed; top:0; left:0; bottom:0; width:var(--nav-w); background:#fff; border-right:1px solid var(--border); display:flex; flex-direction:column; padding:1.8rem 0; z-index:50; overflow-y:auto; }
+.sidebar-logo { display:flex; align-items:center; gap:.7rem; padding:0 1.4rem 1.8rem; border-bottom:1px solid var(--border); margin-bottom:1.4rem; }
+.sidebar-logo-name { font-family:'Nunito',sans-serif; font-size:1.5rem; font-weight:900; color:var(--teal); letter-spacing:-1px; line-height:1; }
+.sidebar-logo-tag  { font-size:.6rem; font-weight:700; color:var(--muted); letter-spacing:.03em; line-height:1.3; }
+.nav-section-label { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); padding:0 1.4rem; margin-bottom:.4rem; margin-top:.8rem; }
+.nav-item { display:flex; align-items:center; gap:.7rem; padding:.7rem 1.4rem; font-size:.85rem; font-weight:700; color:var(--muted); cursor:pointer; transition:all .15s; border-left:3px solid transparent; text-decoration:none; }
+.nav-item:hover  { background:var(--teal-light); color:var(--teal); }
+.nav-item.active { background:var(--teal-light); color:var(--teal); border-left-color:var(--teal); }
+.sidebar-footer { margin-top:auto; padding:1.2rem 1.4rem 0; border-top:1px solid var(--border); }
+.sidebar-user { display:flex; align-items:center; gap:.7rem; }
+.sidebar-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,var(--teal),var(--orange)); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sidebar-user-name { font-size:.78rem; font-weight:800; color:var(--text); line-height:1.2; }
+.sidebar-user-role { font-size:.65rem; font-weight:600; color:var(--muted); }
+.logout-btn { background:none; border:none; color:var(--muted); cursor:pointer; margin-left:auto; padding:4px; transition:color .15s; }
+.logout-btn:hover { color:var(--teal); }
+
+/* ══ MAIN ══ */
+.main { margin-left:var(--nav-w); min-height:100vh; display:flex; flex-direction:column; }
+.topbar { background:#fff; border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+.topbar-left { display:flex; flex-direction:column; }
+.topbar-title { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text); }
+.topbar-sub   { font-size:.72rem; font-weight:600; color:var(--muted); margin-top:1px; }
+.topbar-right { display:flex; align-items:center; gap:.7rem; }
+.btn-export { display:flex; align-items:center; gap:.4rem; padding:.5rem 1rem; border-radius:10px; font-family:'Nunito',sans-serif; font-size:.78rem; font-weight:800; cursor:pointer; transition:all .15s; border:1.5px solid; }
+.btn-pdf  { color:#e05555; border-color:rgba(224,85,85,.3); background:rgba(224,85,85,.06); }
+.btn-pdf:hover  { background:rgba(224,85,85,.12); }
+.btn-xlsx { color:#16a34a; border-color:rgba(22,163,74,.3); background:rgba(22,163,74,.06); }
+.btn-xlsx:hover { background:rgba(22,163,74,.12); }
+
+.content { flex:1; padding:2rem; animation:fadeUp .35s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ══ SELETOR DE UPA ══ */
+.upa-selector { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.4rem; }
+.upa-opt {
+  background:var(--surface); border:2px solid var(--border);
+  border-radius:18px; padding:1.1rem 1.2rem;
+  cursor:pointer; transition:all .2s;
+  display:flex; align-items:center; gap:.8rem;
+  position:relative; overflow:hidden;
+}
+.upa-opt:hover { border-color:var(--teal); transform:translateY(-2px); box-shadow:0 6px 18px rgba(45,191,184,.15); }
+.upa-opt.selected {
+  border-color:var(--teal);
+  background:var(--teal-light);
+  box-shadow:0 4px 16px rgba(45,191,184,.2);
+}
+.upa-opt.selected::before {
+  content:'✓'; position:absolute; top:8px; right:10px;
+  font-size:.72rem; font-weight:900; color:var(--teal);
+}
+.upa-opt-icon {
+  width:40px; height:40px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.upa-opt.selected .upa-opt-icon { background:rgba(45,191,184,.2); }
+.upa-opt:not(.selected) .upa-opt-icon { background:var(--bg); }
+.upa-opt-name { font-family:'Nunito',sans-serif; font-size:.88rem; font-weight:900; color:var(--text); line-height:1.2; }
+.upa-opt-stat { font-size:.68rem; font-weight:700; color:var(--muted); margin-top:2px; }
+.upa-opt.selected .upa-opt-name { color:var(--teal-dark); }
+
+/* ══ FILTROS ══ */
+.filter-row-simple { display:flex; align-items:flex-end; gap:1rem; margin-bottom:1.4rem; flex-wrap:wrap; }
+.filter-field { display:flex; flex-direction:column; gap:.35rem; }
+.filter-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+.filter-input, .filter-select { appearance:none; -webkit-appearance:none; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:.6rem .9rem; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:700; color:var(--text); outline:none; cursor:pointer; transition:border-color .2s; }
+.filter-input:focus, .filter-select:focus { border-color:var(--teal); }
+.select-wrap { position:relative; }
+.select-wrap svg { position:absolute; right:.7rem; top:50%; transform:translateY(-50%); color:var(--teal); pointer-events:none; }
+
+/* toggle TIMELINE / TABELA */
+.view-toggle { display:flex; background:var(--bg); border-radius:10px; padding:3px; border:1.5px solid var(--border); margin-left:auto; }
+.toggle-btn { padding:.4rem .9rem; border-radius:8px; border:none; font-family:'Nunito',sans-serif; font-size:.75rem; font-weight:800; cursor:pointer; transition:all .15s; background:none; color:var(--muted); display:flex; align-items:center; gap:.35rem; }
+.toggle-btn.active { background:var(--surface); color:var(--teal); box-shadow:0 1px 4px rgba(0,0,0,.1); }
+
+/* ══ KPIs ══ */
+.kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin-bottom:1.4rem; }
+.kpi-card { background:var(--surface); border-radius:14px; border:1.5px solid var(--border); padding:1rem 1.2rem; position:relative; overflow:hidden; transition:transform .15s; }
+.kpi-card:hover { transform:translateY(-2px); }
+.kpi-card::before { content:''; position:absolute; bottom:0; left:0; right:0; height:3px; }
+.kpi-card.teal::before   { background:var(--teal); }
+.kpi-card.green::before  { background:var(--green); }
+.kpi-card.yellow::before { background:var(--yellow); }
+.kpi-card.red::before    { background:var(--red); }
+.kpi-card.purple::before { background:var(--purple); }
+.kpi-lbl { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.25rem; }
+.kpi-val { font-family:'Nunito',sans-serif; font-size:1.7rem; font-weight:900; line-height:1; }
+.kpi-card.teal   .kpi-val { color:var(--teal); }
+.kpi-card.green  .kpi-val { color:var(--green); }
+.kpi-card.yellow .kpi-val { color:var(--yellow); }
+.kpi-card.red    .kpi-val { color:var(--red); }
+.kpi-card.purple .kpi-val { color:var(--purple); }
+.kpi-sub { font-size:.65rem; font-weight:600; color:var(--muted); margin-top:.25rem; }
+
+/* ══ TIMELINE ══ */
+.timeline-wrap { display:flex; flex-direction:column; gap:0; }
+
+.day-block { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); margin-bottom:1rem; overflow:hidden; }
+
+.day-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.9rem 1.4rem;
+  border-bottom:1px solid var(--border);
+  cursor:pointer; transition:background .15s;
+}
+.day-header:hover { background:#f8fdfc; }
+.day-header-left { display:flex; align-items:center; gap:.8rem; }
+.day-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.day-date { font-family:'Nunito',sans-serif; font-size:.95rem; font-weight:900; color:var(--text); }
+.day-turno { font-size:.72rem; font-weight:700; color:var(--muted); margin-top:1px; }
+.day-pills { display:flex; gap:.4rem; }
+.day-pill { font-size:.62rem; font-weight:800; padding:.2rem .6rem; border-radius:10px; }
+.day-pill.ok     { background:var(--green-light); color:#16a34a; }
+.day-pill.warn   { background:var(--yellow-light); color:#b45309; }
+.day-pill.danger { background:var(--red-light); color:#dc2626; }
+.day-chevron { transition:transform .25s; color:var(--muted); }
+.day-chevron.open { transform:rotate(180deg); }
+
+.day-events { padding:0 1.4rem 1rem; display:none; }
+.day-events.open { display:block; animation:slideDown .2s ease; }
+@keyframes slideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+
+/* linha do tempo interna */
+.timeline-inner { position:relative; padding-left:2rem; margin-top:.8rem; }
+.timeline-inner::before {
+  content:''; position:absolute;
+  left:6px; top:0; bottom:0; width:2px;
+  background:linear-gradient(to bottom, var(--teal), rgba(45,191,184,.1));
+  border-radius:2px;
+}
+.tl-event {
+  display:flex; align-items:flex-start; gap:.9rem;
+  margin-bottom:.7rem; position:relative;
+}
+.tl-event:last-child { margin-bottom:0; }
+.tl-dot {
+  position:absolute; left:-2rem;
+  width:14px; height:14px; border-radius:50%;
+  border:2.5px solid #fff;
+  box-shadow:0 0 0 2px currentColor;
+  flex-shrink:0; margin-top:3px;
+}
+.tl-dot.in     { background:var(--green);  color:var(--green); }
+.tl-dot.out    { background:var(--orange); color:var(--orange); }
+.tl-dot.absent { background:var(--red);    color:var(--red); }
+.tl-dot.late   { background:var(--yellow); color:var(--yellow); }
+
+.tl-body { flex:1; }
+.tl-time { font-size:.68rem; font-weight:800; color:var(--muted); margin-bottom:2px; }
+.tl-name { font-size:.85rem; font-weight:800; color:var(--text); }
+.tl-detail { font-size:.72rem; font-weight:600; color:var(--muted); margin-top:1px; display:flex; align-items:center; gap:.4rem; }
+
+.tl-badge { font-size:.62rem; font-weight:800; padding:.15rem .55rem; border-radius:10px; }
+.tl-badge.in     { background:var(--green-light); color:#16a34a; }
+.tl-badge.out    { background:var(--orange-light); color:#b45309; }
+.tl-badge.absent { background:var(--red-light); color:#dc2626; }
+.tl-badge.late   { background:var(--yellow-light); color:#b45309; }
+
+/* ══ VISÃO TABELA ══ */
+.table-view { display:none; }
+.table-view.active { display:block; }
+.timeline-view.hidden { display:none; }
+
+.table-card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); overflow:hidden; }
+.table-header { padding:1.1rem 1.6rem; border-bottom:1px solid var(--border); }
+.table-title { font-family:'Nunito',sans-serif; font-size:.95rem; font-weight:900; color:var(--text); }
+table { width:100%; border-collapse:collapse; }
+thead tr { background:var(--bg); border-bottom:1px solid var(--border); }
+thead th { padding:.75rem 1.1rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); text-align:left; white-space:nowrap; }
+thead th.center { text-align:center; }
+tbody tr { border-bottom:1px solid rgba(0,0,0,.04); transition:background .12s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:#f8fdfc; }
+tbody td { padding:.82rem 1.1rem; font-size:.82rem; font-weight:600; color:var(--text); vertical-align:middle; }
+tbody td.center { text-align:center; }
+.td-medico { display:flex; align-items:center; gap:.7rem; }
+.td-avatar { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.65rem; font-weight:900; color:#fff; flex-shrink:0; background:linear-gradient(135deg,var(--teal),var(--orange)); }
+.td-name { font-weight:800; }
+
+.badge { display:inline-flex; align-items:center; gap:.3rem; font-size:.65rem; font-weight:800; padding:.25rem .65rem; border-radius:20px; white-space:nowrap; }
+.badge-in     { background:var(--green-light); color:#16a34a; }
+.badge-out    { background:var(--orange-light); color:#b45309; }
+.badge-absent { background:var(--red-light); color:#dc2626; }
+.badge-late   { background:var(--yellow-light); color:#b45309; }
+
+/* ══ TOAST ══ */
+.toast { position:fixed; bottom:2rem; right:2rem; background:#1a2a2a; color:#fff; border-radius:12px; padding:.9rem 1.4rem; display:flex; align-items:center; gap:.7rem; font-size:.82rem; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.2); transform:translateY(80px); opacity:0; transition:transform .3s ease, opacity .3s ease; z-index:200; }
+.toast.show { transform:translateY(0); opacity:1; }
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="34" height="34" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2DBFB8"/><stop offset="100%" stop-color="#F5A623"/></linearGradient></defs>
+      <circle cx="44" cy="44" r="44" fill="url(#sg)"/>
+      <path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/>
+      <polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="37,24 42,30 52,20" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <div class="sidebar-logo-name">24p7</div>
+      <div class="sidebar-logo-tag">Órgão Público</div>
+    </div>
+  </div>
+
+  <div class="nav-section-label">Principal</div>
+  <a class="nav-item" href="op-welcome.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+    Início
+  </a>
+  <a class="nav-item" href="op-realtime.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    Tempo Real
+  </a>
+  <a class="nav-item" href="op-tv.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    Painel TV
+  </a>
+
+  <div class="nav-section-label">Relatórios</div>
+  <a class="nav-item" href="op-frequencia.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+    Frequência
+  </a>
+  <a class="nav-item" href="op-ausencias.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Ausências
+  </a>
+  <a class="nav-item" href="op-atrasos.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    Atrasos
+  </a>
+
+  <div class="nav-section-label">Gestão</div>
+  <a class="nav-item active" href="op-historico.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Unidades (UPAs)
+  </a>
+  <a class="nav-item" href="op-escalas.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Escalas
+  </a>
+  <a class="nav-item" href="op-kpis.html">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Indicadores (KPIs)
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div>
+        <div class="sidebar-user-name">Valmir C. Sousa</div>
+        <div class="sidebar-user-role">Gestor Público</div>
+      </div>
+      <button class="logout-btn" onclick="window.location.href='op-login.html'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Plantões por UPA</div>
+      <div class="topbar-sub" id="topbar-date">—</div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-export btn-pdf" onclick="exportar('pdf')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Exportar PDF
+      </button>
+      <button class="btn-export btn-xlsx" onclick="exportar('xlsx')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+        Exportar Excel
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- SELETOR UPA -->
+    <div class="upa-selector" id="upa-selector">
+      <!-- gerado por JS -->
+    </div>
+
+    <!-- FILTROS + TOGGLE -->
+    <div class="filter-row-simple">
+      <div class="filter-field">
+        <label class="filter-label">De</label>
+        <input type="date" class="filter-input" id="f-de" value="2026-05-01" onchange="render()">
+      </div>
+      <div class="filter-field">
+        <label class="filter-label">Até</label>
+        <input type="date" class="filter-input" id="f-ate" value="2026-05-10" onchange="render()">
+      </div>
+      <div class="filter-field">
+        <label class="filter-label">Turno</label>
+        <div class="select-wrap">
+          <select class="filter-select" id="f-turno" onchange="render()">
+            <option value="">Todos os turnos</option>
+            <option value="Manhã">Manhã (07h–19h)</option>
+            <option value="Noite">Noite (19h–07h)</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label class="filter-label">Evento</label>
+        <div class="select-wrap">
+          <select class="filter-select" id="f-evento" onchange="render()">
+            <option value="">Todos</option>
+            <option value="in">Entradas</option>
+            <option value="out">Saídas</option>
+            <option value="absent">Ausências</option>
+            <option value="late">Atrasos</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+
+      <div class="view-toggle">
+        <button class="toggle-btn active" id="btn-timeline" onclick="setView('timeline')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Timeline
+        </button>
+        <button class="toggle-btn" id="btn-tabela" onclick="setView('tabela')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
+          Tabela
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card teal">
+        <div class="kpi-lbl">Total de plantões</div>
+        <div class="kpi-val" id="kpi-total">—</div>
+        <div class="kpi-sub">no período</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-lbl">Entradas</div>
+        <div class="kpi-val" id="kpi-entradas">—</div>
+        <div class="kpi-sub">check-ins confirmados</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-lbl">Saídas</div>
+        <div class="kpi-val" id="kpi-saidas">—</div>
+        <div class="kpi-sub">check-outs registrados</div>
+      </div>
+      <div class="kpi-card yellow">
+        <div class="kpi-lbl">Atrasos</div>
+        <div class="kpi-val" id="kpi-atrasos">—</div>
+        <div class="kpi-sub">entrada fora do horário</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-lbl">Ausências</div>
+        <div class="kpi-val" id="kpi-ausencias">—</div>
+        <div class="kpi-sub">plantão não cumprido</div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="timeline-view" id="timeline-view">
+      <div class="timeline-wrap" id="timeline-wrap"></div>
+    </div>
+
+    <!-- TABELA -->
+    <div class="table-view" id="table-view">
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title" id="table-title">Registros de plantão</div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Médico</th>
+                <th>Data</th>
+                <th>Turno</th>
+                <th class="center">Previsto</th>
+                <th class="center">Check-In</th>
+                <th class="center">Check-Out</th>
+                <th class="center">Duração</th>
+                <th class="center">Evento</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ══════════════════════════════
+// CONFIG UPAS
+// ══════════════════════════════
+const UPAS_CONFIG = [
+  { key:'vila-pereira', name:'UPA – Vila Pereira', medicos:4, cor:'#2DBFB8' },
+  { key:'centro',       name:'UPA – Centro',       medicos:4, cor:'#F5A623' },
+  { key:'zona-norte',   name:'UPA – Zona Norte',   medicos:3, cor:'#8b5cf6' },
+  { key:'zona-sul',     name:'UPA – Zona Sul',     medicos:3, cor:'#ef4444' },
+];
+
+// ══════════════════════════════
+// DADOS MOCADOS POR UPA
+// ══════════════════════════════
+const PLANTOES = {
+  'vila-pereira': [
+    { medico:'Dra. Jessica Lima',  ini:'JL', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:02', checkout:'19:05', tipo:'in'     },
+    { medico:'Dr. Roberto Alves',  ini:'RA', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:20', checkout:'19:15', tipo:'late'   },
+    { medico:'Dra. Camila Ferraz', ini:'CF', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:10', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. André Souza',    ini:'AS', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:05', checkout:'19:08', tipo:'in'     },
+    { medico:'Dra. Jessica Lima',  ini:'JL', data:'2026-05-02', dataFmt:'02/05', turno:'Noite',  previsto:'19:00', checkin:'19:00', checkout:'07:02', tipo:'in'     },
+    { medico:'Dr. Roberto Alves',  ini:'RA', data:'2026-05-02', dataFmt:'02/05', turno:'Noite',  previsto:'19:00', checkin:'19:00', checkout:'07:00', tipo:'in'     },
+    { medico:'Dra. Camila Ferraz', ini:'CF', data:'2026-05-03', dataFmt:'03/05', turno:'Manhã',  previsto:'07:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dr. André Souza',    ini:'AS', data:'2026-05-03', dataFmt:'03/05', turno:'Manhã',  previsto:'07:00', checkin:'07:03', checkout:'19:10', tipo:'in'     },
+    { medico:'Dra. Jessica Lima',  ini:'JL', data:'2026-05-05', dataFmt:'05/05', turno:'Manhã',  previsto:'07:00', checkin:'07:00', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. Roberto Alves',  ini:'RA', data:'2026-05-05', dataFmt:'05/05', turno:'Manhã',  previsto:'07:00', checkin:'07:22', checkout:'19:18', tipo:'late'   },
+    { medico:'Dra. Camila Ferraz', ini:'CF', data:'2026-05-07', dataFmt:'07/05', turno:'Noite',  previsto:'19:00', checkin:'19:17', checkout:'07:05', tipo:'late'   },
+    { medico:'Dr. André Souza',    ini:'AS', data:'2026-05-08', dataFmt:'08/05', turno:'Manhã',  previsto:'07:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dra. Jessica Lima',  ini:'JL', data:'2026-05-09', dataFmt:'09/05', turno:'Manhã',  previsto:'07:00', checkin:'07:01', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. Roberto Alves',  ini:'RA', data:'2026-05-10', dataFmt:'10/05', turno:'Manhã',  previsto:'07:00', checkin:'07:00', checkout:'19:00', tipo:'in'     },
+  ],
+  'centro': [
+    { medico:'Dr. Paulo Henrique', ini:'PH', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:00', checkout:'19:00', tipo:'in'     },
+    { medico:'Dra. Mariana Costa', ini:'MC', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:45', checkout:'19:30', tipo:'late'   },
+    { medico:'Dr. Fábio Melo',     ini:'FM', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:03', checkout:'19:00', tipo:'in'     },
+    { medico:'Dra. Renata Silva',  ini:'RS', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dr. Paulo Henrique', ini:'PH', data:'2026-05-02', dataFmt:'02/05', turno:'Noite',  previsto:'19:00', checkin:'19:00', checkout:'07:00', tipo:'in'     },
+    { medico:'Dra. Mariana Costa', ini:'MC', data:'2026-05-03', dataFmt:'03/05', turno:'Manhã',  previsto:'07:00', checkin:'07:18', checkout:'19:00', tipo:'late'   },
+    { medico:'Dra. Renata Silva',  ini:'RS', data:'2026-05-05', dataFmt:'05/05', turno:'Manhã',  previsto:'07:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dr. Fábio Melo',     ini:'FM', data:'2026-05-07', dataFmt:'07/05', turno:'Noite',  previsto:'19:00', checkin:'20:08', checkout:'07:00', tipo:'late'   },
+    { medico:'Dr. Paulo Henrique', ini:'PH', data:'2026-05-08', dataFmt:'08/05', turno:'Manhã',  previsto:'07:00', checkin:'07:00', checkout:'19:00', tipo:'in'     },
+    { medico:'Dra. Renata Silva',  ini:'RS', data:'2026-05-09', dataFmt:'09/05', turno:'Manhã',  previsto:'07:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dr. Fábio Melo',     ini:'FM', data:'2026-05-10', dataFmt:'10/05', turno:'Manhã',  previsto:'07:00', checkin:'07:01', checkout:'19:05', tipo:'in'     },
+  ],
+  'zona-norte': [
+    { medico:'Dr. Carlos Nunes',   ini:'CN', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'06:55', checkout:'19:00', tipo:'in'     },
+    { medico:'Dra. Tatiane Rocha', ini:'TR', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:08', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. Lucas Prado',    ini:'LP', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:01', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. Carlos Nunes',   ini:'CN', data:'2026-05-03', dataFmt:'03/05', turno:'Noite',  previsto:'19:00', checkin:'19:00', checkout:'07:00', tipo:'in'     },
+    { medico:'Dra. Tatiane Rocha', ini:'TR', data:'2026-05-05', dataFmt:'05/05', turno:'Manhã',  previsto:'07:00', checkin:'07:32', checkout:'19:20', tipo:'late'   },
+    { medico:'Dr. Lucas Prado',    ini:'LP', data:'2026-05-06', dataFmt:'06/05', turno:'Manhã',  previsto:'07:00', checkin:'07:00', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. Carlos Nunes',   ini:'CN', data:'2026-05-07', dataFmt:'07/05', turno:'Manhã',  previsto:'07:00', checkin:'07:02', checkout:'19:00', tipo:'in'     },
+    { medico:'Dra. Tatiane Rocha', ini:'TR', data:'2026-05-09', dataFmt:'09/05', turno:'Noite',  previsto:'19:00', checkin:'19:00', checkout:'07:00', tipo:'in'     },
+    { medico:'Dr. Lucas Prado',    ini:'LP', data:'2026-05-10', dataFmt:'10/05', turno:'Manhã',  previsto:'07:00', checkin:'07:33', checkout:'19:00', tipo:'late'   },
+  ],
+  'zona-sul': [
+    { medico:'Dra. Beatriz Lima',   ini:'BL', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:12', checkout:'19:00', tipo:'in'     },
+    { medico:'Dr. Marcelo Dias',    ini:'MD', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'07:52', checkout:'19:30', tipo:'late'   },
+    { medico:'Dra. Priscila Teles', ini:'PT', data:'2026-05-01', dataFmt:'01/05', turno:'Manhã',  previsto:'07:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dra. Beatriz Lima',   ini:'BL', data:'2026-05-03', dataFmt:'03/05', turno:'Tarde',  previsto:'13:00', checkin:'13:00', checkout:'01:00', tipo:'in'     },
+    { medico:'Dr. Marcelo Dias',    ini:'MD', data:'2026-05-05', dataFmt:'05/05', turno:'Manhã',  previsto:'07:00', checkin:'07:28', checkout:'19:00', tipo:'late'   },
+    { medico:'Dra. Priscila Teles', ini:'PT', data:'2026-05-06', dataFmt:'06/05', turno:'Manhã',  previsto:'07:00', checkin:'07:42', checkout:'19:00', tipo:'late'   },
+    { medico:'Dra. Beatriz Lima',   ini:'BL', data:'2026-05-07', dataFmt:'07/05', turno:'Noite',  previsto:'19:00', checkin:'—',     checkout:'—',     tipo:'absent' },
+    { medico:'Dr. Marcelo Dias',    ini:'MD', data:'2026-05-09', dataFmt:'09/05', turno:'Manhã',  previsto:'07:00', checkin:'07:03', checkout:'19:00', tipo:'in'     },
+    { medico:'Dra. Priscila Teles', ini:'PT', data:'2026-05-10', dataFmt:'10/05', turno:'Manhã',  previsto:'07:00', checkin:'07:00', checkout:'19:00', tipo:'in'     },
+  ]
+};
+
+// ══════════════════════════════
+// ESTADO
+// ══════════════════════════════
+let upaAtual = 'vila-pereira';
+let viewMode = 'timeline';
+
+// ══════════════════════════════
+// SELETOR UPA
+// ══════════════════════════════
+function renderUPASelector() {
+  document.getElementById('upa-selector').innerHTML = UPAS_CONFIG.map(u => `
+    <div class="upa-opt ${u.key === upaAtual ? 'selected' : ''}" onclick="selecionarUPA('${u.key}')">
+      <div class="upa-opt-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${u.key === upaAtual ? u.cor : '#7a9090'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      </div>
+      <div>
+        <div class="upa-opt-name">${u.name}</div>
+        <div class="upa-opt-stat">${u.medicos} médicos escalados</div>
+      </div>
+    </div>`).join('');
+}
+
+function selecionarUPA(key) {
+  upaAtual = key;
+  renderUPASelector();
+  render();
+}
+
+// ══════════════════════════════
+// FILTRAR
+// ══════════════════════════════
+function filtrar() {
+  const turno  = document.getElementById('f-turno').value;
+  const evento = document.getElementById('f-evento').value;
+
+  return (PLANTOES[upaAtual] || []).filter(d => {
+    const matchTurno  = !turno  || d.turno === turno;
+    const matchEvento = !evento || d.tipo  === evento;
+    return matchTurno && matchEvento;
+  });
+}
+
+// ══════════════════════════════
+// KPIs
+// ══════════════════════════════
+function renderKPIs(dados) {
+  document.getElementById('kpi-total').textContent    = dados.length;
+  document.getElementById('kpi-entradas').textContent = dados.filter(d=>d.tipo==='in').length;
+  document.getElementById('kpi-saidas').textContent   = dados.filter(d=>d.checkin!=='—'&&d.checkout!=='—').length;
+  document.getElementById('kpi-atrasos').textContent  = dados.filter(d=>d.tipo==='late').length;
+  document.getElementById('kpi-ausencias').textContent= dados.filter(d=>d.tipo==='absent').length;
+}
+
+// ══════════════════════════════
+// TIMELINE
+// ══════════════════════════════
+const TIPO_LABEL = { in:'Check-In', out:'Check-Out', absent:'Ausência', late:'Atraso' };
+const TIPO_DETAIL = {
+  in:     d => `Entrada: ${d.checkin} · Saída: ${d.checkout}`,
+  late:   d => `Entrada: ${d.checkin} (+${d.checkin} previsto ${d.previsto}) · Saída: ${d.checkout}`,
+  out:    d => `Saída registrada: ${d.checkout}`,
+  absent: d => `Plantão previsto: ${d.previsto} · Médico não compareceu`,
+};
+
+function renderTimeline(dados) {
+  const byDate = {};
+  dados.forEach(d => {
+    if (!byDate[d.data]) byDate[d.data] = { dataFmt: d.dataFmt, turno: d.turno, eventos: [] };
+    byDate[d.data].eventos.push(d);
+  });
+
+  if (Object.keys(byDate).length === 0) {
+    document.getElementById('timeline-wrap').innerHTML = `<div style="text-align:center;padding:3rem;color:var(--muted);font-weight:700;background:#fff;border-radius:18px;border:1.5px solid var(--border);">Nenhum registro encontrado para os filtros selecionados.</div>`;
+    return;
+  }
+
+  document.getElementById('timeline-wrap').innerHTML = Object.entries(byDate).map(([date, day]) => {
+    const temAusencia = day.eventos.some(e=>e.tipo==='absent');
+    const temAtraso   = day.eventos.some(e=>e.tipo==='late');
+    const todos100    = !temAusencia && !temAtraso;
+    const dotColor    = temAusencia ? 'var(--red)' : temAtraso ? 'var(--yellow)' : 'var(--green)';
+    const pills = [
+      day.eventos.filter(e=>e.tipo==='in').length > 0    ? `<span class="day-pill ok">${day.eventos.filter(e=>e.tipo==='in').length} entrada${day.eventos.filter(e=>e.tipo==='in').length>1?'s':''}</span>` : '',
+      day.eventos.filter(e=>e.tipo==='late').length > 0   ? `<span class="day-pill warn">${day.eventos.filter(e=>e.tipo==='late').length} atraso${day.eventos.filter(e=>e.tipo==='late').length>1?'s':''}</span>` : '',
+      day.eventos.filter(e=>e.tipo==='absent').length > 0 ? `<span class="day-pill danger">${day.eventos.filter(e=>e.tipo==='absent').length} ausência${day.eventos.filter(e=>e.tipo==='absent').length>1?'s':''}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const eventos = day.eventos.map(e => `
+      <div class="tl-event">
+        <div class="tl-dot ${e.tipo}"></div>
+        <div class="tl-body">
+          <div class="tl-time">${e.checkin !== '—' ? e.checkin : e.previsto}</div>
+          <div class="tl-name">${e.medico}</div>
+          <div class="tl-detail">
+            <span class="tl-badge ${e.tipo}">${TIPO_LABEL[e.tipo]}</span>
+            ${e.tipo === 'in'     ? `Entrada: ${e.checkin} · Saída: ${e.checkout}` : ''}
+            ${e.tipo === 'late'   ? `Entrada: ${e.checkin} (prev. ${e.previsto}) · Saída: ${e.checkout}` : ''}
+            ${e.tipo === 'absent' ? `Previsto: ${e.previsto} · Não compareceu` : ''}
+            ${e.tipo === 'out'    ? `Saída: ${e.checkout}` : ''}
+          </div>
+        </div>
+      </div>`).join('');
+
+    const id = 'day-' + date.replace(/-/g,'');
+    return `
+    <div class="day-block">
+      <div class="day-header" onclick="toggleDay('${id}')">
+        <div class="day-header-left">
+          <div class="day-dot" style="background:${dotColor}"></div>
+          <div>
+            <div class="day-date">${day.dataFmt} — ${day.turno}</div>
+            <div class="day-turno">${day.eventos.length} registro${day.eventos.length>1?'s':''}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.8rem;">
+          <div class="day-pills">${pills}</div>
+          <svg class="day-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="chev-${id}"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="day-events open" id="${id}">
+        <div class="timeline-inner">${eventos}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleDay(id) {
+  const el   = document.getElementById(id);
+  const chev = document.getElementById('chev-' + id);
+  el.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+// ══════════════════════════════
+// TABELA
+// ══════════════════════════════
+function renderTabela(dados) {
+  const upaCfg = UPAS_CONFIG.find(u => u.key === upaAtual);
+  document.getElementById('table-title').textContent = `Registros de plantão · ${upaCfg?.name}`;
+
+  if (dados.length === 0) {
+    document.getElementById('tabela-body').innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2.5rem;color:var(--muted);font-weight:700;">Nenhum registro encontrado.</td></tr>`;
+    return;
+  }
+
+  const BADGE = { in:'badge-in', out:'badge-out', absent:'badge-absent', late:'badge-late' };
+  const BLBL  = { in:'Entrada', out:'Saída', absent:'Ausência', late:'Atraso' };
+
+  document.getElementById('tabela-body').innerHTML = dados.map(d => {
+    const dur = d.checkin !== '—' && d.checkout !== '—' ? '12h' : '—';
+    return `
+    <tr>
+      <td><div class="td-medico"><div class="td-avatar">${d.ini}</div><div class="td-name">${d.medico}</div></div></td>
+      <td><strong>${d.dataFmt}/2026</strong></td>
+      <td>${d.turno}</td>
+      <td class="center" style="font-weight:700;">${d.previsto}</td>
+      <td class="center" style="font-weight:800;color:${d.tipo==='absent'?'var(--red)':d.tipo==='late'?'var(--yellow)':'var(--teal)'};">${d.checkin}</td>
+      <td class="center" style="font-weight:700;">${d.checkout}</td>
+      <td class="center" style="color:var(--muted);font-weight:700;">${dur}</td>
+      <td class="center"><span class="badge ${BADGE[d.tipo]}">${BLBL[d.tipo]}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════
+// VIEW TOGGLE
+// ══════════════════════════════
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('timeline-view').classList.toggle('hidden', mode !== 'timeline');
+  document.getElementById('table-view').classList.toggle('active', mode === 'tabela');
+  document.getElementById('btn-timeline').classList.toggle('active', mode === 'timeline');
+  document.getElementById('btn-tabela').classList.toggle('active', mode === 'tabela');
+}
+
+// ══════════════════════════════
+// RENDER PRINCIPAL
+// ══════════════════════════════
+function render() {
+  const dados = filtrar();
+  renderKPIs(dados);
+  renderTimeline(dados);
+  renderTabela(dados);
+}
+
+// ══════════════════════════════
+// EXPORTAR
+// ══════════════════════════════
+function exportar(tipo) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent =
+    tipo === 'pdf' ? 'Relatório PDF gerado com sucesso!' : 'Planilha Excel gerada com sucesso!';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+renderUPASelector();
+render();
+document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('pt-BR',{
+  weekday:'long', day:'2-digit', month:'long', year:'numeric'
+});
+</script>
+</body>
+</html>

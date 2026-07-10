@@ -1,5 +1,8 @@
 import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from './hooks/useAuth';
+import { BRAND } from './config/brand';
+import { PROFESSIONAL_ROLES, isProfessional } from './config/roles';
 import { ClinicSelector } from './components/ClinicSelector';
 import { PendingOperationsIndicator } from './components/PendingOperationsIndicator';
 import { OfflineBanner } from './components/OfflineBanner';
@@ -16,14 +19,13 @@ import {
 
 function AppLayout() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const roles = user?.roles ?? [];
   const isAdminGlobal = roles.includes('AdminGlobal');
   const isAdminClinica = roles.includes('AdminClinica');
-  const isMedico = roles.includes('Medico');
-  const isProfessional =
-    roles.includes('Medico') || roles.includes('Enfermeiro') || roles.includes('Tecnico');
+  const professional = isProfessional(roles);
 
   const handleLogout = () => {
     logout();
@@ -45,12 +47,12 @@ function AppLayout() {
         flexWrap: 'wrap',
       }}
     >
-      <strong style={{ marginRight: 8 }}>PlantonHub</strong>
+      <strong style={{ marginRight: 8 }}>{BRAND.name}</strong>
       <nav style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <Link to="/dashboard">Dashboard</Link>
         <Link to="/shifts">Plantões</Link>
-        {isProfessional && <Link to="/attendance">Presença</Link>}
-        {isMedico && <Link to="/doctor">Médico</Link>}
+        {professional && <Link to="/attendance">Presença</Link>}
+        {professional && <Link to="/doctor">{t('doctor.nav.professionalArea')}</Link>}
         {(isAdminGlobal || isAdminClinica) && <Link to="/clinics">Clínicas</Link>}
         {isAdminGlobal && <Link to="/users">Usuários</Link>}
       </nav>
@@ -121,7 +123,7 @@ function App() {
         <Route
           path="/doctor"
           element={
-            <ProtectedRoute requiredRoles={['Medico']}>
+            <ProtectedRoute requiredRoles={[...PROFESSIONAL_ROLES]}>
               <DoctorPage />
             </ProtectedRoute>
           }

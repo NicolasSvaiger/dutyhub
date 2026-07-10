@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24p7 – Painel TV</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --teal:   #2DBFB8;
+  --orange: #F5A623;
+  --green:  #22c55e;
+  --yellow: #f59e0b;
+  --red:    #ef4444;
+  --bg:     #0d1b1b;
+  --card:   #132424;
+  --border: rgba(45,191,184,.15);
+  --text:   #f0fdfc;
+  --muted:  #7ab8b5;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ══ BACKGROUND ══ */
+.bg-grid {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(45,191,184,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45,191,184,.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+.bg-glow {
+  position: fixed;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45,191,184,.08) 0%, transparent 70%);
+  top: -200px; left: -100px;
+  pointer-events: none;
+}
+.bg-glow-2 {
+  position: fixed;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,166,35,.06) 0%, transparent 70%);
+  bottom: -100px; right: -50px;
+  pointer-events: none;
+}
+
+/* ══ LAYOUT ══ */
+.tv-wrap {
+  position: relative;
+  width: 100vw; height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0;
+  z-index: 1;
+}
+
+/* ══ HEADER ══ */
+.tv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 2.4rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(13,27,27,.8);
+  backdrop-filter: blur(8px);
+}
+
+.header-logo {
+  display: flex; align-items: center; gap: 1rem;
+}
+.header-logo-name {
+  font-size: 2rem; font-weight: 900;
+  color: var(--teal); letter-spacing: -1.5px;
+}
+.header-logo-tag {
+  font-size: .7rem; font-weight: 700;
+  color: var(--muted); letter-spacing: .04em;
+  margin-top: 2px;
+}
+
+.header-center {
+  text-align: center;
+}
+.header-title {
+  font-size: 1.1rem; font-weight: 800;
+  color: var(--text); letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.header-subtitle {
+  font-size: .75rem; font-weight: 700;
+  color: var(--muted); margin-top: 2px;
+}
+
+.header-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: .3rem;
+}
+.header-clock {
+  font-size: 2.2rem; font-weight: 900;
+  color: var(--text); letter-spacing: -1px; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.header-date {
+  font-size: .72rem; font-weight: 700;
+  color: var(--muted); text-transform: capitalize;
+}
+
+/* ══ BODY ══ */
+.tv-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 1.2rem;
+  padding: 1.4rem 2.4rem;
+  align-items: stretch;
+}
+
+/* ══ UPA CARD ══ */
+.upa-card {
+  display: flex; flex-direction: column;
+  background: var(--card);
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  animation: cardIn .6s ease both;
+}
+.upa-card:nth-child(1) { animation-delay: .05s; }
+.upa-card:nth-child(2) { animation-delay: .12s; }
+.upa-card:nth-child(3) { animation-delay: .19s; }
+.upa-card:nth-child(4) { animation-delay: .26s; }
+@keyframes cardIn {
+  from { opacity:0; transform: translateY(20px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+/* barra lateral colorida */
+.upa-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 5px;
+}
+.upa-card.green::before  { background: var(--green); }
+.upa-card.yellow::before { background: var(--yellow); }
+.upa-card.red::before    { background: var(--red); }
+
+/* header do card */
+.upa-card-top {
+  padding: 1.2rem 1.4rem 1rem 1.8rem;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.upa-card-name {
+  font-size: 1.15rem; font-weight: 900;
+  color: var(--text); line-height: 1.2;
+}
+.upa-card-turno {
+  font-size: .7rem; font-weight: 700;
+  color: var(--muted); margin-top: 4px;
+}
+
+/* semáforo */
+.semaforo {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 7px 6px;
+  background: rgba(0,0,0,.3);
+  border-radius: 30px;
+  flex-shrink: 0;
+}
+.semaforo-light {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(255,255,255,.08);
+}
+.upa-card.green  .semaforo-light:nth-child(1) { background: var(--green);  box-shadow: 0 0 10px var(--green); }
+.upa-card.yellow .semaforo-light:nth-child(2) { background: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
+.upa-card.red    .semaforo-light:nth-child(3) { background: var(--red);    box-shadow: 0 0 10px var(--red); }
+
+/* status pill */
+.status-pill {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: .7rem; font-weight: 800;
+  padding: .28rem .8rem; border-radius: 20px;
+  letter-spacing: .04em; margin-top: .5rem;
+}
+.upa-card.green  .status-pill { background: rgba(34,197,94,.15); color: #4ade80; }
+.upa-card.yellow .status-pill { background: rgba(245,158,11,.15); color: #fbbf24; }
+.upa-card.red    .status-pill { background: rgba(239,68,68,.15);  color: #f87171; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; animation: pulse-s 1.5s ease infinite; }
+.upa-card.green  .status-dot { background: #4ade80; }
+.upa-card.yellow .status-dot { background: #fbbf24; }
+.upa-card.red    .status-dot { background: #f87171; }
+@keyframes pulse-s {
+  0%,100% { opacity:1; } 50% { opacity:.4; }
+}
+
+/* ── MEDIDORES ── */
+.upa-meters {
+  padding: 1rem 1.4rem 1rem 1.8rem;
+  flex: 1;
+}
+
+/* contador grande */
+.count-wrap {
+  display: flex; align-items: flex-end; gap: .5rem;
+  margin-bottom: .6rem;
+}
+.count-big {
+  font-size: 3.8rem; font-weight: 900;
+  line-height: 1;
+}
+.upa-card.green  .count-big { color: var(--green); }
+.upa-card.yellow .count-big { color: var(--yellow); }
+.upa-card.red    .count-big { color: var(--red); }
+
+.count-of {
+  font-size: 1.1rem; font-weight: 700;
+  color: var(--muted); padding-bottom: .5rem;
+}
+.count-label {
+  font-size: .72rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase;
+  letter-spacing: .07em; margin-bottom: 1rem;
+}
+
+/* barra de progresso */
+.prog-bg {
+  height: 10px; border-radius: 10px;
+  background: rgba(255,255,255,.07);
+  overflow: hidden; margin-bottom: 1.2rem;
+}
+.prog-fill {
+  height: 100%; border-radius: 10px;
+  transition: width .8s cubic-bezier(.4,0,.2,1);
+}
+.upa-card.green  .prog-fill { background: linear-gradient(90deg, var(--teal), var(--green)); }
+.upa-card.yellow .prog-fill { background: linear-gradient(90deg, var(--orange), var(--yellow)); }
+.upa-card.red    .prog-fill { background: linear-gradient(90deg, #b91c1c, var(--red)); }
+
+/* dots de médicos */
+.medicos-dots {
+  display: flex; flex-wrap: wrap; gap: .5rem;
+  margin-bottom: 1rem;
+}
+.medico-dot-item {
+  display: flex; align-items: center; gap: .4rem;
+  background: rgba(255,255,255,.05);
+  border-radius: 8px; padding: .35rem .6rem;
+  font-size: .72rem; font-weight: 700;
+  color: var(--text);
+}
+.mdot {
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}
+.mdot.present  { background: var(--green);  box-shadow: 0 0 5px var(--green); }
+.mdot.late     { background: var(--yellow); box-shadow: 0 0 5px var(--yellow); }
+.mdot.absent   { background: var(--red);    box-shadow: 0 0 5px var(--red); }
+.mdot.upcoming { background: var(--muted); }
+
+/* alertas */
+.upa-alerts {
+  border-top: 1px solid var(--border);
+  padding: .7rem 1.4rem .7rem 1.8rem;
+}
+.alert-item {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .72rem; font-weight: 700;
+  color: var(--muted);
+}
+.alert-item.warn { color: #fbbf24; }
+.alert-item.crit { color: #f87171; }
+
+/* ══ FOOTER ══ */
+.tv-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .8rem 2.4rem;
+  border-top: 1px solid var(--border);
+  background: rgba(13,27,27,.8);
+  backdrop-filter: blur(8px);
+}
+
+.footer-left {
+  display: flex; align-items: center; gap: 2.4rem;
+}
+.footer-stat {
+  display: flex; align-items: center; gap: .5rem;
+}
+.footer-stat-num {
+  font-size: 1.4rem; font-weight: 900;
+}
+.footer-stat-num.green  { color: var(--green); }
+.footer-stat-num.yellow { color: var(--yellow); }
+.footer-stat-num.red    { color: var(--red); }
+.footer-stat-label {
+  font-size: .65rem; font-weight: 700;
+  color: var(--muted); text-transform: uppercase;
+  letter-spacing: .07em; line-height: 1.3;
+}
+.footer-divider {
+  width: 1px; height: 32px;
+  background: var(--border);
+}
+
+.footer-center {
+  display: flex; align-items: center; gap: .6rem;
+}
+.refresh-ring {
+  position: relative; width: 32px; height: 32px;
+}
+.refresh-ring svg {
+  transform: rotate(-90deg);
+}
+.refresh-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+.ring-bg   { stroke: rgba(255,255,255,.08); }
+.ring-fill {
+  stroke: var(--teal);
+  stroke-dasharray: 88;
+  stroke-dashoffset: 88;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .5s linear;
+}
+.refresh-label {
+  font-size: .72rem; font-weight: 700; color: var(--muted);
+}
+.refresh-countdown {
+  font-size: .85rem; font-weight: 900; color: var(--teal);
+}
+
+.footer-right {
+  display: flex; align-items: center; gap: .5rem;
+  font-size: .68rem; font-weight: 700; color: var(--muted);
+}
+.live-badge {
+  display: flex; align-items: center; gap: .35rem;
+  background: rgba(34,197,94,.12);
+  border: 1px solid rgba(34,197,94,.25);
+  border-radius: 20px; padding: .25rem .7rem;
+  font-size: .68rem; font-weight: 800; color: #4ade80;
+}
+.live-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #4ade80;
+  animation: pulse-s 1.2s ease infinite;
+}
+
+/* ══ INDICADOR OCUPAÇÃO ══ */
+.ocupacao-wrap {
+  display: flex; align-items: center; gap: 1.4rem;
+  padding: 0 2rem;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.ocupacao-ring {
+  position: relative; width: 64px; height: 64px; flex-shrink: 0;
+}
+.ocupacao-ring svg { transform: rotate(-90deg); }
+.ocupacao-ring circle { fill: none; stroke-width: 7; }
+.oring-bg   { stroke: rgba(255,255,255,.07); }
+.oring-fill {
+  stroke: var(--teal);
+  stroke-linecap: round;
+  stroke-dasharray: 176;
+  transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1);
+}
+.ocupacao-pct {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Nunito', sans-serif;
+  font-size: 1rem; font-weight: 900;
+  color: var(--teal);
+}
+.ocupacao-info { display: flex; flex-direction: column; gap: .15rem; }
+.ocupacao-title {
+  font-size: .62rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted);
+}
+.ocupacao-meta {
+  font-size: .82rem; font-weight: 900; color: var(--text);
+}
+.ocupacao-badges { display: flex; gap: .5rem; margin-top: .3rem; }
+.ocup-badge {
+  display: flex; align-items: center; gap: .3rem;
+  font-size: .62rem; font-weight: 800;
+  padding: .2rem .55rem; border-radius: 20px;
+}
+.ocup-badge.ok  { background: rgba(34,197,94,.15); color: #4ade80; }
+.ocup-badge.def { background: rgba(245,158,11,.15); color: #fbbf24; }
+
+/* ══ ANIMAÇÃO UPDATE ══ */
+@keyframes flash-update {
+  0%   { opacity:1; }
+  30%  { opacity:.5; }
+  100% { opacity:1; }
+}
+.flash { animation: flash-update .6s ease; }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+<div class="bg-glow-2"></div>
+
+<div class="tv-wrap">
+
+  <!-- ══ HEADER ══ -->
+  <header class="tv-header">
+    <div class="header-logo">
+      <svg width="42" height="42" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#2DBFB8"/>
+          <stop offset="100%" stop-color="#F5A623"/>
+        </linearGradient></defs>
+        <circle cx="44" cy="44" r="44" fill="url(#lg)"/>
+        <path d="M44 17 C33 17 24 26 24 37 C24 51 44 67 44 67 C44 67 64 51 64 37 C64 26 55 17 44 17Z" fill="rgba(255,255,255,.95)"/>
+        <polyline points="31,37 36,37 39,31 42,43 45,35 48,41 51,37 57,37" fill="none" stroke="#2DBFB8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <polyline points="37,24 42,30 52,20" fill="none" stroke="#F5A623" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="header-logo-name">24p7</div>
+        <div class="header-logo-tag">Tecnologia para quem não para</div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="header-title">Painel de Monitoramento · Plantões Médicos</div>
+      <div class="header-subtitle">Secretaria Municipal de Saúde · Visão em Tempo Real</div>
+    </div>
+
+    <div class="header-right">
+      <div class="header-clock" id="tv-clock">--:--:--</div>
+      <div class="header-date" id="tv-date">—</div>
+    </div>
+  </header>
+
+  <!-- ══ BODY — UPA CARDS ══ -->
+  <div class="tv-body" id="tv-body">
+    <!-- gerado por JS -->
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="tv-footer">
+    <div class="footer-left">
+      <div class="footer-stat">
+        <div class="footer-stat-num green" id="ft-presentes">11</div>
+        <div class="footer-stat-label">Médicos<br>presentes</div>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="footer-stat">
+        <div class="footer-stat-num" style="color:var(--muted)" id="ft-escalados">14</div>
+        <div class="footer-stat-label">Total<br>escalados</div>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="footer-stat">
+        <div class="footer-stat-num yellow" id="ft-atrasos">2</div>
+        <div class="footer-stat-label">Com<br>atraso</div>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="footer-stat">
+        <div class="footer-stat-num red" id="ft-ausencias">1</div>
+        <div class="footer-stat-label">Plantão<br>ausente</div>
+      </div>
+    </div>
+
+    <div class="footer-center" style="display:flex;align-items:center;gap:1.6rem;">
+
+      <!-- INDICADOR DE OCUPAÇÃO -->
+      <div class="ocupacao-wrap">
+        <div class="ocupacao-ring">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle class="oring-bg" cx="32" cy="32" r="28"/>
+            <circle class="oring-fill" id="oring-fill" cx="32" cy="32" r="28"/>
+          </svg>
+          <div class="ocupacao-pct" id="ocup-pct">79%</div>
+        </div>
+        <div class="ocupacao-info">
+          <div class="ocupacao-title">Taxa de Ocupação Global</div>
+          <div class="ocupacao-meta">Meta: 4 médicos/turno</div>
+          <div class="ocupacao-badges">
+            <div class="ocup-badge ok">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Operação Normal
+            </div>
+            <div class="ocup-badge def">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Déficit
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COUNTDOWN -->
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <div class="refresh-ring">
+          <svg width="32" height="32" viewBox="0 0 32 32">
+            <circle class="ring-bg" cx="16" cy="16" r="14"/>
+            <circle class="ring-fill" id="ring-fill" cx="16" cy="16" r="14"/>
+          </svg>
+        </div>
+        <div>
+          <div class="refresh-label">Próxima atualização em</div>
+          <div class="refresh-countdown"><span id="countdown">60</span>s</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="footer-right">
+      <div class="live-badge"><div class="live-dot"></div>AO VIVO</div>
+      Dados atualizados automaticamente
+      <span style="color:rgba(255,255,255,.1);margin:0 .4rem;">|</span>
+      <a href="op-welcome.html" style="display:flex;align-items:center;gap:.35rem;color:var(--muted);text-decoration:none;font-size:.68rem;font-weight:700;opacity:.6;transition:opacity .2s,color .2s;" onmouseover="this.style.opacity='1';this.style.color='#2DBFB8'" onmouseout="this.style.opacity='.6';this.style.color='var(--muted)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10"/><polyline points="20 17 23 12 20 7"/><line x1="23" y1="12" x2="9" y2="12"/></svg>
+        Sair
+      </a>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// ══════════════════════════════
+// DADOS MOCADOS
+// ══════════════════════════════
+const UPAS = [
+  {
+    name: 'UPA – Vila Pereira',
+    turno: 'Turno Manhã · 07h00–19h00',
+    status: 'green',
+    statusLabel: 'Quadro completo',
+    presentes: 4, escalados: 4,
+    medicos: [
+      { nome: 'Dra. Jessica Lima',  status: 'present' },
+      { nome: 'Dr. Roberto Alves',  status: 'present' },
+      { nome: 'Dra. Camila Ferraz', status: 'present' },
+      { nome: 'Dr. André Souza',    status: 'present' },
+    ],
+    alert: null
+  },
+  {
+    name: 'UPA – Centro',
+    turno: 'Turno Manhã · 07h00–19h00',
+    status: 'yellow',
+    statusLabel: 'Quadro parcial',
+    presentes: 2, escalados: 4,
+    medicos: [
+      { nome: 'Dr. Paulo Henrique', status: 'present' },
+      { nome: 'Dra. Mariana Costa', status: 'late'    },
+      { nome: 'Dr. Fábio Melo',     status: 'present' },
+      { nome: 'Dra. Renata Silva',  status: 'absent'  },
+    ],
+    alert: { type:'warn', msg:'⚠ Dra. Renata Silva · Ausência registrada' }
+  },
+  {
+    name: 'UPA – Zona Norte',
+    turno: 'Turno Manhã · 07h00–19h00',
+    status: 'green',
+    statusLabel: 'Quadro completo',
+    presentes: 3, escalados: 3,
+    medicos: [
+      { nome: 'Dr. Carlos Nunes',   status: 'present' },
+      { nome: 'Dra. Tatiane Rocha', status: 'present' },
+      { nome: 'Dr. Lucas Prado',    status: 'present' },
+    ],
+    alert: null
+  },
+  {
+    name: 'UPA – Zona Sul',
+    turno: 'Turno Manhã · 07h00–19h00',
+    status: 'yellow',
+    statusLabel: 'Quadro parcial',
+    presentes: 2, escalados: 3,
+    medicos: [
+      { nome: 'Dra. Beatriz Lima',   status: 'present'  },
+      { nome: 'Dr. Marcelo Dias',    status: 'late'     },
+      { nome: 'Dra. Priscila Teles', status: 'upcoming' },
+    ],
+    alert: { type:'warn', msg:'⚠ Dr. Marcelo Dias · Atraso de 50 minutos' }
+  }
+];
+
+const STATUS_LABELS = {
+  present:  'Presente',
+  late:     'Atrasado',
+  absent:   'Ausente',
+  upcoming: 'Aguardando',
+};
+
+// ══════════════════════════════
+// RENDER
+// ══════════════════════════════
+function renderUPAs() {
+  const body = document.getElementById('tv-body');
+  body.innerHTML = UPAS.map(upa => {
+    const pct = Math.round((upa.presentes / upa.escalados) * 100);
+
+    const dotsHTML = upa.medicos.map(m => `
+      <div class="medico-dot-item">
+        <div class="mdot ${m.status}"></div>
+        ${m.nome}
+      </div>`).join('');
+
+    const alertHTML = upa.alert
+      ? `<div class="upa-alerts">
+           <div class="alert-item ${upa.alert.type}">${upa.alert.msg}</div>
+         </div>`
+      : `<div class="upa-alerts">
+           <div class="alert-item">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+             Todos os médicos confirmados
+           </div>
+         </div>`;
+
+    return `
+    <div class="upa-card ${upa.status}">
+      <div class="upa-card-top">
+        <div>
+          <div class="upa-card-name">${upa.name}</div>
+          <div class="upa-card-turno">${upa.turno}</div>
+          <div class="status-pill">
+            <div class="status-dot"></div>
+            ${upa.statusLabel}
+          </div>
+        </div>
+        <div class="semaforo">
+          <div class="semaforo-light"></div>
+          <div class="semaforo-light"></div>
+          <div class="semaforo-light"></div>
+        </div>
+      </div>
+
+      <div class="upa-meters">
+        <div class="count-wrap">
+          <div class="count-big">${upa.presentes}</div>
+          <div class="count-of">/ ${upa.escalados}</div>
+        </div>
+        <div class="count-label">médicos presentes</div>
+        <div class="prog-bg">
+          <div class="prog-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="medicos-dots">${dotsHTML}</div>
+      </div>
+
+      ${alertHTML}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════
+// RELÓGIO
+// ══════════════════════════════
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('tv-clock').textContent = h + ':' + m + ':' + s;
+  document.getElementById('tv-date').textContent = now.toLocaleDateString('pt-BR',{
+    weekday:'long', day:'2-digit', month:'long', year:'numeric'
+  });
+}
+
+// ══════════════════════════════
+// COUNTDOWN + RING
+// ══════════════════════════════
+const REFRESH_SEC = 60;
+const CIRCUMFERENCE = 2 * Math.PI * 14; // r=14
+let remaining = REFRESH_SEC;
+
+function updateRing() {
+  const fill = document.getElementById('ring-fill');
+  const pct = remaining / REFRESH_SEC;
+  fill.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+  document.getElementById('countdown').textContent = remaining;
+}
+
+function tick() {
+  remaining--;
+  if (remaining <= 0) {
+    remaining = REFRESH_SEC;
+    flashUpdate();
+  }
+  updateRing();
+}
+
+function flashUpdate() {
+  const body = document.getElementById('tv-body');
+  body.classList.add('flash');
+  setTimeout(() => body.classList.remove('flash'), 700);
+  // Simula pequena variação nos dados a cada ciclo
+  simulateDataChange();
+}
+
+// Simula mudança leve nos dados (mocado)
+let cycle = 0;
+function simulateDataChange() {
+  cycle++;
+  // Alterna levemente o status da UPA Zona Sul para demonstrar atualização
+  if (cycle % 2 === 0) {
+    UPAS[3].medicos[2].status = 'present';
+    UPAS[3].presentes = 3;
+    UPAS[3].status = 'green';
+    UPAS[3].statusLabel = 'Quadro completo';
+    UPAS[3].alert = null;
+    document.getElementById('ft-presentes').textContent = '12';
+  } else {
+    UPAS[3].medicos[2].status = 'upcoming';
+    UPAS[3].presentes = 2;
+    UPAS[3].status = 'yellow';
+    UPAS[3].statusLabel = 'Quadro parcial';
+    UPAS[3].alert = { type:'warn', msg:'⚠ Dr. Marcelo Dias · Atraso de 50 minutos' };
+    document.getElementById('ft-presentes').textContent = '11';
+  }
+  renderUPAs();
+  updateOcupacao();
+}
+
+// ══════════════════════════════
+// OCUPAÇÃO GLOBAL
+// ══════════════════════════════
+function calcOcupacao() {
+  const totalPresentes = UPAS.reduce((s, u) => s + u.presentes, 0);
+  const totalEscalados = UPAS.reduce((s, u) => s + u.escalados, 0);
+  return Math.round((totalPresentes / totalEscalados) * 100);
+}
+
+function updateOcupacao() {
+  const pct = calcOcupacao();
+  const CIRC = 2 * Math.PI * 28;
+  const offset = CIRC * (1 - pct / 100);
+  const ring = document.getElementById('oring-fill');
+  if (!ring) return;
+  ring.style.strokeDasharray = CIRC;
+  ring.style.strokeDashoffset = offset;
+  ring.style.stroke = pct >= 90 ? '#22c55e' : pct >= 70 ? '#2DBFB8' : '#f59e0b';
+  const pctEl = document.getElementById('ocup-pct');
+  if (pctEl) {
+    pctEl.textContent = pct + '%';
+    pctEl.style.color = pct >= 90 ? '#4ade80' : pct >= 70 ? '#2DBFB8' : '#fbbf24';
+  }
+}
+
+// ══════════════════════════════
+// INIT
+// ══════════════════════════════
+renderUPAs();
+updateOcupacao();
+updateClock();
+updateRing();
+
+setInterval(updateClock, 1000);
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

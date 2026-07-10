@@ -1,0 +1,205 @@
+{
+  "language": {
+    "switcher": "Language"
+  },
+
+  "offline": {
+    "message": "You're offline — actions will be saved locally and synced when you're back online."
+  },
+
+  "login": {
+    "eyebrow": "Professional portal",
+    "title": "Welcome back",
+    "subtitle": "Check in and check out with a single tap",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@hospital.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "••••••••",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "forgot": "Forgot my password",
+    "forgotHint": "Contact your clinic administrator to reset your password.",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "errorGeneric": "Sign-in failed. Please check your credentials.",
+    "heroTagline": "Technology for those who never stop",
+    "heroTitle": "Your shifts,\nalways organized",
+    "heroSub": "One-tap check-in and check-out, full history and reports at your fingertips.",
+    "feature1": "GPS check-in in seconds",
+    "feature2": "History and hour reports",
+    "feature3": "Works offline and syncs later"
+  },
+
+  "doctor": {
+    "role": "Professional",
+
+    "home": {
+      "greeting": "Hello, {{name}}!",
+      "welcome": "Welcome back",
+      "now": "It's now",
+      "selectOption": "Choose an option",
+      "checkin": "Check-in",
+      "checkout": "Check-out",
+      "offlineCheckin": "No connection. Check-in saved offline.",
+      "offlineCheckout": "No connection. Check-out saved offline."
+    },
+
+    "nav": {
+      "home": "Home",
+      "checkin": "Check-in",
+      "checkout": "Check-out",
+      "attendance": "Attendance",
+      "shifts": "Shifts",
+      "reports": "Reports",
+      "settings": "Settings",
+      "logout": "Log out",
+      "professionalArea": "Professional area"
+    },
+
+    "attendance": {
+      "lastCheckin": "Last check-in",
+      "lastCheckout": "Last check-out"
+    },
+
+    "shifts": {
+      "loading": "Loading shifts…",
+      "errorLoading": "Failed to load shifts",
+      "empty": "You don't have any shifts assigned yet.",
+      "today": "Today",
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "showMore_one": "Show 1 more shift",
+      "showMore_other": "Show {{count}} more shifts",
+      "showLess": "Show less"
+    },
+
+    "settings": {
+      "appearance": "Appearance",
+      "theme": "Theme",
+      "language": "Language",
+      "account": "Account",
+      "logoutHint": "Sign out on this device"
+    },
+
+    "reports": {
+      "loading": "Loading…",
+      "errorLoading": "Failed to load reports",
+      "retry": "Try again",
+      "summary": "Summary",
+      "shifts": "Shifts",
+      "hours": "Hours",
+      "avgPerShift": "Avg/Shift",
+      "filters": "Filters",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "datePlaceholder": "Select date",
+      "clearDate": "Clear date",
+      "prevYear": "Previous year",
+      "nextYear": "Next year",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "clinic": "Clinic",
+      "allClinics": "All clinics",
+      "search": "Search",
+      "records": "Records",
+      "noRecords": "No records found",
+      "entry": "Entry",
+      "exit": "Exit",
+      "badgeIn": "CHECK-IN",
+      "badgeOut": "CHECK-OUT"
+    },
+
+    "modal": {
+      "title": {
+        "checkin": "Confirm check-in?",
+        "checkout": "Confirm check-out?"
+      },
+      "subtitle": {
+        "checkin": "Select the shift you're starting now.",
+        "checkout": "Select the shift you're closing."
+      },
+      "unit": "Facility",
+      "unitFallback": "Facility",
+      "shift": "Shift",
+      "loading": "Loading shifts…",
+      "empty": {
+        "checkin": "You don't have any shift assigned for today at this clinic. Please contact your manager.",
+        "checkout": "You don't have any active shift to close at the moment."
+      },
+      "blocked": {
+        "title": "You already have a shift in progress",
+        "body": "Check-in at <strong>{{time}}</strong> at <strong>{{clinic}}</strong>.",
+        "hint": "Finish that shift with Check-Out before starting a new one."
+      },
+      "checkinAt": "Check-in at {{time}}",
+      "selectClinic": "Select a clinic",
+      "no": "No",
+      "close": "Close",
+      "confirm": "Confirm",
+      "processing": "Processing…",
+      "offlineCacheHint": "You're offline — showing the last synced list. Your action will be sent when you're back online.",
+      "offlineNoCache": "You're offline and there's no cached data to show. Reconnect and try again."
+    },
+
+    "logout": {
+      "title": "Log out",
+      "message": "Are you sure you want to log out?",
+      "cancel": "Cancel",
+      "confirm": "Log out"
+    },
+
+    "confirmation": {
+      "header": {
+        "checkinTitle": "Check-In",
+        "checkinSubtitle": "Entry record",
+        "checkoutTitle": "Check-Out",
+        "checkoutSubtitle": "Exit record"
+      },
+      "checkinDone": "Check-In completed!",
+      "checkoutDone": "Check-Out completed!",
+      "identityConfirmed": "Identity successfully confirmed",
+      "date": "Date",
+      "checkinTime": "Check-in time",
+      "checkoutTime": "Check-out time",
+      "location": "Location",
+      "status": "Status",
+      "confirmed": "Confirmed",
+      "goodWork": "Good work!",
+      "goodRest": "Have a good rest!",
+      "emptyCheckin": {
+        "title": "No check-in recorded",
+        "hint": "Do your check-in from the home screen to see the info here."
+      },
+      "emptyCheckout": {
+        "title": "No check-out recorded",
+        "hint": "Your check-out will appear here after you close your shift."
+      }
+    },
+
+    "notifications": {
+      "title": "Notifications",
+      "unread_one": "{{count}} unread",
+      "unread_other": "{{count}} unread",
+      "empty": "No notifications right now",
+      "emptyHint": "We'll let you know here when something new happens.",
+      "loading": "Loading…",
+      "ariaLabel": "Notifications",
+      "ariaLabelWithCount": "Notifications ({{count}} unread)"
+    },
+
+    "theme": {
+      "toActivateLight": "Switch to light theme",
+      "toActivateDark": "Switch to dark theme",
+      "light": "Light theme",
+      "dark": "Dark theme"
+    },
+
+    "errors": {
+      "geolocation": "Could not get your location",
+      "checkin": "Failed to check in",
+      "checkout": "Failed to check out",
+      "generic": "Something went wrong",
+      "loading": "Failed to load data"
+    }
+  }
+}

@@ -52,6 +52,21 @@ public class AttendanceController : ControllerBase
     }
 
     /// <summary>
+    /// Listar check-ins ativos (sem check-out) do profissional logado na clínica ativa.
+    /// Usado pelo modal de check-out para saber quais plantões podem ser encerrados.
+    /// </summary>
+    [Authorize(Policy = "Profissional")]
+    [HttpGet("active")]
+    [ProducesResponseType(typeof(IEnumerable<AttendanceResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyActive()
+    {
+        var active = await _attendanceService.GetMyActiveAsync();
+        return Ok(active);
+    }
+
+    /// <summary>
     /// Consultar histórico de presença do profissional na clínica ativa.
     /// </summary>
     [Authorize(Policy = "Profissional")]
@@ -63,6 +78,24 @@ public class AttendanceController : ControllerBase
     {
         var history = await _attendanceService.GetMyHistoryAsync();
         return Ok(history);
+    }
+
+    /// <summary>
+    /// Estado unificado de attendance do profissional logado.
+    /// Retorna numa só chamada: check-in ativo (se houver), shifts de hoje
+    /// disponíveis, e as decisões canCheckIn/canCheckOut já calculadas.
+    /// O frontend usa isso pra renderizar o modal sem lógica própria e sem
+    /// múltiplas chamadas com race condition entre elas.
+    /// </summary>
+    [Authorize(Policy = "Profissional")]
+    [HttpGet("status")]
+    [ProducesResponseType(typeof(AttendanceStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetStatus()
+    {
+        var status = await _attendanceService.GetStatusAsync();
+        return Ok(status);
     }
 
     /// <summary>

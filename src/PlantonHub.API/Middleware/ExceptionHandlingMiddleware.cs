@@ -74,6 +74,16 @@ public class ExceptionHandlingMiddleware
             problemDetails["errors"] = errors;
         }
 
+        // ConflictException may carry structured extensions (e.g., activeAttendance
+        // info for the 409 when a professional already has an open check-in).
+        if (exception is ConflictException conflictEx && conflictEx.Extensions is not null)
+        {
+            foreach (var (key, value) in conflictEx.Extensions)
+            {
+                problemDetails[key] = value;
+            }
+        }
+
         var options = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase

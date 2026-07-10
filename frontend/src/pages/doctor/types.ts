@@ -1,4 +1,9 @@
-export type DoctorScreen = 'home' | 'checkin-confirm' | 'checkout-confirm' | 'reports';
+export type DoctorScreen =
+  | 'home'
+  | 'presenca'
+  | 'plantoes'
+  | 'reports'
+  | 'settings';
 
 export interface ConfirmationData {
   type: 'checkin' | 'checkout';
