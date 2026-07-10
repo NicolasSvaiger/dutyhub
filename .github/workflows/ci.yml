@@ -27,7 +27,7 @@ jobs:
         run: dotnet restore
 
       - name: Run unit tests
-        run: dotnet test PlantonHub.UnitTests --no-restore --verbosity normal
+        run: dotnet test tests/PlantonHub.UnitTests --no-restore --verbosity normal
 
   backend-property-tests:
     name: Backend Property Tests
@@ -44,7 +44,7 @@ jobs:
         run: dotnet restore
 
       - name: Run property tests
-        run: dotnet test PlantonHub.PropertyTests --no-restore --verbosity normal
+        run: dotnet test tests/PlantonHub.PropertyTests --no-restore --verbosity normal
 
   backend-integration-tests:
     name: Backend Integration Tests
@@ -61,7 +61,7 @@ jobs:
         run: dotnet restore
 
       - name: Run integration tests
-        run: dotnet test PlantonHub.IntegrationTests --no-restore --verbosity normal
+        run: dotnet test tests/PlantonHub.IntegrationTests --no-restore --verbosity normal
 
   frontend-unit-tests:
     name: Frontend Unit Tests
@@ -83,7 +83,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test -- --run
+        run: npm run test
 
   frontend-e2e-tests:
     name: Frontend E2E Tests
