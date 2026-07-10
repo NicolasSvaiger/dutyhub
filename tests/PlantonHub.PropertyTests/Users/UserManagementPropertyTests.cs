@@ -161,7 +161,10 @@ public class MultipleProfilesPropertyTests
 
                 var userRepository = new Mock<IUserRepository>();
                 userRepository.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
-                userRepository.Setup(r => r.UpdateAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
+                UserClinicRole? capturedRole = null;
+                userRepository.Setup(r => r.AddClinicRoleAsync(It.IsAny<UserClinicRole>()))
+                    .Callback<UserClinicRole>(r => capturedRole = r)
+                    .Returns(Task.CompletedTask);
 
                 var clinicRepository = new Mock<IClinicRepository>();
                 clinicRepository.Setup(r => r.GetByIdAsync(clinicId)).ReturnsAsync(clinic);
@@ -185,11 +188,11 @@ public class MultipleProfilesPropertyTests
                 // Act
                 userService.AssignClinicRoleAsync(userId, request).Wait();
 
-                // Assert: The user now has exactly one UserClinicRole with the correct data
-                var assignedRole = user.UserClinicRoles.Single();
-                return (assignedRole.UserId == userId &&
-                        assignedRole.ClinicId == clinicId &&
-                        assignedRole.Role == role).ToProperty();
+                // Assert: The role was persisted with correct data
+                return (capturedRole != null &&
+                        capturedRole.UserId == userId &&
+                        capturedRole.ClinicId == clinicId &&
+                        capturedRole.Role == role).ToProperty();
             });
     }
 
