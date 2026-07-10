@@ -103,7 +103,7 @@ public class RedisCacheService : ICacheService
     {
         try
         {
-            var prefixedPattern = $"{_settings.InstancePrefix}{prefix}*";
+            var prefixedPattern = $"{PrefixKey(prefix)}*";
             var endpoints = _redis.GetEndPoints();
 
             foreach (var endpoint in endpoints)

@@ -59,6 +59,10 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
             {
                 builder.UseEnvironment("Testing");
 
+                var redisConn = $"{_redisContainer.GetConnectionString()},allowAdmin=true";
+
+                builder.UseSetting("ConnectionStrings:Redis", redisConn);
+
                 builder.ConfigureServices(services =>
                 {
                     // Replace DbContext with real PostgreSQL from Testcontainer
@@ -67,22 +71,14 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseNpgsql(_postgresContainer.GetConnectionString()));
 
-                    // Replace Redis distributed cache with real Redis from Testcontainer
-                    services.RemoveAll<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
-                    services.AddStackExchangeRedisCache(options =>
-                    {
-                        options.Configuration = _redisContainer.GetConnectionString();
-                        options.InstanceName = "plantonhub:";
-                    });
-
                     // Replace IConnectionMultiplexer with real Redis connection
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(sp =>
-                        ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString()));
+                        ConnectionMultiplexer.Connect(redisConn));
 
                     // Configure JWT Bearer for test tokens
                     services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        "Local",
+                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
                         options =>
                         {
                             options.MapInboundClaims = false;
@@ -138,7 +134,7 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
             "logout should return 204 No Content");
 
         // Verify the JTI was added to Redis blacklist
-        var isBlacklisted = await VerifyRedisHasKey($"plantonhub:plantonhub:blacklist:{jti}");
+        var isBlacklisted = await VerifyRedisHasKey($"plantonhub:blacklist:{jti}");
         isBlacklisted.Should().BeTrue("logout should add the token's JTI to Redis blacklist");
 
         // Act 3: Make another request with the same (now blacklisted) token — should get 401
@@ -227,7 +223,7 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Assert: Check that the Redis key has a TTL set (not infinite)
-        var ttl = await GetRedisKeyTtl($"plantonhub:plantonhub:blacklist:{jti}");
+        var ttl = await GetRedisKeyTtl($"plantonhub:blacklist:{jti}");
         ttl.Should().NotBeNull("blacklist entry should have a TTL");
         ttl!.Value.TotalMinutes.Should().BeGreaterThan(0, "TTL should be positive");
         ttl!.Value.TotalMinutes.Should().BeLessOrEqualTo(30, "TTL should not exceed token's remaining lifetime");
@@ -265,7 +261,7 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
 
     private async Task FlushRedis()
     {
-        var connectionString = _redisContainer.GetConnectionString();
+        var connectionString = $"{_redisContainer.GetConnectionString()},allowAdmin=true";
         using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
         var server = redis.GetServer(redis.GetEndPoints().First());
         await server.FlushAllDatabasesAsync();

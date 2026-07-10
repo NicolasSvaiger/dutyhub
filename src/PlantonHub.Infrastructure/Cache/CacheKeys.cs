@@ -8,8 +8,6 @@ namespace PlantonHub.Infrastructure.Cache;
 /// </summary>
 public static class CacheKeys
 {
-    public static void SetPrefix(string prefix) => Application.Constants.CacheKeys.SetPrefix(prefix);
-
     public static string Clinics(Guid clinicId) => Application.Constants.CacheKeys.Clinics(clinicId);
 
     public static string ClinicsAll() => Application.Constants.CacheKeys.ClinicsAll();

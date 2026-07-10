@@ -62,7 +62,10 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         _factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                var redisConn = $"{_redisContainer.GetConnectionString()},allowAdmin=true";
+
                 builder.UseEnvironment("Testing");
+                builder.UseSetting("ConnectionStrings:Redis", redisConn);
 
                 builder.ConfigureServices(services =>
                 {
@@ -72,22 +75,15 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseNpgsql(_postgresContainer.GetConnectionString()));
 
-                    // Replace Redis distributed cache with real Redis from Testcontainer
-                    services.RemoveAll<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
-                    services.AddStackExchangeRedisCache(options =>
-                    {
-                        options.Configuration = _redisContainer.GetConnectionString();
-                        options.InstanceName = "plantonhub:";
-                    });
-
-                    // Replace IConnectionMultiplexer with real Redis connection
+                    // IConnectionMultiplexer is Singleton - remove Program.cs one and re-add
+                    // so it connects to testcontainer Redis (not localhost:6379)
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(sp =>
-                        ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString()));
+                        ConnectionMultiplexer.Connect(redisConn));
 
                     // Configure JWT Bearer for test tokens
                     services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        "Local",
+                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
                         options =>
                         {
                             options.MapInboundClaims = false;
@@ -140,8 +136,9 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         initialCount.Should().BeGreaterThan(0, "seeded clinics should exist");
 
         // Verify data is now stored in Redis
-        var redisHasData = await VerifyRedisHasKey("plantonhub:plantonhub:clinics:all");
-        redisHasData.Should().BeTrue("first GET should populate the Redis cache");
+        var allKeys = await GetAllRedisKeys();
+        var redisHasData = allKeys.Any(k => k.Contains("clinics"));
+        redisHasData.Should().BeTrue($"first GET should populate the Redis cache. Keys found: [{string.Join(", ", allKeys)}]");
 
         // Act 2: Second GET — cache hit, data comes from Redis (same data, no DB query needed)
         var response2 = await _client.GetAsync("/api/clinics");
@@ -165,8 +162,9 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         createdClinic!.Name.Should().Be("Clínica Testcontainers");
 
         // Verify cache was invalidated (key no longer exists in Redis)
-        var redisHasDataAfterPost = await VerifyRedisHasKey("plantonhub:plantonhub:clinics:all");
-        redisHasDataAfterPost.Should().BeFalse("POST should invalidate clinic cache entries");
+        var keysAfterPost = await GetAllRedisKeys();
+        var clinicKeysAfterPost = keysAfterPost.Where(k => k.Contains("clinics")).ToList();
+        clinicKeysAfterPost.Should().BeEmpty($"POST should invalidate clinic cache entries. Keys still present: [{string.Join(", ", clinicKeysAfterPost)}]");
 
         // Act 4: Third GET — cache was invalidated, fresh data from DB including new clinic
         var response3 = await _client.GetAsync("/api/clinics");
@@ -308,7 +306,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         user1!.Id.Should().Be(UserId);
 
         // Verify cache is populated
-        var cacheKey = $"plantonhub:plantonhub:users:profile:{UserId}";
+        var cacheKey = $"plantonhub:users:profile:{UserId}";
         var hasCache = await VerifyRedisHasKey(cacheKey);
         hasCache.Should().BeTrue("first GET should populate user profile cache");
 
@@ -354,7 +352,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
 
         // Populate cache by fetching existing user
         await _client.GetAsync($"/api/users/{UserId}");
-        var hasCache = await VerifyRedisHasKey($"plantonhub:plantonhub:users:profile:{UserId}");
+        var hasCache = await VerifyRedisHasKey($"plantonhub:users:profile:{UserId}");
         hasCache.Should().BeTrue();
 
         // Act: Create a new user (invalidates users: prefix)
@@ -368,7 +366,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         postResponse.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Assert: user profile cache was invalidated
-        var hasCacheAfter = await VerifyRedisHasKey($"plantonhub:plantonhub:users:profile:{UserId}");
+        var hasCacheAfter = await VerifyRedisHasKey($"plantonhub:users:profile:{UserId}");
         hasCacheAfter.Should().BeFalse("creating a user should invalidate users cache prefix");
     }
 
@@ -402,7 +400,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
 
     private async Task FlushRedis()
     {
-        var connectionString = _redisContainer.GetConnectionString();
+        var connectionString = $"{_redisContainer.GetConnectionString()},allowAdmin=true";
         using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
         var server = redis.GetServer(redis.GetEndPoints().First());
         await server.FlushAllDatabasesAsync();
@@ -414,6 +412,19 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
         var db = redis.GetDatabase();
         return await db.KeyExistsAsync(key);
+    }
+
+    private async Task<List<string>> GetAllRedisKeys()
+    {
+        var connectionString = $"{_redisContainer.GetConnectionString()},allowAdmin=true";
+        using var redis = await ConnectionMultiplexer.ConnectAsync(connectionString);
+        var server = redis.GetServer(redis.GetEndPoints().First());
+        var keys = new List<string>();
+        await foreach (var key in server.KeysAsync(pattern: "*"))
+        {
+            keys.Add(key.ToString());
+        }
+        return keys;
     }
 
     private static void SeedTestData(AppDbContext db)

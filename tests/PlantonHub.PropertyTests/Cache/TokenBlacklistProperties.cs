@@ -50,7 +50,6 @@ public class TokenBlacklistProperties
             (jti, ttlMinutes) =>
             {
                 // Arrange
-                CacheKeys.SetPrefix("plantonhub");
                 var cacheMock = new Mock<IDistributedCache>();
                 var remainingTtl = TimeSpan.FromMinutes(ttlMinutes.Get);
                 string? capturedKey = null;
@@ -95,7 +94,6 @@ public class TokenBlacklistProperties
             jti =>
             {
                 // Arrange
-                CacheKeys.SetPrefix("plantonhub");
                 var cacheMock = new Mock<IDistributedCache>();
                 // Use It.IsAny to avoid race condition with shared static prefix
                 cacheMock
@@ -128,7 +126,6 @@ public class TokenBlacklistProperties
             jti =>
             {
                 // Arrange
-                CacheKeys.SetPrefix("plantonhub");
                 var cacheMock = new Mock<IDistributedCache>();
                 // Use It.IsAny to avoid race condition with shared static prefix
                 cacheMock
@@ -161,7 +158,6 @@ public class TokenBlacklistProperties
             jti =>
             {
                 // Arrange
-                CacheKeys.SetPrefix("plantonhub");
                 var cacheMock = new Mock<IDistributedCache>();
                 var remainingTtl = TimeSpan.FromMinutes(30);
                 string? capturedKey = null;

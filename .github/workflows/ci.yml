@@ -15,6 +15,9 @@ jobs:
   backend-unit-tests:
     name: Backend Unit Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -27,11 +30,22 @@ jobs:
         run: dotnet restore
 
       - name: Run unit tests
-        run: dotnet test tests/PlantonHub.UnitTests --no-restore --verbosity normal
+        run: dotnet test tests/PlantonHub.UnitTests --no-restore --verbosity normal --logger "trx;LogFileName=unit-results.trx"
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Tests Report
+          path: "**/unit-results.trx"
+          reporter: dotnet-trx
 
   backend-property-tests:
     name: Backend Property Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
 
@@ -44,11 +58,32 @@ jobs:
         run: dotnet restore
 
       - name: Run property tests
-        run: dotnet test tests/PlantonHub.PropertyTests --no-restore --verbosity normal
+        run: dotnet test tests/PlantonHub.PropertyTests --no-restore --verbosity normal --logger "trx;LogFileName=property-results.trx"
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Property Tests Report
+          path: "**/property-results.trx"
+          reporter: dotnet-trx
 
   backend-integration-tests:
     name: Backend Integration Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -61,7 +96,15 @@ jobs:
         run: dotnet restore
 
       - name: Run integration tests
-        run: dotnet test tests/PlantonHub.IntegrationTests --no-restore --verbosity normal
+        run: dotnet test tests/PlantonHub.IntegrationTests --no-restore --verbosity normal --logger "trx;LogFileName=integration-results.trx"
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Integration Tests Report
+          path: "**/integration-results.trx"
+          reporter: dotnet-trx
 
   frontend-unit-tests:
     name: Frontend Unit Tests
@@ -83,7 +126,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test
+        run: npx vitest --run --reporter=default --reporter=github-actions
 
   frontend-e2e-tests:
     name: Frontend E2E Tests

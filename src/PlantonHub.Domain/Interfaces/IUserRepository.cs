@@ -9,6 +9,7 @@ public interface IUserRepository
     Task<IEnumerable<User>> GetAllAsync();
     Task AddAsync(User user);
     Task UpdateAsync(User user);
+    Task AddClinicRoleAsync(UserClinicRole clinicRole);
     Task<bool> ExistsAsync(Guid id);
     Task<bool> EmailExistsAsync(string email);
 }

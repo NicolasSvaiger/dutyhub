@@ -111,8 +111,7 @@ public class UserService : IUserService
             AssignedAt = DateTime.UtcNow
         };
 
-        user.UserClinicRoles.Add(clinicRole);
-        await _userRepository.UpdateAsync(user);
+        await _userRepository.AddClinicRoleAsync(clinicRole);
 
         // Invalidate the specific user profile cache
         await _cacheService.RemoveAsync(CacheKeys.UserProfile(userId));

@@ -45,6 +45,12 @@ public class UserRepository : IUserRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task AddClinicRoleAsync(UserClinicRole clinicRole)
+    {
+        await _context.Set<UserClinicRole>().AddAsync(clinicRole);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<bool> ExistsAsync(Guid id)
     {
         return await _context.Users

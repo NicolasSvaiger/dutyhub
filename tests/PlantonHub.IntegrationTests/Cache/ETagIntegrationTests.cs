@@ -62,6 +62,10 @@ public class ETagIntegrationTests : IAsyncLifetime
             {
                 builder.UseEnvironment("Testing");
 
+                var redisConn = $"{_redisContainer.GetConnectionString()},allowAdmin=true";
+
+                builder.UseSetting("ConnectionStrings:Redis", redisConn);
+
                 builder.ConfigureServices(services =>
                 {
                     // Replace DbContext with real PostgreSQL from Testcontainer
@@ -70,22 +74,14 @@ public class ETagIntegrationTests : IAsyncLifetime
                     services.AddDbContext<AppDbContext>(options =>
                         options.UseNpgsql(_postgresContainer.GetConnectionString()));
 
-                    // Replace Redis distributed cache with real Redis from Testcontainer
-                    services.RemoveAll<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
-                    services.AddStackExchangeRedisCache(options =>
-                    {
-                        options.Configuration = _redisContainer.GetConnectionString();
-                        options.InstanceName = "plantonhub:";
-                    });
-
                     // Replace IConnectionMultiplexer with real Redis connection
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(sp =>
-                        ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString()));
+                        ConnectionMultiplexer.Connect(redisConn));
 
                     // Configure JWT Bearer for test tokens
                     services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        "Local",
+                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
                         options =>
                         {
                             options.MapInboundClaims = false;
