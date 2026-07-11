@@ -5,8 +5,15 @@ using PlantonHub.Application.Interfaces;
 
 namespace PlantonHub.API.Controllers;
 
+/// <summary>
+/// [DEPRECATED - Sprint 2] Legacy auth endpoints — replaced by AWS Cognito.
+/// Login and refresh are now handled client-side via Cognito SDK.
+/// Logout endpoint remains functional (blacklists Cognito JWTs by jti).
+/// These endpoints will be removed once all clients migrate to Cognito.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Obsolete("Use Cognito SDK for login/refresh. Logout still works for token blacklisting.")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;

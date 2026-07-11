@@ -137,10 +137,10 @@ export function AttendanceConfirmModal({
   const activeError = error ?? fetchError;
   const showBlocked = !loading && effectiveStatus !== null && isCheckIn && effectiveStatus.hasActiveCheckIn;
   const showShifts = !loading && !showBlocked && effectiveStatus !== null && !activeError &&
-    ((isCheckIn && effectiveStatus.availableShiftsToday.length > 0) ||
+    ((isCheckIn && (effectiveStatus.availableShiftsToday?.length ?? 0) > 0) ||
      (!isCheckIn && effectiveStatus.canCheckOut));
   const showEmpty = !loading && !showBlocked && !activeError && effectiveStatus !== null &&
-    ((isCheckIn && !effectiveStatus.hasActiveCheckIn && effectiveStatus.availableShiftsToday.length === 0) ||
+    ((isCheckIn && !effectiveStatus.hasActiveCheckIn && (effectiveStatus.availableShiftsToday?.length ?? 0) === 0) ||
      (!isCheckIn && !effectiveStatus.canCheckOut));
 
   const emptyMessage = isCheckIn

@@ -1,14 +1,11 @@
 import axios from 'axios';
+import { cognitoGetCurrentSession, cognitoLogout } from './cognitoAuth';
 
 /**
  * baseURL relativa (`/api`) — o frontend deve sempre bater no mesmo origin
  * em que ele está sendo servido. Em produção (docker-compose), o nginx
  * proxya `/api/*` para o container da API; em desenvolvimento com Vite,
  * configure um proxy equivalente no `vite.config.ts` se precisar.
- *
- * Hardcode para `http://localhost:5000/api` foi removido porque quebrava
- * ambientes onde `localhost` não é o host da máquina (containers de teste
- * E2E, execução em servidor headless etc.) e não trazia benefício em prod.
  */
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -26,10 +23,6 @@ axiosInstance.interceptors.request.use(
     }
 
     // Multi-clinic support: send the active clinic id in every request.
-    // The backend validates it against the 'clinicIds' claim in the JWT.
-    // Only fill in from localStorage when the caller hasn't already set the
-    // header explicitly — explicit values win, which avoids races when the
-    // user switches clinics and the localStorage lags behind for a tick.
     const alreadySet = config.headers['X-Clinic-Id'] ?? config.headers['x-clinic-id'];
     if (!alreadySet) {
       const activeClinicId = localStorage.getItem('plantonhub_active_clinic');
@@ -40,17 +33,17 @@ axiosInstance.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
-// Response interceptor: handle 401 with automatic refresh
+// Response interceptor: handle 401 with Cognito session refresh
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
 }> = [];
 
-const processQueue = (error: unknown | null, token: string | null = null) => {
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
     if (error) {
       reject(error);
@@ -60,6 +53,15 @@ const processQueue = (error: unknown | null, token: string | null = null) => {
   });
   failedQueue = [];
 };
+
+function redirectToLogin(): void {
+  localStorage.removeItem('plantonhub_token');
+  localStorage.removeItem('plantonhub_refresh_token');
+  localStorage.removeItem('plantonhub_user');
+  localStorage.removeItem('plantonhub_active_clinic');
+  cognitoLogout();
+  window.location.href = '/login';
+}
 
 axiosInstance.interceptors.response.use(
   (response) => response,
@@ -71,20 +73,8 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Não tenta refresh quando o próprio /auth/login retorna 401: significa
-    // que as credenciais estão erradas, o LoginPage vai mostrar o erro.
-    // Também não redireciona pra /login (usuário já está lá).
+    // Don't try to refresh for auth endpoints that naturally return 401
     if (originalRequest.url?.includes('/auth/login')) {
-      return Promise.reject(error);
-    }
-
-    // Don't try to refresh if the failing request is the refresh endpoint itself
-    if (originalRequest.url?.includes('/auth/refresh-token')) {
-      localStorage.removeItem('plantonhub_token');
-      localStorage.removeItem('plantonhub_refresh_token');
-      localStorage.removeItem('plantonhub_user');
-      localStorage.removeItem('plantonhub_active_clinic');
-      window.location.href = '/login';
       return Promise.reject(error);
     }
 
@@ -101,28 +91,18 @@ axiosInstance.interceptors.response.use(
     originalRequest._retry = true;
     isRefreshing = true;
 
-    const refreshToken = localStorage.getItem('plantonhub_refresh_token');
-
-    if (!refreshToken) {
-      localStorage.removeItem('plantonhub_token');
-      localStorage.removeItem('plantonhub_refresh_token');
-      localStorage.removeItem('plantonhub_user');
-      localStorage.removeItem('plantonhub_active_clinic');
-      window.location.href = '/login';
-      return Promise.reject(error);
-    }
-
     try {
-      const { data } = await axios.post(
-        `${import.meta.env.VITE_API_URL || '/api'}/auth/refresh-token`,
-        { refreshToken }
-      );
+      // Cognito SDK handles refresh automatically via getSession()
+      const session = await cognitoGetCurrentSession();
+      if (!session) {
+        throw new Error('No valid session');
+      }
 
-      const newToken: string = data.token;
-      const newRefreshToken: string = data.refreshToken;
+      const newToken = session.tokens.accessToken;
 
+      // Persist the refreshed tokens
       localStorage.setItem('plantonhub_token', newToken);
-      localStorage.setItem('plantonhub_refresh_token', newRefreshToken);
+      localStorage.setItem('plantonhub_refresh_token', session.tokens.refreshToken);
 
       processQueue(null, newToken);
 
@@ -130,16 +110,12 @@ axiosInstance.interceptors.response.use(
       return axiosInstance(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError, null);
-      localStorage.removeItem('plantonhub_token');
-      localStorage.removeItem('plantonhub_refresh_token');
-      localStorage.removeItem('plantonhub_user');
-      localStorage.removeItem('plantonhub_active_clinic');
-      window.location.href = '/login';
+      redirectToLogin();
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;
     }
-  }
+  },
 );
 
 export default axiosInstance;

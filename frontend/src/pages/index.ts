@@ -1,4 +1,5 @@
 export { LoginPage } from './LoginPage';
+export { ForgotPasswordPage } from './ForgotPasswordPage';
 export { DashboardPage } from './DashboardPage';
 export { ShiftsPage } from './ShiftsPage';
 export { AttendancePage } from './AttendancePage';

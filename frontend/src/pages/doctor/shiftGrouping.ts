@@ -26,8 +26,11 @@ export function groupShifts(
   const todayIso = toIsoDate(referenceDate);
   const result: GroupedShifts = { today: [], upcoming: [], past: [] };
 
+  if (!shifts || !Array.isArray(shifts)) return result;
+
   for (const s of shifts) {
-    const shiftDate = s.date.slice(0, 10);
+    const shiftDate = s.date?.slice(0, 10);
+    if (!shiftDate) continue;
     if (shiftDate === todayIso) result.today.push(s);
     else if (shiftDate > todayIso) result.upcoming.push(s);
     else result.past.push(s);

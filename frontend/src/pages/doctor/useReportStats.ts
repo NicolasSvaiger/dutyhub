@@ -10,6 +10,9 @@ import type { ReportStats } from './types';
  * - avgHoursPerShift: totalHours / totalShifts, or 0 if no completed shifts
  */
 export function computeReportStats(records: Attendance[]): ReportStats {
+  if (!records || !Array.isArray(records)) {
+    return { totalShifts: 0, totalHours: 0, avgHoursPerShift: 0 };
+  }
   const completedRecords = records.filter((r) => r.checkOutTime != null);
   const totalShifts = completedRecords.length;
 

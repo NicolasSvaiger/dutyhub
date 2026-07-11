@@ -9,6 +9,7 @@ import { OfflineBanner } from './components/OfflineBanner';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import {
   LoginPage,
+  ForgotPasswordPage,
   DashboardPage,
   ShiftsPage,
   AttendancePage,
@@ -80,6 +81,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route
           path="/dashboard"
           element={

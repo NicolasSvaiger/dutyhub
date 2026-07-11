@@ -10,8 +10,8 @@ import { LoginPage } from '../LoginPage';
 import { AuthContext, type AuthContextType } from '../../contexts/AuthContext';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 
-// authApi.ts é chamado indireto via login() no context; usamos o context
-// diretamente pra não precisar mockar o módulo.
+// Login is handled by Cognito SDK via AuthContext; we provide a mock context
+// directly so no API module mocking is needed.
 
 function renderLogin() {
   const authValue: AuthContextType = {
@@ -21,6 +21,9 @@ function renderLogin() {
     loading: false,
     login: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn(),
+    pendingChallenge: null,
+    challengeUser: null,
+    clearChallenge: vi.fn(),
   };
 
   return render(
@@ -90,7 +93,10 @@ describe('<LoginPage />', () => {
     ).toBeInTheDocument();
   });
 
-  it('clicar em "Esqueci minha senha" mostra hint amigável (sem endpoint ainda)', async () => {
+  it('clicar em "Esqueci minha senha" navega para /forgot-password', async () => {
+    // Ao clicar, o navigate() é chamado. Com MemoryRouter não temos como
+    // checar window.location, mas podemos verificar que o botão não mostra
+    // um alert (comportamento antigo removido) — a navegação real é testada no E2E.
     renderLogin();
     const user = userEvent.setup();
 
@@ -98,9 +104,8 @@ describe('<LoginPage />', () => {
       screen.getByRole('button', { name: i18n.t('login.forgot') }),
     );
 
-    // O hint aparece no bloco de erro (role=alert)
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(i18n.t('login.forgotHint'));
+    // Não deve aparecer nenhum alert (comportamento antigo era mostrar forgotHint)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('exibe a marca configurável (BRAND.name = 24p7)', () => {

@@ -24,6 +24,9 @@ export function DoctorPage() {
   const { resolveClinicName } = useClinic();
   const navigate = useNavigate();
 
+  const resolveClinicNameRef = useRef(resolveClinicName);
+  resolveClinicNameRef.current = resolveClinicName;
+
   /**
    * Fonte de verdade da tela Presença — busca o histórico completo do
    * profissional e deriva "último check-in" / "último check-out" via
@@ -37,14 +40,14 @@ export function DoctorPage() {
       const history = await attendanceApi.getMyHistory();
       const { lastCheckIn: checkIn, lastCheckOut: checkOut } = computeLastAttendance(
         history,
-        resolveClinicName,
+        resolveClinicNameRef.current,
       );
       setLastCheckIn(checkIn);
       setLastCheckOut(checkOut);
     } catch {
       // Silent — attendance screen will show empty state
     }
-  }, [resolveClinicName]);
+  }, []);
 
   // Busca inicial e re-busca quando o contexto de clínicas muda
   useEffect(() => {

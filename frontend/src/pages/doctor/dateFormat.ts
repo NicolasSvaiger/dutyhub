@@ -3,10 +3,13 @@
  * Small util shared by attendance and reports screens.
  * Exported explicitly so property tests can import it.
  */
-export function formatDate(date: Date): string {
-  const day = date.getDate().toString().padStart(2, '0');
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const year = date.getFullYear();
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return '--/--/----';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '--/--/----';
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
   return `${day}/${month}/${year}`;
 }
 

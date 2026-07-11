@@ -1,4 +1,3 @@
-using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -38,7 +37,10 @@ builder.Services.AddScoped<IOfflineSyncAuditLogRepository, OfflineSyncAuditLogRe
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 // ----- Application Services -----
+// [DEPRECATED - Sprint 2] AuthService kept for backward compat during migration.
+#pragma warning disable CS0618
 builder.Services.AddScoped<IAuthService, AuthService>();
+#pragma warning restore CS0618
 builder.Services.AddScoped<IClinicService, ClinicService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IShiftService, ShiftService>();
@@ -50,7 +52,10 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IOfflineSyncAuditService, PlantonHub.Infrastructure.Services.OfflineSyncAuditService>();
 
 // ----- Infrastructure Services -----
+// [DEPRECATED - Sprint 2] Kept for backward compat during migration; suppress obsolete warnings.
+#pragma warning disable CS0618
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+#pragma warning restore CS0618
 builder.Services.AddScoped<IPasswordHashService, PasswordHashService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddHttpContextAccessor();
@@ -94,8 +99,12 @@ builder.Services.AddScoped<DatabaseSeeder>();
 // ----- FluentValidation -----
 builder.Services.AddValidatorsFromAssemblyContaining<PlantonHub.Application.Validators.LoginRequestValidator>();
 
-// ----- Authentication (JWT) -----
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
+// ----- Authentication (Cognito JWT) -----
+var cognitoRegion = builder.Configuration["Cognito:Region"] ?? "us-east-1";
+var cognitoUserPoolId = builder.Configuration["Cognito:UserPoolId"]!;
+var cognitoClientId = builder.Configuration["Cognito:ClientId"]!;
+var cognitoIssuer = $"https://cognito-idp.{cognitoRegion}.amazonaws.com/{cognitoUserPoolId}";
+var cognitoJwksUri = $"{cognitoIssuer}/.well-known/jwks.json";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -109,16 +118,52 @@ builder.Services.AddAuthentication(options =>
     // check claim types by their original names.
     options.MapInboundClaims = false;
 
+    options.Authority = cognitoIssuer;
+    options.MetadataAddress = $"{cognitoIssuer}/.well-known/openid-configuration";
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
-        ValidateAudience = true,
+        ValidIssuer = cognitoIssuer,
+        ValidateAudience = false, // Cognito access tokens don't have 'aud' — use client_id validation below
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings.Issuer,
-        ValidAudience = jwtSettings.Audience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
-        ClockSkew = TimeSpan.Zero
+        ClockSkew = TimeSpan.FromSeconds(30),
+    };
+
+    // Validate the token_use claim and client_id for extra security
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            var claims = context.Principal?.Claims;
+            if (claims is null)
+            {
+                context.Fail("No claims in token");
+                return Task.CompletedTask;
+            }
+
+            // Cognito access tokens have "token_use": "access"
+            // Cognito ID tokens have "token_use": "id"
+            // We accept both (frontend sends access token, but id token also works)
+            var tokenUse = claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
+            if (tokenUse is not ("access" or "id"))
+            {
+                context.Fail("Invalid token_use claim");
+                return Task.CompletedTask;
+            }
+
+            // Validate client_id matches our app
+            var clientId = claims.FirstOrDefault(c => c.Type == "client_id")?.Value
+                        ?? claims.FirstOrDefault(c => c.Type == "aud")?.Value;
+            if (clientId != cognitoClientId)
+            {
+                context.Fail("Token was not issued for this application");
+                return Task.CompletedTask;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 

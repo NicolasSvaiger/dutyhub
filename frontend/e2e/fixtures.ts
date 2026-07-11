@@ -1,9 +1,10 @@
 import { test as base, expect, type Page } from '@playwright/test';
 
 /**
- * Credenciais do médico semeado pelo `DatabaseSeeder` do backend:
- * `medico@plantonhub.com` / `Teste@123`. Está associado a duas clínicas
- * (Alpha e Beta) e tem plantões walk-in de hoje já cadastrados.
+ * Credenciais do médico no Cognito User Pool.
+ * Devem corresponder aos usuários criados pelo script cognito-migrate-users
+ * com --set-permanent-password (para E2E não precisar lidar com
+ * NEW_PASSWORD_REQUIRED challenge).
  */
 export const DOCTOR_CREDENTIALS = {
   email: 'medico@plantonhub.com',
@@ -33,18 +34,30 @@ export function attachDebugListeners(page: Page): void {
 }
 
 /**
- * Faz login pela UI e espera o redirect pra /dashboard.
+ * Faz login pela UI (Cognito SDK) e espera o redirect pra /doctor.
  * Retorna já autenticado.
+ *
+ * Com Cognito, o login é feito client-side pelo SDK — o Playwright preenche
+ * o form e aguarda a navegação normalmente. O SDK faz a chamada ao endpoint
+ * Cognito (não ao nosso /api/auth/login).
  */
 export async function loginAsDoctor(page: Page): Promise<void> {
   attachDebugListeners(page);
   await page.goto('/login');
   await page.getByRole('textbox', { name: /E-?mail/i }).fill(DOCTOR_CREDENTIALS.email);
-  // #password evita conflito com o botão "Mostrar/Ocultar senha" (mesmo texto no acessível)
   await page.locator('#password').fill(DOCTOR_CREDENTIALS.password);
   await page.getByRole('button', { name: 'Entrar' }).click();
   // Médico é profissional → cai direto em /doctor após login (roles.ts:getHomeRouteFor)
   await page.waitForURL(/\/doctor/, { timeout: 15_000 });
+}
+
+/**
+ * Verifica se o usuário está autenticado checando localStorage após login.
+ * Útil para assertions pós-login sem depender de UI.
+ */
+export async function isAuthenticated(page: Page): Promise<boolean> {
+  const token = await page.evaluate(() => localStorage.getItem('plantonhub_token'));
+  return !!token;
 }
 
 export const test = base;

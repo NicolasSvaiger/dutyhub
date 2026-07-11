@@ -56,8 +56,9 @@ export function DoctorReportsScreen() {
     setError(null);
     try {
       const data = await attendanceApi.getMyHistory();
-      setRecords(data);
-      setFilteredRecords(data);
+      const fetched = Array.isArray(data) ? data : [];
+      setRecords(fetched);
+      setFilteredRecords(fetched);
     } catch {
       setError(t('doctor.reports.errorLoading'));
     } finally {

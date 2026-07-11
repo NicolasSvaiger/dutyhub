@@ -1,21 +1,10 @@
-import { test, expect, DOCTOR_CREDENTIALS, loginAsDoctor, attachDebugListeners } from './fixtures';
+import { test, expect, DOCTOR_CREDENTIALS, loginAsDoctor, attachDebugListeners, isAuthenticated } from './fixtures';
 
-test.describe('Autenticação', () => {
-  test('API /auth/login aceita credenciais do médico semeado (smoke)', async ({ request }) => {
-    // Sanity check: se essa quebrar, o problema é backend/seed e não o frontend.
-    const response = await request.post('/api/auth/login', {
-      data: DOCTOR_CREDENTIALS,
-    });
-    expect(response.status(), await response.text()).toBe(200);
-    const body = await response.json();
-    expect(body.token).toBeTruthy();
-    expect(body.refreshToken).toBeTruthy();
-  });
-
-  test('médico faz login e cai direto na área profissional', async ({ page }) => {
+test.describe('Autenticação (Cognito)', () => {
+  test('médico faz login via Cognito SDK e cai direto na área profissional', async ({ page }) => {
     attachDebugListeners(page);
     await page.goto('/login');
-    // O novo layout tem o título "Bem-vindo(a) de volta" como heading do form
+    // O layout tem o título "Bem-vindo(a) de volta" como heading do form
     await expect(page.getByRole('heading', { name: /Bem-vindo/i })).toBeVisible();
 
     await page.getByRole('textbox', { name: /E-?mail/i }).fill(DOCTOR_CREDENTIALS.email);
@@ -33,6 +22,8 @@ test.describe('Autenticação', () => {
 
     // Profissional é levado direto pra /doctor (não passa por /dashboard)
     await expect(page).toHaveURL(/\/doctor/);
+    // Token armazenado no localStorage
+    expect(await isAuthenticated(page)).toBe(true);
     // O email do médico aparece no header do app (banner) após o login
     await expect(
       page.getByRole('banner').getByText(DOCTOR_CREDENTIALS.email),
@@ -57,14 +48,27 @@ test.describe('Autenticação', () => {
 
   test('logout limpa a sessão e volta pra /login', async ({ page }) => {
     await loginAsDoctor(page);
-    // O médico cai em /doctor, onde a tela full-screen cobre o header do
-    // AppLayout — navegamos para o dashboard antes de acionar o "Sair".
-    // (No app real o profissional faz logout pela tela de Ajustes; esse
-    // teste cobre só o fluxo de header, complementar.)
+    // Navega para a view com header visível para acessar o botão Sair
     await page.goto('/dashboard');
     await page.getByRole('button', { name: 'Sair' }).click();
     await expect(page).toHaveURL(/\/login/);
-    // Header do app é escondido quando não autenticado
-    await expect(page.getByRole('button', { name: 'Sair' })).toHaveCount(0);
+    // Token removido do localStorage
+    expect(await isAuthenticated(page)).toBe(false);
+  });
+
+  test('link "Esqueci minha senha" navega para /forgot-password', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByRole('button', { name: /Esqueci/i }).click();
+    await expect(page).toHaveURL(/\/forgot-password/);
+    await expect(page.getByRole('heading', { name: /Recuperar senha/i })).toBeVisible();
+  });
+
+  test('página de recuperação de senha exibe formulário de email', async ({ page }) => {
+    await page.goto('/forgot-password');
+    await expect(page.getByRole('heading', { name: /Recuperar senha/i })).toBeVisible();
+    await expect(page.getByLabel(/E-?mail/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Enviar código/i })).toBeVisible();
+    // Link para voltar ao login
+    await expect(page.getByRole('link', { name: /Voltar ao login/i })).toBeVisible();
   });
 });

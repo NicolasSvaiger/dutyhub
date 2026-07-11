@@ -45,17 +45,26 @@ export function LoginPage() {
       // se por algum motivo ainda estiver null aqui, o useEffect acima cobre
       // o redirect quando o state reagir.
     } catch (err: unknown) {
-      const msg = err instanceof Error && err.message ? err.message : t('login.errorGeneric');
-      setError(msg);
+      const raw = err instanceof Error ? err.message : '';
+      // Traduz mensagens do Cognito para português
+      if (raw.includes('Incorrect username or password') || raw.includes('NotAuthorizedException')) {
+        setError(t('login.errorInvalidCredentials'));
+      } else if (raw.includes('User does not exist') || raw.includes('UserNotFoundException')) {
+        setError(t('login.errorInvalidCredentials'));
+      } else if (raw.includes('Password attempts exceeded') || raw.includes('LimitExceededException')) {
+        setError(t('login.errorTooManyAttempts'));
+      } else if (raw.includes('User is not confirmed')) {
+        setError(t('login.errorNotConfirmed'));
+      } else {
+        setError(raw || t('login.errorGeneric'));
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleForgot = () => {
-    // Reset de senha ainda não está implementado no backend — mostramos apenas
-    // uma instrução amigável. Quando o endpoint existir isso vira um fluxo real.
-    setError(t('login.forgotHint'));
+    navigate('/forgot-password');
   };
 
   const isDark = theme === 'dark';
