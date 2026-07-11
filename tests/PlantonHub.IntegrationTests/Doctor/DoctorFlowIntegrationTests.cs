@@ -2,8 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
@@ -11,7 +9,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.IdentityModel.Tokens;
 using PlantonHub.Application.DTOs.Attendance;
 using PlantonHub.Application.DTOs.Clinics;
 using PlantonHub.Application.DTOs.Shifts;
@@ -42,6 +39,7 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
     private readonly RedisContainer _redisContainer;
     private WebApplicationFactory<Program> _factory = null!;
     private HttpClient _client = null!;
+    private string _medicoToken = null!;
 
     // GUIDs fixos pra manter os testes previsíveis e permitir asserts precisos.
     private static readonly Guid MedicoUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -51,7 +49,7 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
     private static readonly Guid BetaShiftId   = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc02");
     private static readonly Guid UnrelatedClinicId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
 
-    private const string JwtSecret = "PlantonHubSuperSecretKeyForJwtTokenGeneration2024!";
+    private const string TestUserEmail = "medico@plantonhub.com";
 
     public DoctorFlowIntegrationTests()
     {
@@ -92,10 +90,6 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(_ =>
                         ConnectionMultiplexer.Connect(_redisContainer.GetConnectionString()));
-
-                    services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        "Local",
-                        options => options.MapInboundClaims = false);
                 });
             });
 
@@ -107,6 +101,9 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
         }
 
         _client = _factory.CreateClient();
+
+        // Authenticate via real Cognito (same flow as a real user)
+        _medicoToken = await Helpers.CognitoTestAuth.GetMedicoTokenAsync();
     }
 
     public async Task DisposeAsync()
@@ -124,26 +121,13 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task Login_ForMultiClinicMedico_ReturnsTokenWithNameEmailAndClinicIds()
     {
-        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
-        {
-            email = "medico@test.com",
-            password = "Teste@123",
-        });
-
-        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var body = await loginResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var token = body.GetProperty("token").GetString()!;
+        // Authenticate via real Cognito and verify the token contains expected claims
+        var token = _medicoToken;
         token.Should().NotBeNullOrEmpty();
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        jwt.Claims.Should().Contain(c => c.Type == JwtRegisteredClaimNames.Email && c.Value == "medico@test.com");
-        jwt.Claims.Should().Contain(c => c.Type == "name" && c.Value == "Dr. Médico Teste");
-
-        var clinicIdsRaw = jwt.Claims.Single(c => c.Type == "clinicIds").Value;
-        var clinicIds = clinicIdsRaw.Split(',');
-        clinicIds.Should().HaveCount(2);
-        clinicIds.Should().Contain(AlphaClinicId.ToString());
-        clinicIds.Should().Contain(BetaClinicId.ToString());
+        // Cognito access token contains 'username' (which is the email)
+        jwt.Claims.Should().Contain(c => c.Type == "username" && c.Value == "medico@plantonhub.com");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -385,9 +369,13 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
 
     private void AuthAsMedico(Guid? activeClinicId = null)
     {
-        var token = GenerateMedicoToken(activeClinicId ?? AlphaClinicId);
+        var token = _medicoToken ?? throw new InvalidOperationException("Cognito token not initialized");
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         _client.DefaultRequestHeaders.Remove("X-Clinic-Id");
+        if (activeClinicId.HasValue)
+        {
+            _client.DefaultRequestHeaders.Add("X-Clinic-Id", activeClinicId.Value.ToString());
+        }
     }
 
     private Task<HttpResponseMessage> GetWithClinic(string url, Guid clinicId)
@@ -416,36 +404,6 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
         biometricValidated = true,
     };
 
-    /// <summary>
-    /// Gera um token JWT válido pro medico teste, com clinicIds contendo Alpha
-    /// e Beta e a clínica ativa no clinicId legado.
-    /// </summary>
-    private static string GenerateMedicoToken(Guid activeClinicId)
-    {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSecret));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, MedicoUserId.ToString()),
-            new(JwtRegisteredClaimNames.Email, "medico@test.com"),
-            new("name", "Dr. Médico Teste"),
-            new("clinicId", activeClinicId.ToString()),
-            new("clinicIds", $"{AlphaClinicId},{BetaClinicId}"),
-            new("roles", "Medico"),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: "PlantonHub",
-            audience: "PlantonHubUsers",
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(60),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
-
     private static void SeedTestData(AppDbContext db)
     {
         if (db.Users.Any()) return;
@@ -456,9 +414,8 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
         var medico = new User
         {
             Id = MedicoUserId,
-            Email = "medico@test.com",
-            Name = "Dr. Médico Teste",
-            // Hash da senha "Teste@123" (mesmo algoritmo do seeder de dev)
+            Email = "medico@plantonhub.com",
+            Name = "Dr. Medico Teste",
             PasswordHash = HashPassword("Teste@123"),
             CreatedAt = now,
             UpdatedAt = now,

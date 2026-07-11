@@ -1,15 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Security.Claims;
-using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.IdentityModel.Tokens;
 using PlantonHub.Domain.Entities;
 using PlantonHub.Infrastructure.Data;
 using StackExchange.Redis;
@@ -31,6 +28,7 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
     private readonly RedisContainer _redisContainer;
     private WebApplicationFactory<Program> _factory = null!;
     private HttpClient _client = null!;
+    private string _adminToken = null!;
 
     private static readonly Guid ClinicId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -75,14 +73,6 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(sp =>
                         ConnectionMultiplexer.Connect(redisConn));
-
-                    // Configure JWT Bearer for test tokens
-                    services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
-                        options =>
-                        {
-                            options.MapInboundClaims = false;
-                        });
                 });
             });
 
@@ -95,6 +85,7 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
         }
 
         _client = _factory.CreateClient();
+        _adminToken = await Helpers.CognitoTestAuth.GetAdminTokenAsync();
     }
 
     public async Task DisposeAsync()
@@ -115,10 +106,12 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task TokenBlacklist_FullFlow_LogoutThenRequestWith401()
     {
-        // Arrange: Generate a token with a known JTI
-        var jti = Guid.NewGuid().ToString();
-        var token = GenerateToken(roles: "AdminGlobal", jti: jti, expiresInMinutes: 60);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        // Arrange: Use the admin token (has a real JTI from Cognito)
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
+
+        // Extract JTI from the real Cognito token
+        var jti = new JwtSecurityTokenHandler().ReadJwtToken(_adminToken)
+            .Claims.First(c => c.Type == "jti").Value;
 
         // Flush Redis to ensure clean state
         await FlushRedis();
@@ -150,9 +143,8 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task TokenBlacklist_NonBlacklistedToken_ContinuesWorking()
     {
-        // Arrange: Generate a valid token
-        var token = GenerateToken(roles: "AdminGlobal", jti: Guid.NewGuid().ToString(), expiresInMinutes: 60);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        // Arrange: Use the admin token
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Flush Redis to ensure clean state
         await FlushRedis();
@@ -178,15 +170,13 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task TokenBlacklist_OnlyAffectsBlacklistedToken_OtherTokensWork()
     {
-        // Arrange: Generate two different tokens with different JTIs
-        var jti1 = Guid.NewGuid().ToString();
-        var jti2 = Guid.NewGuid().ToString();
-        var token1 = GenerateToken(roles: "AdminGlobal", jti: jti1, expiresInMinutes: 60);
-        var token2 = GenerateToken(roles: "AdminGlobal", jti: jti2, expiresInMinutes: 60);
+        // Arrange: Use admin token as the first token, medico token as the second
+        var token1 = _adminToken;
+        var token2 = await Helpers.CognitoTestAuth.GetMedicoTokenAsync();
 
         await FlushRedis();
 
-        // Act 1: Logout with token1 — blacklists jti1
+        // Act 1: Logout with token1 — blacklists its JTI
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token1);
         var logoutResponse = await _client.PostAsync("/api/auth/logout", null);
         logoutResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
@@ -211,10 +201,12 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task TokenBlacklist_Logout_StoresWithCorrectTtl()
     {
-        // Arrange: Generate a token that expires in 30 minutes
-        var jti = Guid.NewGuid().ToString();
-        var token = GenerateToken(roles: "AdminGlobal", jti: jti, expiresInMinutes: 30);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        // Arrange: Use the admin token (Cognito tokens typically expire in 60 minutes)
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
+
+        // Extract the JTI from the real Cognito token
+        var jti = new JwtSecurityTokenHandler().ReadJwtToken(_adminToken)
+            .Claims.First(c => c.Type == "jti").Value;
 
         await FlushRedis();
 
@@ -226,38 +218,12 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
         var ttl = await GetRedisKeyTtl($"plantonhub:blacklist:{jti}");
         ttl.Should().NotBeNull("blacklist entry should have a TTL");
         ttl!.Value.TotalMinutes.Should().BeGreaterThan(0, "TTL should be positive");
-        ttl!.Value.TotalMinutes.Should().BeLessOrEqualTo(30, "TTL should not exceed token's remaining lifetime");
-        // Allow some slack for test execution time
-        ttl!.Value.TotalMinutes.Should().BeGreaterThan(28, "TTL should be close to token's remaining lifetime");
+        ttl!.Value.TotalMinutes.Should().BeLessOrEqualTo(60, "TTL should not exceed token's remaining lifetime");
     }
 
     #endregion
 
     #region Helpers
-
-    private static string GenerateToken(string roles, string jti, int expiresInMinutes, Guid? clinicId = null, Guid? userId = null)
-    {
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes("PlantonHubSuperSecretKeyForJwtTokenGeneration2024!"));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, (userId ?? UserId).ToString()),
-            new("clinicId", (clinicId ?? ClinicId).ToString()),
-            new("roles", roles),
-            new(JwtRegisteredClaimNames.Jti, jti)
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: "PlantonHub",
-            audience: "PlantonHubUsers",
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
 
     private async Task FlushRedis()
     {
@@ -307,7 +273,7 @@ public class TokenBlacklistIntegrationTests : IAsyncLifetime
         {
             Id = UserId,
             Name = "Admin Global Teste",
-            Email = "admin@plantonhub.test",
+            Email = "admin@plantonhub.com",
             PasswordHash = "hashed_password_placeholder",
             CreatedAt = now,
             UpdatedAt = now

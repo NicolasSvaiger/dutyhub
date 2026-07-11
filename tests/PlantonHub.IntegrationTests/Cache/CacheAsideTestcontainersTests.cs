@@ -1,16 +1,12 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.IdentityModel.Tokens;
 using PlantonHub.Application.DTOs.Clinics;
 using PlantonHub.Application.DTOs.Shifts;
 using PlantonHub.Application.DTOs.Users;
@@ -36,6 +32,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     private readonly RedisContainer _redisContainer;
     private WebApplicationFactory<Program> _factory = null!;
     private HttpClient _client = null!;
+    private string _adminToken = null!;
 
     private static readonly Guid ClinicId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -80,14 +77,6 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(sp =>
                         ConnectionMultiplexer.Connect(redisConn));
-
-                    // Configure JWT Bearer for test tokens
-                    services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
-                        options =>
-                        {
-                            options.MapInboundClaims = false;
-                        });
                 });
             });
 
@@ -100,6 +89,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         }
 
         _client = _factory.CreateClient();
+        _adminToken = await Helpers.CognitoTestAuth.GetAdminTokenAsync();
     }
 
     public async Task DisposeAsync()
@@ -121,8 +111,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     public async Task Clinics_CacheAside_FullFlow_MissHitInvalidateFresh()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Flush Redis to ensure clean state
         await FlushRedis();
@@ -183,8 +172,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     public async Task Clinics_ConsecutiveGets_ReturnCachedData()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         await FlushRedis();
 
         // Act: First GET populates cache
@@ -213,9 +201,8 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     [Fact]
     public async Task Shifts_CacheAside_FullFlow_MissHitInvalidateFresh()
     {
-        // Arrange: Use AdminClinica token scoped to the test clinic
-        var token = GenerateToken(roles: "AdminClinica", clinicId: ClinicId);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        // Arrange: Use admin token (has access to shifts)
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         await FlushRedis();
 
         // Act 1: First GET — cache miss, data fetched from PostgreSQL
@@ -264,8 +251,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     public async Task Shifts_ConsecutiveGets_ReturnCachedData()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminClinica", clinicId: ClinicId);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         await FlushRedis();
 
         // Act
@@ -294,8 +280,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     public async Task UserProfile_CacheAside_FullFlow_MissHitInvalidateFresh()
     {
         // Arrange: Use AdminGlobal token
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         await FlushRedis();
 
         // Act 1: First GET by ID — cache miss, data from PostgreSQL
@@ -346,8 +331,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     public async Task UserProfile_CreateUser_InvalidatesCache()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         await FlushRedis();
 
         // Populate cache by fetching existing user
@@ -373,30 +357,6 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
     #endregion
 
     #region Helpers
-
-    private static string GenerateToken(string roles, Guid? clinicId = null, Guid? userId = null)
-    {
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes("PlantonHubSuperSecretKeyForJwtTokenGeneration2024!"));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, (userId ?? UserId).ToString()),
-            new("clinicId", (clinicId ?? ClinicId).ToString()),
-            new("roles", roles),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: "PlantonHub",
-            audience: "PlantonHubUsers",
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(60),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
 
     private async Task FlushRedis()
     {
@@ -461,7 +421,7 @@ public class CacheAsideTestcontainersTests : IAsyncLifetime
         {
             Id = UserId,
             Name = "Admin Global Teste",
-            Email = "admin@plantonhub.test",
+            Email = "admin@plantonhub.com",
             PasswordHash = "hashed_password_placeholder",
             CreatedAt = now,
             UpdatedAt = now

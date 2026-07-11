@@ -104,7 +104,6 @@ var cognitoRegion = builder.Configuration["Cognito:Region"] ?? "us-east-1";
 var cognitoUserPoolId = builder.Configuration["Cognito:UserPoolId"]!;
 var cognitoClientId = builder.Configuration["Cognito:ClientId"]!;
 var cognitoIssuer = $"https://cognito-idp.{cognitoRegion}.amazonaws.com/{cognitoUserPoolId}";
-var cognitoJwksUri = $"{cognitoIssuer}/.well-known/jwks.json";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -113,9 +112,6 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    // Preserve original claim names ("sub", "email", "roles", etc.) instead of
-    // remapping them to long ClaimTypes.* URIs. Our authorization policies
-    // check claim types by their original names.
     options.MapInboundClaims = false;
 
     options.Authority = cognitoIssuer;
@@ -125,42 +121,27 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuer = true,
         ValidIssuer = cognitoIssuer,
-        ValidateAudience = false, // Cognito access tokens don't have 'aud' — use client_id validation below
+        ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ClockSkew = TimeSpan.FromSeconds(30),
     };
 
-    // Validate the token_use claim and client_id for extra security
     options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
     {
         OnTokenValidated = context =>
         {
             var claims = context.Principal?.Claims;
-            if (claims is null)
-            {
-                context.Fail("No claims in token");
-                return Task.CompletedTask;
-            }
+            if (claims is null) { context.Fail("No claims"); return Task.CompletedTask; }
 
-            // Cognito access tokens have "token_use": "access"
-            // Cognito ID tokens have "token_use": "id"
-            // We accept both (frontend sends access token, but id token also works)
+            // Accept both access and id tokens
             var tokenUse = claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
-            if (tokenUse is not ("access" or "id"))
-            {
-                context.Fail("Invalid token_use claim");
-                return Task.CompletedTask;
-            }
+            if (tokenUse is not ("access" or "id")) { context.Fail("Invalid token_use"); return Task.CompletedTask; }
 
-            // Validate client_id matches our app
+            // Validate client_id
             var clientId = claims.FirstOrDefault(c => c.Type == "client_id")?.Value
                         ?? claims.FirstOrDefault(c => c.Type == "aud")?.Value;
-            if (clientId != cognitoClientId)
-            {
-                context.Fail("Token was not issued for this application");
-                return Task.CompletedTask;
-            }
+            if (clientId != cognitoClientId) { context.Fail("Wrong client_id"); return Task.CompletedTask; }
 
             return Task.CompletedTask;
         }

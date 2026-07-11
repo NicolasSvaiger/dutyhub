@@ -1,6 +1,9 @@
+using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using PlantonHub.Application.Interfaces;
+using PlantonHub.Domain.Interfaces;
 
 namespace PlantonHub.Infrastructure.Services;
 
@@ -58,14 +61,48 @@ public class TenantService : ITenantService
 
     public Guid? GetCurrentUserId()
     {
-        var claimValue = _httpContextAccessor.HttpContext?.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
-                      ?? _httpContextAccessor.HttpContext?.User?.FindFirst("sub")?.Value;
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext is null) return null;
 
-        if (string.IsNullOrEmpty(claimValue))
-            return null;
+        // 1. Try 'sub' as direct GUID (legacy local JWT)
+        var sub = httpContext.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+               ?? httpContext.User?.FindFirst("sub")?.Value;
 
-        return Guid.TryParse(claimValue, out var userId) ? userId : null;
+        if (!string.IsNullOrEmpty(sub) && Guid.TryParse(sub, out var directId))
+        {
+            // Check if this GUID is a known user — if Cognito sub is a different UUID,
+            // it won't match. Fall through to email-based resolution.
+            if (_resolvedUserIds.TryGetValue(sub, out var cached))
+                return cached;
+
+            // Try resolving by looking up the user repository by email
+            var email = httpContext.User?.FindFirst("email")?.Value
+                     ?? httpContext.User?.FindFirst("username")?.Value;
+
+            if (!string.IsNullOrEmpty(email))
+            {
+                var userRepo = httpContext.RequestServices.GetService<IUserRepository>();
+                if (userRepo is not null)
+                {
+                    var user = userRepo.GetByEmailAsync(email).GetAwaiter().GetResult();
+                    if (user is not null)
+                    {
+                        _resolvedUserIds[sub] = user.Id;
+                        return user.Id;
+                    }
+                }
+            }
+
+            // Fallback: trust the sub as user ID (backward compat)
+            _resolvedUserIds[sub] = directId;
+            return directId;
+        }
+
+        return null;
     }
+
+    // Cache sub → userId to avoid repeated DB lookups per request
+    private static readonly ConcurrentDictionary<string, Guid> _resolvedUserIds = new();
 
     public IEnumerable<string> GetCurrentRoles()
     {
@@ -103,11 +140,34 @@ public class TenantService : ITenantService
         var multi = user.FindFirst("clinicIds")?.Value;
         if (!string.IsNullOrEmpty(multi))
         {
-            foreach (var part in multi.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            // Support both JSON array format (from Cognito Lambda) and CSV (legacy)
+            var raw = multi.Trim();
+            if (raw.StartsWith('['))
             {
-                if (Guid.TryParse(part, out var id))
+                // JSON array: ["uuid1","uuid2"]
+                try
                 {
-                    result.Add(id);
+                    var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
+                    if (parsed is not null)
+                    {
+                        foreach (var item in parsed)
+                        {
+                            if (Guid.TryParse(item, out var id)) result.Add(id);
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to CSV parsing below
+                }
+            }
+
+            if (result.Count == 0)
+            {
+                // CSV format: uuid1,uuid2
+                foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (Guid.TryParse(part, out var id)) result.Add(id);
                 }
             }
         }

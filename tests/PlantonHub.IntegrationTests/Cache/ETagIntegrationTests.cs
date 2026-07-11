@@ -1,16 +1,12 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.IdentityModel.Tokens;
 using PlantonHub.Application.DTOs.Clinics;
 using PlantonHub.Application.DTOs.Shifts;
 using PlantonHub.Domain.Entities;
@@ -34,6 +30,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     private readonly RedisContainer _redisContainer;
     private WebApplicationFactory<Program> _factory = null!;
     private HttpClient _client = null!;
+    private string _adminToken = null!;
 
     private static readonly Guid ClinicId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -78,14 +75,6 @@ public class ETagIntegrationTests : IAsyncLifetime
                     services.RemoveAll<IConnectionMultiplexer>();
                     services.AddSingleton<IConnectionMultiplexer>(sp =>
                         ConnectionMultiplexer.Connect(redisConn));
-
-                    // Configure JWT Bearer for test tokens
-                    services.PostConfigure<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>(
-                        Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
-                        options =>
-                        {
-                            options.MapInboundClaims = false;
-                        });
                 });
             });
 
@@ -98,6 +87,7 @@ public class ETagIntegrationTests : IAsyncLifetime
         }
 
         _client = _factory.CreateClient();
+        _adminToken = await Helpers.CognitoTestAuth.GetAdminTokenAsync();
     }
 
     public async Task DisposeAsync()
@@ -118,8 +108,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task GetClinics_ETagRoundTrip_Returns304WhenDataUnchanged()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Act 1: First GET — should return 200 with ETag header
         var response1 = await _client.GetAsync("/api/clinics");
@@ -130,7 +119,7 @@ public class ETagIntegrationTests : IAsyncLifetime
 
         // Act 2: Second GET with If-None-Match — should return 304 Not Modified
         var request2 = new HttpRequestMessage(HttpMethod.Get, "/api/clinics");
-        request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         request2.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(etag));
 
         var response2 = await _client.SendAsync(request2);
@@ -145,8 +134,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task GetShifts_ETagRoundTrip_Returns304WhenDataUnchanged()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminClinica", clinicId: ClinicId);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Act 1: First GET — should return 200 with ETag header
         var response1 = await _client.GetAsync("/api/shifts");
@@ -156,7 +144,7 @@ public class ETagIntegrationTests : IAsyncLifetime
 
         // Act 2: Second GET with If-None-Match — should return 304 Not Modified
         var request2 = new HttpRequestMessage(HttpMethod.Get, "/api/shifts");
-        request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         request2.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(etag));
 
         var response2 = await _client.SendAsync(request2);
@@ -171,12 +159,11 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task GetClinics_DifferentETag_Returns200WithNewETag()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Act: GET with a fabricated/wrong If-None-Match value
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/clinics");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         request.Headers.IfNoneMatch.Add(new EntityTagHeaderValue("\"invalid-etag-value\""));
 
         var response = await _client.SendAsync(request);
@@ -192,8 +179,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task GetClinics_AfterDataChange_PreviousETagReturns200()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Act 1: GET to get initial ETag
         var response1 = await _client.GetAsync("/api/clinics");
@@ -212,7 +198,7 @@ public class ETagIntegrationTests : IAsyncLifetime
 
         // Act 3: GET with old ETag — should return 200 (data has changed)
         var request3 = new HttpRequestMessage(HttpMethod.Get, "/api/clinics");
-        request3.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request3.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
         request3.Headers.IfNoneMatch.Add(new EntityTagHeaderValue(initialEtag));
 
         var response3 = await _client.SendAsync(request3);
@@ -235,8 +221,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task GetClinics_Response_IncludesCacheControlHeader()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Act
         var response = await _client.GetAsync("/api/clinics");
@@ -257,8 +242,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task GetShifts_Response_IncludesCacheControlHeader()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminClinica", clinicId: ClinicId);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Act
         var response = await _client.GetAsync("/api/shifts");
@@ -282,8 +266,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task PostClinics_Response_DoesNotIncludeCacheHeaders()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminGlobal");
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         var newClinic = new CreateClinicRequest
         {
@@ -309,8 +292,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task PostShifts_Response_DoesNotIncludeCacheHeaders()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminClinica", clinicId: ClinicId);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         var newShift = new CreateShiftRequest
         {
@@ -338,8 +320,7 @@ public class ETagIntegrationTests : IAsyncLifetime
     public async Task PostShiftAssign_Response_DoesNotIncludeCacheHeaders()
     {
         // Arrange
-        var token = GenerateToken(roles: "AdminClinica", clinicId: ClinicId);
-        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _adminToken);
 
         // Create a shift first to get its ID
         var newShift = new CreateShiftRequest
@@ -366,30 +347,6 @@ public class ETagIntegrationTests : IAsyncLifetime
     #endregion
 
     #region Helpers
-
-    private static string GenerateToken(string roles, Guid? clinicId = null, Guid? userId = null)
-    {
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes("PlantonHubSuperSecretKeyForJwtTokenGeneration2024!"));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, (userId ?? UserId).ToString()),
-            new("clinicId", (clinicId ?? ClinicId).ToString()),
-            new("roles", roles),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: "PlantonHub",
-            audience: "PlantonHubUsers",
-            claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(60),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
-    }
 
     private static void SeedTestData(AppDbContext db)
     {
@@ -425,7 +382,7 @@ public class ETagIntegrationTests : IAsyncLifetime
         {
             Id = UserId,
             Name = "Admin Global Teste",
-            Email = "admin@plantonhub.test",
+            Email = "admin@plantonhub.com",
             PasswordHash = "hashed_password_placeholder",
             CreatedAt = now,
             UpdatedAt = now
