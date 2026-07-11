@@ -92,10 +92,21 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Run integration tests
+        env:
+          COGNITO_USER_POOL_ID: ${{ secrets.VITE_COGNITO_USER_POOL_ID }}
+          COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+          COGNITO_REGION: ${{ env.AWS_REGION }}
         run: dotnet test tests/PlantonHub.IntegrationTests --no-restore --verbosity normal --logger "trx;LogFileName=integration-results.trx"
 
       - name: Publish test results
@@ -139,6 +150,12 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Configure Cognito env
+        run: |
+          echo "VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_COGNITO_USER_POOL_ID }}" >> frontend/.env.development
+          echo "VITE_COGNITO_CLIENT_ID=${{ secrets.VITE_COGNITO_CLIENT_ID }}" >> frontend/.env.development
+          echo "VITE_COGNITO_REGION=${{ secrets.VITE_COGNITO_REGION }}" >> frontend/.env.development
+
       - name: Start services
         run: docker compose up -d --wait
 
@@ -153,6 +170,29 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:3000
         run: npx playwright test
+
+      - name: Publish E2E summary
+        uses: daun/playwright-report-summary@v3
+        if: always()
+        with:
+          report-file: frontend/test-results/results.json
+          comment-title: "Frontend E2E Tests"
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: frontend/test-results/
+          retention-days: 7
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
 
       - name: Stop services
         if: always()
@@ -221,6 +261,11 @@ jobs:
 
       - name: Build frontend
         working-directory: frontend
+        env:
+          VITE_API_URL: https://api.laulab.com.br/api
+          VITE_COGNITO_USER_POOL_ID: ${{ secrets.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+          VITE_COGNITO_REGION: ${{ secrets.VITE_COGNITO_REGION }}
         run: |
           npm ci
           npm run build
