@@ -152,12 +152,14 @@ jobs:
 
       - name: Configure Cognito env
         run: |
-          echo "VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_COGNITO_USER_POOL_ID }}" >> frontend/.env.development
-          echo "VITE_COGNITO_CLIENT_ID=${{ secrets.VITE_COGNITO_CLIENT_ID }}" >> frontend/.env.development
-          echo "VITE_COGNITO_REGION=${{ secrets.VITE_COGNITO_REGION }}" >> frontend/.env.development
+          printf 'VITE_API_URL=/api\nVITE_COGNITO_USER_POOL_ID=%s\nVITE_COGNITO_CLIENT_ID=%s\nVITE_COGNITO_REGION=%s\n' \
+            "${{ secrets.VITE_COGNITO_USER_POOL_ID }}" \
+            "${{ secrets.VITE_COGNITO_CLIENT_ID }}" \
+            "${{ secrets.VITE_COGNITO_REGION }}" > frontend/.env.development
+          cp frontend/.env.development frontend/.env.production
 
       - name: Start services
-        run: docker compose up -d --wait
+        run: docker compose up -d --wait --build
 
       - name: Install Playwright
         working-directory: frontend
