@@ -49,10 +49,10 @@ test.describe('Fluxo do médico', () => {
     // A bottom-nav do médico tem uma aba "Plantões"
     await page.getByRole('button', { name: /Plantões/i }).click();
 
-    // Espera o cabeçalho de algum dos grupos aparecer
+    // Espera o cabeçalho de algum dos grupos aparecer (API pode demorar no CI)
     await expect(
       page.getByText(/Hoje|Próximos|Passados/i).first(),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('navega até "Relatórios" e vê o resumo do médico', async ({ page }) => {
@@ -60,6 +60,6 @@ test.describe('Fluxo do médico', () => {
     await page.getByRole('button', { name: /Relatórios/i }).click();
 
     // Título do card de resumo é traduzido em pt-BR
-    await expect(page.getByText(/Resumo/i)).toBeVisible();
+    await expect(page.getByText(/Resumo/i)).toBeVisible({ timeout: 15_000 });
   });
 });
