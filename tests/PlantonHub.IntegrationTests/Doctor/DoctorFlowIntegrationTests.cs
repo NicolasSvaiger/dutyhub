@@ -126,8 +126,8 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
         token.Should().NotBeNullOrEmpty();
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        // Cognito access token contains 'username' (which is the email)
-        jwt.Claims.Should().Contain(c => c.Type == "username" && c.Value == "medico@plantonhub.com");
+        // Cognito ID token contains 'email' claim
+        jwt.Claims.Should().Contain(c => c.Type == "email" && c.Value == "medico@plantonhub.com");
     }
 
     // ─────────────────────────────────────────────────────────────

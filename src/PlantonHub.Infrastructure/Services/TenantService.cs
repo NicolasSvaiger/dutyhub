@@ -106,12 +106,42 @@ public class TenantService : ITenantService
 
     public IEnumerable<string> GetCurrentRoles()
     {
-        var claimValue = _httpContextAccessor.HttpContext?.User?.FindFirst("roles")?.Value;
+        var user = _httpContextAccessor.HttpContext?.User;
+        if (user is null) return Enumerable.Empty<string>();
 
-        if (string.IsNullOrEmpty(claimValue))
-            return Enumerable.Empty<string>();
+        var roles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        return claimValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Source 1: "roles" custom claim (from pre-token-generation Lambda)
+        var rolesClaim = user.FindFirst("roles")?.Value;
+        if (!string.IsNullOrEmpty(rolesClaim))
+        {
+            // Support JSON array or CSV
+            var raw = rolesClaim.Trim();
+            if (raw.StartsWith('['))
+            {
+                try
+                {
+                    var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
+                    if (parsed is not null)
+                        foreach (var r in parsed) roles.Add(r);
+                }
+                catch { /* fall through to CSV */ }
+            }
+            if (roles.Count == 0)
+            {
+                foreach (var r in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    roles.Add(r);
+            }
+        }
+
+        // Source 2: "cognito:groups" claims (Cognito native groups)
+        foreach (var claim in user.FindAll("cognito:groups"))
+        {
+            if (!string.IsNullOrEmpty(claim.Value))
+                roles.Add(claim.Value);
+        }
+
+        return roles;
     }
 
     public bool IsAdminGlobal()
@@ -177,6 +207,32 @@ public class TenantService : ITenantService
         if (!string.IsNullOrEmpty(legacy) && Guid.TryParse(legacy, out var legacyId))
         {
             result.Add(legacyId);
+        }
+
+        // Fallback: if no clinicIds in token, resolve from DB via userId
+        if (result.Count == 0)
+        {
+            var userId = GetCurrentUserId();
+            if (userId.HasValue)
+            {
+                var httpContext = _httpContextAccessor.HttpContext;
+                var userRepo = httpContext?.RequestServices.GetService<IUserRepository>();
+                if (userRepo is not null)
+                {
+                    var email = httpContext!.User?.FindFirst("email")?.Value;
+                    if (!string.IsNullOrEmpty(email))
+                    {
+                        var dbUser = userRepo.GetByEmailAsync(email).GetAwaiter().GetResult();
+                        if (dbUser?.UserClinicRoles is not null)
+                        {
+                            foreach (var ucr in dbUser.UserClinicRoles)
+                            {
+                                result.Add(ucr.ClinicId);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         return result;

@@ -159,6 +159,10 @@ jobs:
           cp frontend/.env.development frontend/.env.production
 
       - name: Start services
+        env:
+          COGNITO_REGION: ${{ secrets.VITE_COGNITO_REGION }}
+          COGNITO_USER_POOL_ID: ${{ secrets.VITE_COGNITO_USER_POOL_ID }}
+          COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
         run: docker compose up -d --wait --build
 
       - name: Install Playwright
