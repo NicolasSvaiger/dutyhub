@@ -417,10 +417,11 @@
   transform: scale(0.94);
 }
 
-/* ══ Mobile: hero some, form ocupa a tela ══ */
+/* ══ Mobile: hero vira background da pagina, form fica por cima ══ */
 @media (max-width: 780px) {
   .page {
     grid-template-columns: 1fr;
+    background: linear-gradient(150deg, var(--teal-dark) 0%, var(--teal) 45%, var(--orange) 100%);
   }
   .hero {
     display: none;
@@ -430,5 +431,69 @@
     justify-content: flex-start;
     padding-top: 3rem;
     min-height: 100vh;
+    background: transparent;
+  }
+  .formBox {
+    background: rgba(0, 0, 0, .25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 20px;
+    padding: 1.8rem 1.4rem;
+  }
+  .formTitle,
+  .formSub,
+  .fieldLabel,
+  .formFooter {
+    color: rgba(255, 255, 255, .9);
+  }
+  .formSub {
+    color: rgba(255, 255, 255, .7);
+  }
+  .fieldLabel {
+    color: rgba(255, 255, 255, .7);
+  }
+  .formFooter {
+    color: rgba(255, 255, 255, .6);
+  }
+  .formEyebrow {
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+  }
+  .input {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(255, 255, 255, .2);
+    color: #fff;
+  }
+  .input::placeholder {
+    color: rgba(255, 255, 255, .5);
+  }
+  .input:focus {
+    border-color: rgba(255, 255, 255, .5);
+    background: rgba(255, 255, 255, .12);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .1);
+  }
+  .inputIcon {
+    color: rgba(255, 255, 255, .5);
+  }
+  .eyeBtn {
+    color: rgba(255, 255, 255, .5);
+  }
+  .eyeBtn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, .1);
+  }
+  .forgotLink {
+    color: rgba(255, 255, 255, .8);
+  }
+  .errorBox {
+    background: rgba(220, 53, 69, .15);
+    border-color: rgba(220, 53, 69, .4);
+    color: #ff6b6b;
+  }
+  .themeToggle {
+    background: rgba(255, 255, 255, .12);
+    border-color: rgba(255, 255, 255, .2);
+    color: #fff;
   }
 }
