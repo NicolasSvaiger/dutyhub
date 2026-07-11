@@ -52,7 +52,7 @@ public static class CognitoTestAuth
                 $"User '{email}' requires password change. Run the migration script with --set-permanent-password first.");
         }
 
-        return response.AuthenticationResult.AccessToken;
+        return response.AuthenticationResult.IdToken;
     }
 
     /// <summary>

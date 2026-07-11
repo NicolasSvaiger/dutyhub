@@ -47,7 +47,8 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function persistTokens(tokens: CognitoTokens): void {
-  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken);
+  // Store ID token as Bearer (contains roles/clinicIds claims)
+  localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, tokens.idToken);
   localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken);
 }
 
@@ -105,7 +106,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const mappedUser = cognitoUserToAuthUser(authUser);
     persistTokens(tokens);
     persistUser(mappedUser);
-    setToken(tokens.accessToken);
+    // Use ID token as Bearer — it contains custom claims (roles, clinicIds)
+    // injected by the pre-token-generation Lambda that the backend needs.
+    setToken(tokens.idToken);
     setUser(mappedUser);
   }, []);
 

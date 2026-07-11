@@ -98,9 +98,9 @@ axiosInstance.interceptors.response.use(
         throw new Error('No valid session');
       }
 
-      const newToken = session.tokens.accessToken;
+      const newToken = session.tokens.idToken;
 
-      // Persist the refreshed tokens
+      // Persist the refreshed tokens (ID token as Bearer)
       localStorage.setItem('plantonhub_token', newToken);
       localStorage.setItem('plantonhub_refresh_token', session.tokens.refreshToken);
 

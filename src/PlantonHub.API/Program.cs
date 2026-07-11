@@ -121,7 +121,8 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuer = true,
         ValidIssuer = cognitoIssuer,
-        ValidateAudience = false,
+        ValidateAudience = true,
+        ValidAudience = cognitoClientId,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ClockSkew = TimeSpan.FromSeconds(30),
@@ -134,14 +135,9 @@ builder.Services.AddAuthentication(options =>
             var claims = context.Principal?.Claims;
             if (claims is null) { context.Fail("No claims"); return Task.CompletedTask; }
 
-            // Accept both access and id tokens
+            // Accept both access and id tokens from our Cognito User Pool
             var tokenUse = claims.FirstOrDefault(c => c.Type == "token_use")?.Value;
             if (tokenUse is not ("access" or "id")) { context.Fail("Invalid token_use"); return Task.CompletedTask; }
-
-            // Validate client_id
-            var clientId = claims.FirstOrDefault(c => c.Type == "client_id")?.Value
-                        ?? claims.FirstOrDefault(c => c.Type == "aud")?.Value;
-            if (clientId != cognitoClientId) { context.Fail("Wrong client_id"); return Task.CompletedTask; }
 
             return Task.CompletedTask;
         }
