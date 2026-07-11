@@ -211,6 +211,9 @@ app.UseMiddleware<TenantMiddleware>();
 // 6. Map Controllers
 app.MapControllers();
 
+// 7. Health check endpoint (used by Docker/ECS health checks - no auth required)
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
+
 // ----- Run Migrations and Seed (Development) -----
 if (app.Environment.IsDevelopment())
 {
