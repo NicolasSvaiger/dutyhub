@@ -73,14 +73,14 @@ builder.Services.Configure<Microsoft.Extensions.Caching.StackExchangeRedis.Redis
 builder.Services.AddOptions<Microsoft.Extensions.Caching.StackExchangeRedis.RedisCacheOptions>()
     .Configure<IConfiguration>((options, config) =>
     {
-        options.Configuration = config.GetConnectionString("Redis") ?? "localhost:6379";
+        options.Configuration = config.GetConnectionString("Redis") ?? "localhost:6379,abortConnect=false";
     });
 
 // Also register IConnectionMultiplexer for RemoveByPrefixAsync (reads IConfiguration at runtime):
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
-    return ConnectionMultiplexer.Connect(config.GetConnectionString("Redis") ?? "localhost:6379");
+    return ConnectionMultiplexer.Connect(config.GetConnectionString("Redis") ?? "localhost:6379,abortConnect=false");
 });
 
 // ----- Cache Settings -----
@@ -305,19 +305,31 @@ app.MapControllers();
 // 7. Health check endpoint (used by Docker/ECS health checks - no auth required)
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
-// ----- Run Migrations (all environments) -----
+// ----- Run Migrations (background, non-blocking) -----
+// Running MigrateAsync before app.Run() blocks all startup requests for several seconds.
+// Instead, run it in a background task so the API is ready to serve health checks immediately.
+_ = Task.Run(async () =>
 {
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await dbContext.Database.MigrateAsync();
-
-    // Seed only in development
-    if (app.Environment.IsDevelopment())
+    await Task.Delay(500); // brief delay to let the host fully start
+    try
     {
-        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-        await seeder.SeedAsync();
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.MigrateAsync();
+
+        // Seed only in development
+        if (app.Environment.IsDevelopment())
+        {
+            var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedAsync();
+        }
     }
-}
+    catch (Exception ex)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        logger.LogCritical(ex, "Failed to run database migrations on startup");
+    }
+});
 
 app.Run();
 
