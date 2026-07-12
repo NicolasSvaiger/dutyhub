@@ -23,8 +23,10 @@ public class CreateShiftRequestValidator : AbstractValidator<CreateShiftRequest>
         RuleFor(x => x.EndTime)
             .NotEmpty().WithMessage("O campo hora de término é obrigatório.");
 
-        RuleFor(x => x.EndTime)
-            .GreaterThan(x => x.StartTime)
-            .WithMessage("A hora de término deve ser posterior à hora de início.");
+        // Note: EndTime < StartTime is valid for overnight shifts (e.g., 22:00 - 06:00)
+        // Only reject if both are equal (zero-length shift)
+        RuleFor(x => x)
+            .Must(x => x.StartTime != x.EndTime)
+            .WithMessage("A hora de início e término não podem ser iguais.");
     }
 }
