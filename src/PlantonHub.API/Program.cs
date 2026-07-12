@@ -164,6 +164,15 @@ builder.Services.AddAuthentication(options =>
     options.Authority = cognitoIssuer;
     options.MetadataAddress = $"{cognitoIssuer}/.well-known/openid-configuration";
 
+    // Reduce JWKS fetch timeout — default is 1 min which causes 60s hangs when
+    // the VPC egress is slow reaching Cognito's JWKS endpoint.
+    options.BackchannelTimeout = TimeSpan.FromSeconds(10);
+
+    // Cache the JWKS signing keys for 1 hour to avoid repeated outbound fetches
+    options.RefreshOnIssuerKeyNotFound = true;
+    options.AutomaticRefreshInterval = TimeSpan.FromHours(1);
+    options.RequireHttpsMetadata = true;
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
