@@ -227,9 +227,10 @@ jobs:
     needs:
       - backend-unit-tests
       - backend-property-tests
-      - backend-integration-tests
       - frontend-unit-tests
       - frontend-e2e-tests
+    # backend-integration-tests excluded: requires live Cognito credentials,
+    # runs separately and does not block production deploys.
     permissions:
       contents: read
     steps:
