@@ -43,6 +43,20 @@ export interface Clinic {
   hasNursing: boolean;
   createdAt: string;
   shiftTemplates?: ShiftTemplate[];
+
+  // Geolocation
+  latitude?: number | null;
+  longitude?: number | null;
+  allowedRadiusMeters?: number | null;
+
+  // Unit details
+  capacity?: number | null;
+  doctorsPerShift?: number | null;
+
+  // Address breakdown
+  city?: string | null;
+  neighborhood?: string | null;
+  zipCode?: string | null;
 }
 
 export interface UserClinicRole {
@@ -125,6 +139,31 @@ export interface CreateClinicRequest {
   name: string;
   address: string;
   phone: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  allowedRadiusMeters?: number | null;
+  capacity?: number | null;
+  doctorsPerShift?: number | null;
+  hasNursing?: boolean;
+  city?: string | null;
+  neighborhood?: string | null;
+  zipCode?: string | null;
+}
+
+export interface UpdateClinicRequest {
+  name: string;
+  address: string;
+  phone: string;
+  isActive: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  allowedRadiusMeters?: number | null;
+  capacity?: number | null;
+  doctorsPerShift?: number | null;
+  hasNursing?: boolean;
+  city?: string | null;
+  neighborhood?: string | null;
+  zipCode?: string | null;
 }
 
 // ===== User DTOs =====

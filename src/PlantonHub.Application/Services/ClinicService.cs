@@ -39,13 +39,9 @@ public class ClinicService : IClinicService
         }
         else
         {
-            // Non-admin users: return every clinic they are authorized to work at
-            // (multi-clinic support). The authorized set comes from the JWT claim.
             var authorized = _tenantService.GetAuthorizedClinicIds().ToList();
             if (authorized.Count == 0)
-            {
                 return Enumerable.Empty<ClinicResponse>();
-            }
 
             var userId = _tenantService.GetCurrentUserId();
             var cacheKey = userId.HasValue
@@ -61,9 +57,7 @@ public class ClinicService : IClinicService
                     {
                         var clinic = await _clinicRepository.GetByIdAsync(id);
                         if (clinic is not null)
-                        {
                             list.Add(MapToResponse(clinic));
-                        }
                     }
                     return list;
                 });
@@ -75,9 +69,7 @@ public class ClinicService : IClinicService
     public async Task<ClinicResponse> CreateAsync(CreateClinicRequest request)
     {
         if (!_tenantService.IsAdminGlobal())
-        {
             throw new ForbiddenException("Only AdminGlobal can create clinics.");
-        }
 
         var clinic = new Clinic
         {
@@ -86,46 +78,100 @@ public class ClinicService : IClinicService
             Address = request.Address,
             Phone = request.Phone,
             IsActive = true,
+            HasNursing = request.HasNursing,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
+            AllowedRadiusMeters = request.AllowedRadiusMeters,
+            Capacity = request.Capacity,
+            DoctorsPerShift = request.DoctorsPerShift,
+            City = request.City,
+            Neighborhood = request.Neighborhood,
+            ZipCode = request.ZipCode,
             CreatedAt = DateTime.UtcNow
         };
 
         await _clinicRepository.AddAsync(clinic);
-
-        // Invalidate all clinic-related cache entries
         await _cacheService.RemoveByPrefixAsync("clinics:");
 
         return MapToResponse(clinic);
     }
 
-    private static ClinicResponse MapToResponse(Clinic clinic)
+    public async Task<ClinicResponse> UpdateAsync(Guid id, UpdateClinicRequest request)
     {
-        return new ClinicResponse
+        if (!_tenantService.IsAdminGlobal())
+            throw new ForbiddenException("Only AdminGlobal can update clinics.");
+
+        var clinic = await _clinicRepository.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Clinic {id} not found.");
+
+        clinic.Name = request.Name;
+        clinic.Address = request.Address;
+        clinic.Phone = request.Phone;
+        clinic.IsActive = request.IsActive;
+        clinic.HasNursing = request.HasNursing;
+        clinic.Latitude = request.Latitude;
+        clinic.Longitude = request.Longitude;
+        clinic.AllowedRadiusMeters = request.AllowedRadiusMeters;
+        clinic.Capacity = request.Capacity;
+        clinic.DoctorsPerShift = request.DoctorsPerShift;
+        clinic.City = request.City;
+        clinic.Neighborhood = request.Neighborhood;
+        clinic.ZipCode = request.ZipCode;
+
+        await _clinicRepository.UpdateAsync(clinic);
+        await _cacheService.RemoveByPrefixAsync("clinics:");
+
+        return MapToResponse(clinic);
+    }
+
+    public async Task<ClinicResponse> ToggleStatusAsync(Guid id)
+    {
+        if (!_tenantService.IsAdminGlobal())
+            throw new ForbiddenException("Only AdminGlobal can toggle clinic status.");
+
+        var clinic = await _clinicRepository.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Clinic {id} not found.");
+
+        clinic.IsActive = !clinic.IsActive;
+        await _clinicRepository.UpdateAsync(clinic);
+        await _cacheService.RemoveByPrefixAsync("clinics:");
+
+        return MapToResponse(clinic);
+    }
+
+    public async Task<ClinicResponse> UpsertShiftTemplatesAsync(Guid id, UpsertShiftTemplatesRequest request)
+    {
+        if (!_tenantService.IsAdminGlobal())
+            throw new ForbiddenException("Only AdminGlobal can manage shift templates.");
+
+        // Verify clinic exists
+        var clinic = await _clinicRepository.GetByIdAsync(id)
+            ?? throw new NotFoundException($"Clinic {id} not found.");
+
+        // Build new template entities
+        var newTemplates = request.Templates.Select((t, i) => new Domain.Entities.ClinicShiftTemplate
         {
-            Id = clinic.Id,
-            Name = clinic.Name,
-            Address = clinic.Address,
-            Phone = clinic.Phone,
-            IsActive = clinic.IsActive,
-            HasNursing = clinic.HasNursing,
-            CreatedAt = clinic.CreatedAt,
-            ShiftTemplates = (clinic.ShiftTemplates ?? new List<ClinicShiftTemplate>())
-                .OrderBy(t => t.ProfessionalType).ThenBy(t => t.DisplayOrder)
-                .Select(t => new ShiftTemplateResponse
-                {
-                    Id = t.Id,
-                    Name = t.Name,
-                    StartTime = t.StartTime,
-                    EndTime = t.EndTime,
-                    RequiredStaff = t.RequiredStaff,
-                    DisplayOrder = t.DisplayOrder,
-                    ProfessionalType = t.ProfessionalType.ToString()
-                }).ToList()
-        };
+            Id = Guid.NewGuid(),
+            ClinicId = id,
+            Name = t.Name,
+            StartTime = TimeSpan.Parse(t.StartTime),
+            EndTime = TimeSpan.Parse(t.EndTime),
+            RequiredStaff = t.RequiredStaff > 0 ? t.RequiredStaff : 1,
+            DisplayOrder = t.DisplayOrder > 0 ? t.DisplayOrder : i + 1,
+            ProfessionalType = (Domain.Enums.ProfessionalType)t.ProfessionalType,
+        }).ToList();
+
+        // Replace in single context operation — delete old + insert new atomically
+        await _clinicRepository.ReplaceShiftTemplatesAsync(id, newTemplates);
+        await _cacheService.RemoveByPrefixAsync("clinics:");
+
+        // Re-fetch with updated templates for response
+        clinic = await _clinicRepository.GetByIdAsync(id)!;
+        return MapToResponse(clinic!);
     }
 
     public async Task<IEnumerable<NearestClinicResponse>> GetNearestAsync(double latitude, double longitude, int limit = 5)
     {
-        // Get clinics the user is authorized to check-in at
         var authorizedIds = _tenantService.GetAuthorizedClinicIds().ToList();
         if (authorizedIds.Count == 0)
             return Enumerable.Empty<NearestClinicResponse>();
@@ -135,9 +181,7 @@ public class ClinicService : IClinicService
         {
             var clinic = await _clinicRepository.GetByIdAsync(id);
             if (clinic is not null && clinic.IsActive && clinic.Latitude.HasValue && clinic.Longitude.HasValue)
-            {
                 clinics.Add(clinic);
-            }
         }
 
         return clinics
@@ -161,12 +205,43 @@ public class ClinicService : IClinicService
             .ToList();
     }
 
-    /// <summary>
-    /// Haversine formula: calculates distance in meters between two lat/lng points.
-    /// </summary>
+    private static ClinicResponse MapToResponse(Clinic clinic)
+    {
+        return new ClinicResponse
+        {
+            Id = clinic.Id,
+            Name = clinic.Name,
+            Address = clinic.Address,
+            Phone = clinic.Phone,
+            IsActive = clinic.IsActive,
+            HasNursing = clinic.HasNursing,
+            CreatedAt = clinic.CreatedAt,
+            Latitude = clinic.Latitude,
+            Longitude = clinic.Longitude,
+            AllowedRadiusMeters = clinic.AllowedRadiusMeters,
+            Capacity = clinic.Capacity,
+            DoctorsPerShift = clinic.DoctorsPerShift,
+            City = clinic.City,
+            Neighborhood = clinic.Neighborhood,
+            ZipCode = clinic.ZipCode,
+            ShiftTemplates = (clinic.ShiftTemplates ?? new List<ClinicShiftTemplate>())
+                .OrderBy(t => t.ProfessionalType).ThenBy(t => t.DisplayOrder)
+                .Select(t => new ShiftTemplateResponse
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    StartTime = t.StartTime,
+                    EndTime = t.EndTime,
+                    RequiredStaff = t.RequiredStaff,
+                    DisplayOrder = t.DisplayOrder,
+                    ProfessionalType = t.ProfessionalType.ToString()
+                }).ToList()
+        };
+    }
+
     public static double HaversineDistance(double lat1, double lon1, double lat2, double lon2)
     {
-        const double R = 6371000; // Earth radius in meters
+        const double R = 6371000;
         var dLat = ToRadians(lat2 - lat1);
         var dLon = ToRadians(lon2 - lon1);
         var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +

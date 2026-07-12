@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { cognitoForgotPassword, cognitoConfirmPassword } from '../api/cognitoAuth';
 import styles from './LoginPage.module.css';
@@ -8,11 +8,6 @@ import fpStyles from './ForgotPasswordPage.module.css';
 type Step = 'request' | 'confirm' | 'done';
 
 // ─── Shared style overrides (glassmorphism card, always dark) ──────────────────
-
-const PAGE_OVERRIDE: React.CSSProperties = {
-  gridTemplateColumns: '1fr',
-  background: 'linear-gradient(150deg, var(--teal-dark) 0%, var(--teal) 45%, var(--orange) 100%)',
-};
 
 const FORM_SIDE_OVERRIDE: React.CSSProperties = {
   background: 'transparent',
@@ -119,6 +114,21 @@ function mapConfirmPasswordError(raw: string, t: (k: string) => string): string 
 export function ForgotPasswordPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isAdmin = searchParams.get('from') === 'admin';
+  const loginRoute = isAdmin ? '/admin/login' : '/login';
+
+  // Dynamic gradient based on context
+  const pageOverride: React.CSSProperties = {
+    gridTemplateColumns: '1fr',
+    background: isAdmin
+      ? 'linear-gradient(150deg, #1e1b4b 0%, #4338ca 40%, #6366f1 70%, #2DBFB8 100%)'
+      : 'linear-gradient(150deg, var(--teal-dark) 0%, var(--teal) 45%, var(--orange) 100%)',
+  };
+
+  const btnOverride: React.CSSProperties | undefined = isAdmin
+    ? { background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #8b5cf6 100%)', boxShadow: '0 4px 14px rgba(99, 102, 241, .35)' }
+    : undefined;
 
   const [step, setStep] = useState<Step>('request');
   const [email, setEmail] = useState('');
@@ -179,14 +189,14 @@ export function ForgotPasswordPage() {
 
   if (step === 'done') {
     return (
-      <div className={styles.page} style={PAGE_OVERRIDE}>
+      <div className={styles.page} style={pageOverride}>
         <main className={styles.formSide} style={FORM_SIDE_OVERRIDE}>
           <div className={styles.formBox} style={CARD_OVERRIDE}>
             <div className={styles.formHeader}>
               <h1 className={styles.formTitle} style={TITLE_COLOR}>{t('forgotPassword.doneTitle')}</h1>
               <div className={styles.formSub} style={SUB_COLOR}>{t('forgotPassword.doneSub')}</div>
             </div>
-            <button type="button" className={styles.btnPrimary} onClick={() => navigate('/login', { replace: true })}>
+            <button type="button" className={styles.btnPrimary} style={btnOverride} onClick={() => navigate(loginRoute, { replace: true })}>
               {t('forgotPassword.backToLogin')}
             </button>
           </div>
@@ -198,7 +208,7 @@ export function ForgotPasswordPage() {
   // ─── Request & Confirm steps ───────────────────────────────────────────────
 
   return (
-    <div className={styles.page} style={PAGE_OVERRIDE}>
+    <div className={styles.page} style={pageOverride}>
       <main className={styles.formSide} style={FORM_SIDE_OVERRIDE}>
         <div className={styles.formBox} style={CARD_OVERRIDE}>
           <div className={styles.formHeader}>
@@ -235,7 +245,7 @@ export function ForgotPasswordPage() {
 
               {error && <div className={styles.errorBox} role="alert"><span>{error}</span></div>}
 
-              <button type="submit" className={styles.btnPrimary} disabled={loading}>
+              <button type="submit" className={styles.btnPrimary} style={btnOverride} disabled={loading}>
                 {loading ? t('forgotPassword.sending') : t('forgotPassword.sendCode')}
               </button>
             </form>
@@ -319,14 +329,14 @@ export function ForgotPasswordPage() {
 
               {error && <div className={styles.errorBox} role="alert"><span>{error}</span></div>}
 
-              <button type="submit" className={styles.btnPrimary} disabled={loading}>
+              <button type="submit" className={styles.btnPrimary} style={btnOverride} disabled={loading}>
                 {loading ? t('forgotPassword.resetting') : t('forgotPassword.resetPassword')}
               </button>
             </form>
           )}
 
           <div className={styles.formFooter} style={{ color: 'rgba(255, 255, 255, 0.7)', marginTop: '1.2rem' }}>
-            <Link to="/login" style={{ color: 'rgba(255, 255, 255, 0.9)', textDecoration: 'none', fontWeight: 600 }}>
+            <Link to={loginRoute} style={{ color: 'rgba(255, 255, 255, 0.9)', textDecoration: 'none', fontWeight: 600 }}>
               ← {t('forgotPassword.backToLogin')}
             </Link>
           </div>

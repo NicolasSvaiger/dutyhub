@@ -40,7 +40,7 @@ services:
       - "5000:5000"
     environment:
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=plantonhub;Username=postgres;Password=postgres"
-      ConnectionStrings__Redis: "plantonhub-redis:6379"
+      ConnectionStrings__Redis: "plantonhub-redis:6379,abortConnect=false"
       CacheSettings__InstancePrefix: "plantonhub:"
       CacheSettings__DefaultTtlMinutes: "5"
       Cognito__Region: "${COGNITO_REGION:-us-east-1}"

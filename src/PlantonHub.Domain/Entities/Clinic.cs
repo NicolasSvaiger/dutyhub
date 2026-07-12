@@ -30,6 +30,21 @@ public class Clinic
     /// </summary>
     public bool HasNursing { get; set; } = false;
 
+    /// <summary>Total bed capacity of the unit.</summary>
+    public int? Capacity { get; set; }
+
+    /// <summary>Target number of doctors per shift.</summary>
+    public int? DoctorsPerShift { get; set; }
+
+    /// <summary>City where the unit is located.</summary>
+    public string? City { get; set; }
+
+    /// <summary>Neighborhood / district.</summary>
+    public string? Neighborhood { get; set; }
+
+    /// <summary>Brazilian postal code (CEP), digits only or formatted.</summary>
+    public string? ZipCode { get; set; }
+
     // Navigation properties
     public ICollection<UserClinicRole> UserClinicRoles { get; set; } = new List<UserClinicRole>();
     public ICollection<Shift> Shifts { get; set; } = new List<Shift>();

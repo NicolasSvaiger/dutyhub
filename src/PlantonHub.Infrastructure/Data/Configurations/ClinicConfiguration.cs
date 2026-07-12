@@ -23,6 +23,15 @@ public class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
         builder.Property(c => c.IsActive)
             .HasDefaultValue(true);
 
+        builder.Property(c => c.City)
+            .HasMaxLength(100);
+
+        builder.Property(c => c.Neighborhood)
+            .HasMaxLength(100);
+
+        builder.Property(c => c.ZipCode)
+            .HasMaxLength(10);
+
         builder.HasMany(c => c.UserClinicRoles)
             .WithOne(ucr => ucr.Clinic)
             .HasForeignKey(ucr => ucr.ClinicId)

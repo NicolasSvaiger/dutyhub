@@ -20,5 +20,20 @@ public class ClinicResponse
     public bool IsActive { get; set; }
     public bool HasNursing { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Geolocation
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public double? AllowedRadiusMeters { get; set; }
+
+    // Unit details
+    public int? Capacity { get; set; }
+    public int? DoctorsPerShift { get; set; }
+
+    // Address breakdown
+    public string? City { get; set; }
+    public string? Neighborhood { get; set; }
+    public string? ZipCode { get; set; }
+
     public List<ShiftTemplateResponse> ShiftTemplates { get; set; } = new();
 }

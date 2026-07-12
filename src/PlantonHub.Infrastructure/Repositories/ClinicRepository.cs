@@ -40,6 +40,34 @@ public class ClinicRepository : IClinicRepository
         await _context.SaveChangesAsync();
     }
 
+    public async Task DeleteShiftTemplatesAsync(Guid clinicId)
+    {
+        var templates = await _context.ClinicShiftTemplates
+            .Where(t => t.ClinicId == clinicId)
+            .ToListAsync();
+        if (templates.Count > 0)
+        {
+            _context.ClinicShiftTemplates.RemoveRange(templates);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task ReplaceShiftTemplatesAsync(Guid clinicId, IEnumerable<ClinicShiftTemplate> newTemplates)
+    {
+        // Delete existing in same context transaction
+        var existing = await _context.ClinicShiftTemplates
+            .Where(t => t.ClinicId == clinicId)
+            .ToListAsync();
+
+        if (existing.Count > 0)
+            _context.ClinicShiftTemplates.RemoveRange(existing);
+
+        // Add new ones directly — no need to go through Clinic navigation
+        await _context.ClinicShiftTemplates.AddRangeAsync(newTemplates);
+
+        await _context.SaveChangesAsync();
+    }
+
     public async Task<bool> UserBelongsToClinicAsync(Guid userId, Guid clinicId)
     {
         return await _context.UserClinicRoles

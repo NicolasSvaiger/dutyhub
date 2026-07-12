@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PlantonHub.Application.DTOs.Clinics;
 using PlantonHub.Application.Interfaces;
-
 namespace PlantonHub.API.Controllers;
 
 [ApiController]
@@ -17,7 +16,7 @@ public class ClinicsController : ControllerBase
     }
 
     /// <summary>
-    /// Listar clínicas. AdminGlobal vê todas, AdminClinica vê a sua.
+    /// Listar clínicas. AdminGlobal vê todas, demais usuários veem apenas as autorizadas.
     /// </summary>
     [Authorize]
     [HttpGet]
@@ -45,15 +44,59 @@ public class ClinicsController : ControllerBase
     }
 
     /// <summary>
-    /// Find the nearest clinic based on GPS coordinates.
-    /// Returns clinics ordered by distance, limited to the user's authorized clinics.
-    /// Used by the Flutter app to auto-suggest which clinic the professional is at.
+    /// Atualizar clínica existente. Apenas AdminGlobal.
+    /// </summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ClinicResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateClinicRequest request)
+    {
+        var clinic = await _clinicService.UpdateAsync(id, request);
+        return Ok(clinic);
+    }
+
+    /// <summary>
+    /// Alternar status ativo/inativo da clínica. Apenas AdminGlobal.
+    /// </summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPatch("{id:guid}/toggle-status")]
+    [ProducesResponseType(typeof(ClinicResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ToggleStatus(Guid id)
+    {
+        var clinic = await _clinicService.ToggleStatusAsync(id);
+        return Ok(clinic);
+    }
+
+    /// <summary>
+    /// Substituir todos os templates de turno de uma clínica. Apenas AdminGlobal.
+    /// </summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPut("{id:guid}/shift-templates")]
+    [ProducesResponseType(typeof(ClinicResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpsertShiftTemplates(Guid id, [FromBody] UpsertShiftTemplatesRequest request)
+    {
+        var clinic = await _clinicService.UpsertShiftTemplatesAsync(id, request);
+        return Ok(clinic);
+    }
+
+    /// <summary>
+    /// Buscar clínicas mais próximas por coordenadas GPS.
     /// </summary>
     [Authorize(Policy = "Profissional")]
     [HttpGet("nearest")]
     [ProducesResponseType(typeof(IEnumerable<NearestClinicResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetNearest([FromQuery] double latitude, [FromQuery] double longitude, [FromQuery] int limit = 5)
+    public async Task<IActionResult> GetNearest(
+        [FromQuery] double latitude,
+        [FromQuery] double longitude,
+        [FromQuery] int limit = 5)
     {
         if (latitude < -90 || latitude > 90)
             return BadRequest(new { message = "Latitude inválida (deve estar entre -90 e 90)." });

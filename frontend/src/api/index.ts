@@ -4,6 +4,8 @@ export { clinicsApi } from './clinicsApi';
 export { usersApi } from './usersApi';
 export { shiftsApi } from './shiftsApi';
 export { attendanceApi } from './attendanceApi';
+export { adminApi } from './adminApi';
+export type { AdminDashboardSummary, AdminDashboardKpis } from './adminApi';
 
 // Cognito auth (Sprint 2 — primary auth mechanism)
 export {

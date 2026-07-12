@@ -8,8 +8,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { adminApi, type AdminDashboardSummary } from '../../api/adminApi';
 import { AdminMedicos } from './AdminMedicos';
 import { AdminEscalas } from './AdminEscalas';
+import { AdminUpas } from './AdminUpas';
 
-type AdminView = 'home' | 'medicos' | 'escalas';
+type AdminView = 'home' | 'medicos' | 'escalas' | 'upas';
 
 export function AdminPage() {
   const [dark, setDark] = useState(false);
@@ -86,11 +87,11 @@ export function AdminPage() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
           Órgãos Públicos
         </a>
-        <a className="nav-item" href="#">
+        <a className="nav-item" href="#" onClick={e => { e.preventDefault(); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Gestores do Órgão
         </a>
-        <a className="nav-item" href="#">
+        <a className={`nav-item ${activeView === 'upas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('upas'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
           Unidades (UPAs)
         </a>
@@ -238,7 +239,7 @@ export function AdminPage() {
                   <div className="action-desc">Gerenciar trocas e reposições de plantões.</div>
                   <div className="action-soon">Em breve</div>
                 </a>
-                <a className="action-card" href="#">
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); setActiveView('upas'); }}>
                   <div className="action-icon purple">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                   </div>
@@ -271,6 +272,7 @@ export function AdminPage() {
         )}
         {activeView === 'medicos' && <AdminMedicos onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
         {activeView === 'escalas' && <AdminEscalas onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
+        {activeView === 'upas' && <AdminUpas onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
       </main>
     </div>
   );

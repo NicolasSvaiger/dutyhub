@@ -8,6 +8,8 @@ public interface IClinicRepository
     Task<IEnumerable<Clinic>> GetAllAsync();
     Task AddAsync(Clinic clinic);
     Task UpdateAsync(Clinic clinic);
+    Task DeleteShiftTemplatesAsync(Guid clinicId);
+    Task ReplaceShiftTemplatesAsync(Guid clinicId, IEnumerable<ClinicShiftTemplate> newTemplates);
 
     /// <summary>
     /// Checks if a user has any role assignment at the specified clinic.
