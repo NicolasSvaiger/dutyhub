@@ -57,6 +57,9 @@ export interface Clinic {
   city?: string | null;
   neighborhood?: string | null;
   zipCode?: string | null;
+
+  // Contract link
+  contractId?: string | null;
 }
 
 export interface UserClinicRole {
@@ -148,6 +151,7 @@ export interface CreateClinicRequest {
   city?: string | null;
   neighborhood?: string | null;
   zipCode?: string | null;
+  contractId?: string | null;
 }
 
 export interface UpdateClinicRequest {
@@ -164,6 +168,55 @@ export interface UpdateClinicRequest {
   city?: string | null;
   neighborhood?: string | null;
   zipCode?: string | null;
+  contractId?: string | null;
+}
+
+// ===== PublicOrgan =====
+
+export interface PublicOrgan {
+  id: string;
+  name: string;
+  acronym?: string | null;
+  cnpj?: string | null;
+  department?: string | null;
+  city?: string | null;
+  state?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  parentId?: string | null;
+  parentName?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  children: PublicOrgan[];
+}
+
+// ===== Contract =====
+
+export type ContractStatus = 'Active' | 'Renewal' | 'Inactive';
+
+export interface ContractClinicSummary {
+  id: string;
+  name: string;
+  address?: string | null;
+  isActive: boolean;
+}
+
+export interface Contract {
+  id: string;
+  contractNumber: string;
+  publicOrganId: string;
+  publicOrganName: string;
+  publicOrganAcronym?: string | null;
+  monthlyValue?: number | null;
+  startDate: string;
+  endDate: string;
+  minSlaPercent?: number | null;
+  status: ContractStatus;
+  statusLabel: string;
+  notes?: string | null;
+  createdAt: string;
+  clinics: ContractClinicSummary[];
 }
 
 // ===== User DTOs =====

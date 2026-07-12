@@ -34,6 +34,7 @@ public class ClinicResponse
     public string? City { get; set; }
     public string? Neighborhood { get; set; }
     public string? ZipCode { get; set; }
+    public Guid? ContractId { get; set; }
 
     public List<ShiftTemplateResponse> ShiftTemplates { get; set; } = new();
 }

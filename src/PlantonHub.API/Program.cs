@@ -41,6 +41,8 @@ builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IOfflineAttendanceEventRepository, OfflineAttendanceEventRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IOfflineSyncAuditLogRepository, OfflineSyncAuditLogRepository>();
+builder.Services.AddScoped<IPublicOrganRepository, PublicOrganRepository>();
+builder.Services.AddScoped<IContractRepository, ContractRepository>();
 builder.Services.AddScoped<IFaceEnrollmentRepository, FaceEnrollmentRepository>();
 builder.Services.AddScoped<IDeviceRegistrationRepository, DeviceRegistrationRepository>();
 
@@ -52,6 +54,8 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAttendanceSyncService, AttendanceSyncService>();
 builder.Services.AddScoped<IOfflineEventValidator, OfflineEventValidator>();
 builder.Services.AddScoped<IFaceVerificationService, FaceVerificationService>();
+builder.Services.AddScoped<IPublicOrganService, PublicOrganService>();
+builder.Services.AddScoped<IContractService, ContractService>();
 builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
 builder.Services.AddScoped<IAuditService, AuditService>();

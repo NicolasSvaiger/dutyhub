@@ -5,7 +5,9 @@
  */
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { clinicsApi } from '../../api/clinicsApi';
-import type { Clinic, CreateClinicRequest, UpdateClinicRequest } from '../../types';
+import { contractsApi } from '../../api/contractsApi';
+import { useAuth } from '../../hooks/useAuth';
+import type { Clinic, CreateClinicRequest, UpdateClinicRequest, Contract } from '../../types';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -123,7 +125,11 @@ const DEFAULT_TURNOS_ENF: TurnoForm[] = [
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
+  const { user: authUser } = useAuth();
+  const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
+
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -149,6 +155,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
   const [fLon, setFLon] = useState('');
   const [fHasNursing, setFHasNursing] = useState(false);
   const [fIsActive, setFIsActive] = useState(true);
+  const [fContractId, setFContractId] = useState('');
 
   // Turnos state
   const [fTurnos, setFTurnos] = useState<TurnoForm[]>(DEFAULT_TURNOS);
@@ -158,8 +165,12 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
 
   async function load() {
     try {
-      const data = await clinicsApi.getAll();
-      setClinics(Array.isArray(data) ? data : []);
+      const [clinicData, contractData] = await Promise.all([
+        clinicsApi.getAll(),
+        contractsApi.getAll(),
+      ]);
+      setClinics(Array.isArray(clinicData) ? clinicData : []);
+      setContracts(Array.isArray(contractData) ? contractData : []);
     } catch { /* graceful */ } finally { setLoading(false); }
   }
 
@@ -180,6 +191,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
     setFName(''); setFPhone(''); setFAddress(''); setFNeighborhood('');
     setFCity(''); setFZip(''); setFCapacity(''); setFDoctorsPerShift('');
     setFRadius('150'); setFLat(''); setFLon(''); setFHasNursing(false); setFIsActive(true);
+    setFContractId('');
     setFTurnos(DEFAULT_TURNOS); setFTurnosEnf(DEFAULT_TURNOS_ENF);
   }
 
@@ -199,6 +211,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
       setFLon(clinic.longitude?.toString() || '');
       setFHasNursing(clinic.hasNursing);
       setFIsActive(clinic.isActive);
+      setFContractId(clinic.contractId ?? '');
       // Populate shift templates from existing data
       const templates = clinic.shiftTemplates || [];
       const medTemplates = templates.filter(t => t.professionalType === 'Medico' || t.professionalType === '1' || (t.professionalType as unknown as number) === 1);
@@ -283,6 +296,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
         latitude: fLat ? parseFloat(fLat) : null,
         longitude: fLon ? parseFloat(fLon) : null,
         hasNursing: fHasNursing,
+        contractId: fContractId || null,
       };
 
       let savedClinic: Clinic;
@@ -352,10 +366,12 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
             <div className="upa-page-title">Gestão de UPAs</div>
             <div className="upa-page-sub">Configure endereço, geolocalização, turnos e metas por unidade</div>
           </div>
-          <button className="upa-btn-novo" onClick={() => openDrawer()}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nova UPA
-          </button>
+          {isAdminGlobal && (
+            <button className="upa-btn-novo" onClick={() => openDrawer()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nova UPA
+            </button>
+          )}
         </div>
 
         {/* KPIs */}
@@ -442,12 +458,14 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
                       <button className="upa-act-btn" title="Editar" onClick={() => openDrawer(clinic)}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
-                      <button className={`upa-act-btn ${clinic.isActive ? 'upa-act-danger' : 'upa-act-activate'}`} title={clinic.isActive ? 'Desativar' : 'Reativar'} onClick={() => toggleStatus(clinic)}>
-                        {clinic.isActive
-                          ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-                          : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        }
-                      </button>
+                      {isAdminGlobal && (
+                        <button className={`upa-act-btn ${clinic.isActive ? 'upa-act-danger' : 'upa-act-activate'}`} title={clinic.isActive ? 'Desativar' : 'Reativar'} onClick={() => toggleStatus(clinic)}>
+                          {clinic.isActive
+                            ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                            : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                          }
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -474,9 +492,28 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
             <div className="upa-form-row full">
               <div className="upa-field"><label>Nome da unidade *</label><input type="text" placeholder="Ex: UPA – Vila Pereira" value={fName} onChange={e => setFName(e.target.value)} /></div>
             </div>
+            {/* Contrato — somente AdminGlobal pode vincular ao criar */}
+            {isAdminGlobal && (
+              <div className="upa-form-row full">
+                <div className="upa-field">
+                  <label>Contrato vinculado</label>
+                  <CustomSelect
+                    value={fContractId}
+                    onChange={setFContractId}
+                    options={[
+                      { value: '', label: 'Sem contrato (vincular depois)' },
+                      ...contracts.map(c => ({
+                        value: c.id,
+                        label: `${c.publicOrganName} · ${c.contractNumber}`,
+                      })),
+                    ]}
+                  />
+                </div>
+              </div>
+            )}
             <div className="upa-form-row">
               <div className="upa-field"><label>Telefone</label><input type="text" placeholder="(11) 99999-9999" value={fPhone} onChange={e => setFPhone(maskPhone(e.target.value))} maxLength={15} /></div>
-              {editingId && (
+              {editingId && isAdminGlobal && (
                 <div className="upa-field"><label>Status</label>
                   <CustomSelect value={fIsActive ? 'ativa' : 'inativa'} onChange={v => setFIsActive(v === 'ativa')} options={[{ value: 'ativa', label: 'Ativa' }, { value: 'inativa', label: 'Inativa' }]} />
                 </div>

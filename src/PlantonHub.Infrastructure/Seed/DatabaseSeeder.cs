@@ -19,6 +19,13 @@ public class DatabaseSeeder
     private static readonly Guid ClinicAlphaId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid ClinicBetaId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
+    // Public organs & contracts
+    private static readonly Guid PublicOrganSantoAndreId = Guid.Parse("dddddddd-0001-0001-0001-000000000001");
+    private static readonly Guid PublicOrganDiademaId   = Guid.Parse("dddddddd-0002-0002-0002-000000000002");
+    private static readonly Guid SubPrefCentroId        = Guid.Parse("dddddddd-0003-0003-0003-000000000003");
+    private static readonly Guid ContractSantoAndreId   = Guid.Parse("eeeeeeee-0001-0001-0001-000000000001");
+    private static readonly Guid ContractDiademaId      = Guid.Parse("eeeeeeee-0002-0002-0002-000000000002");
+
     // Default walk-in shifts (one per clinic) so the medico can always check in
     private static readonly Guid ShiftAlphaId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc01");
     private static readonly Guid ShiftBetaId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc02");
@@ -354,6 +361,98 @@ public class DatabaseSeeder
 
         _context.Shifts.AddRange(futureShifts);
         _context.ShiftAssignments.AddRange(futureAssignments);
+
+        await _context.SaveChangesAsync();
+
+        // ── Órgãos Públicos ───────────────────────────────────────────────
+        // Duas prefeituras + uma subprefeitura filha de Santo André.
+        var publicOrganSantoAndre = new PublicOrgan
+        {
+            Id = PublicOrganSantoAndreId,
+            Name = "Prefeitura Municipal de Santo André",
+            Acronym = "PMSA",
+            Cnpj = "44374675000108",
+            Department = "Secretaria Municipal de Saúde",
+            City = "Santo André",
+            State = "SP",
+            ContactName = "Sileide G. Rocha",
+            ContactEmail = "saude@santoandre.sp.gov.br",
+            ContactPhone = "1144690000",
+            IsActive = true,
+            CreatedAt = now,
+        };
+
+        var publicOrganDiadema = new PublicOrgan
+        {
+            Id = PublicOrganDiademaId,
+            Name = "Prefeitura Municipal de Diadema",
+            Acronym = "PMD",
+            Cnpj = "46522959000174",
+            Department = "Departamento de Saúde Pública",
+            City = "Diadema",
+            State = "SP",
+            ContactName = "Carlos Eduardo Lima",
+            ContactEmail = "saude@diadema.sp.gov.br",
+            ContactPhone = "1140577000",
+            IsActive = true,
+            CreatedAt = now,
+        };
+
+        // Subprefeitura filha de Santo André (para demonstrar hierarquia)
+        var subPrefCentro = new PublicOrgan
+        {
+            Id = SubPrefCentroId,
+            Name = "Subprefeitura Centro – Santo André",
+            Acronym = "SP-CENTRO",
+            Department = "Supervisão de Saúde da Região Central",
+            City = "Santo André",
+            State = "SP",
+            ContactName = "Valmir Correia Sousa",
+            ContactEmail = "sp.centro@santoandre.sp.gov.br",
+            IsActive = true,
+            ParentId = PublicOrganSantoAndreId,
+            CreatedAt = now,
+        };
+
+        _context.PublicOrgans.AddRange(publicOrganSantoAndre, publicOrganDiadema, subPrefCentro);
+
+        // ── Contratos ─────────────────────────────────────────────────────
+        var contractSantoAndre = new Contract
+        {
+            Id = ContractSantoAndreId,
+            ContractNumber = "CT-2024-0087",
+            PublicOrganId = PublicOrganSantoAndreId,
+            MonthlyValue = 220_000m,
+            StartDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc),
+            MinSlaPercent = 90,
+            Status = Domain.Enums.ContractStatus.Active,
+            Notes = "Contrato de gestão de UPAs – vigência bienal.",
+            CreatedAt = now,
+        };
+
+        var contractDiadema = new Contract
+        {
+            Id = ContractDiademaId,
+            ContractNumber = "CT-2023-0142",
+            PublicOrganId = PublicOrganDiademaId,
+            MonthlyValue = 160_000m,
+            StartDate = new DateTime(2023, 7, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2025, 6, 30, 23, 59, 59, DateTimeKind.Utc),
+            MinSlaPercent = 85,
+            Status = Domain.Enums.ContractStatus.Renewal,
+            Notes = "Em processo de renovação – vence em 45 dias.",
+            CreatedAt = now,
+        };
+
+        _context.Contracts.AddRange(contractSantoAndre, contractDiadema);
+        await _context.SaveChangesAsync();
+
+        // Vincular clínicas aos contratos (atualizar ContractId nas clínicas)
+        var alpha = await _context.Clinics.FindAsync(ClinicAlphaId);
+        var beta  = await _context.Clinics.FindAsync(ClinicBetaId);
+        if (alpha is not null) alpha.ContractId = ContractSantoAndreId;
+        if (beta  is not null) beta.ContractId  = ContractDiademaId;
 
         await _context.SaveChangesAsync();
     }

@@ -87,6 +87,7 @@ public class ClinicService : IClinicService
             City = request.City,
             Neighborhood = request.Neighborhood,
             ZipCode = request.ZipCode,
+            ContractId = request.ContractId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -117,6 +118,7 @@ public class ClinicService : IClinicService
         clinic.City = request.City;
         clinic.Neighborhood = request.Neighborhood;
         clinic.ZipCode = request.ZipCode;
+        clinic.ContractId = request.ContractId;
 
         await _clinicRepository.UpdateAsync(clinic);
         await _cacheService.RemoveByPrefixAsync("clinics:");
@@ -224,6 +226,7 @@ public class ClinicService : IClinicService
             City = clinic.City,
             Neighborhood = clinic.Neighborhood,
             ZipCode = clinic.ZipCode,
+            ContractId = clinic.ContractId,
             ShiftTemplates = (clinic.ShiftTemplates ?? new List<ClinicShiftTemplate>())
                 .OrderBy(t => t.ProfessionalType).ThenBy(t => t.DisplayOrder)
                 .Select(t => new ShiftTemplateResponse

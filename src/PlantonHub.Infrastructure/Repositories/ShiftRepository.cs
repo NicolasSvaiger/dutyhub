@@ -72,4 +72,19 @@ public class ShiftRepository : IShiftRepository
         _context.Shifts.Remove(shift);
         await _context.SaveChangesAsync();
     }
+
+    public async Task<bool> HasTimeOverlapForUserAsync(
+        Guid userId, Guid excludeShiftId, DateTime date, TimeSpan startTime, TimeSpan endTime)
+    {
+        // Normalise to date-only for comparison
+        var targetDate = date.Date;
+
+        return await _context.ShiftAssignments
+            .Where(sa => sa.UserId == userId && sa.ShiftId != excludeShiftId)
+            .Include(sa => sa.Shift)
+            .AnyAsync(sa =>
+                sa.Shift.Date.Date == targetDate &&
+                sa.Shift.StartTime < endTime &&
+                sa.Shift.EndTime > startTime);
+    }
 }

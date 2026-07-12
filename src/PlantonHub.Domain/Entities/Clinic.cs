@@ -45,6 +45,13 @@ public class Clinic
     /// <summary>Brazilian postal code (CEP), digits only or formatted.</summary>
     public string? ZipCode { get; set; }
 
+    /// <summary>
+    /// Contract that covers this clinic.
+    /// Null means the clinic is not yet linked to any contract.
+    /// </summary>
+    public Guid? ContractId { get; set; }
+    public Contract? Contract { get; set; }
+
     // Navigation properties
     public ICollection<UserClinicRole> UserClinicRoles { get; set; } = new List<UserClinicRole>();
     public ICollection<Shift> Shifts { get; set; } = new List<Shift>();

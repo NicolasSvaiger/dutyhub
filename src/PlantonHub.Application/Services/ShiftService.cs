@@ -202,6 +202,16 @@ public class ShiftService : IShiftService
             throw new ConflictException("This professional is already assigned to this shift.");
         }
 
+        // Cross-clinic time-overlap check: the professional cannot be assigned
+        // to two simultaneous shifts on the same day, regardless of clinic or OS.
+        var hasOverlap = await _shiftRepository.HasTimeOverlapForUserAsync(
+            request.UserId, shiftId, shift.Date, shift.StartTime, shift.EndTime);
+        if (hasOverlap)
+        {
+            throw new ConflictException(
+                "This professional already has a shift that overlaps with the requested time slot.");
+        }
+
         var assignment = new ShiftAssignment
         {
             Id = Guid.NewGuid(),

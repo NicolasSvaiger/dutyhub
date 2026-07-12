@@ -12,4 +12,10 @@ public interface IShiftRepository
     Task AddAssignmentAsync(ShiftAssignment assignment);
     Task<bool> AssignmentExistsAsync(Guid shiftId, Guid userId);
     Task DeleteAsync(Shift shift);
+
+    /// <summary>
+    /// Returns true if the user already has an assignment that overlaps with the
+    /// given shift's date + time range (cross-clinic conflict detection).
+    /// </summary>
+    Task<bool> HasTimeOverlapForUserAsync(Guid userId, Guid excludeShiftId, DateTime date, TimeSpan startTime, TimeSpan endTime);
 }

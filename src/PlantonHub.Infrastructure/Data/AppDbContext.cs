@@ -11,6 +11,8 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Clinic> Clinics => Set<Clinic>();
+    public DbSet<PublicOrgan> PublicOrgans => Set<PublicOrgan>();
+    public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<UserClinicRole> UserClinicRoles => Set<UserClinicRole>();
     public DbSet<Shift> Shifts => Set<Shift>();
     public DbSet<ShiftAssignment> ShiftAssignments => Set<ShiftAssignment>();

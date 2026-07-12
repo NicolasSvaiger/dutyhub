@@ -20,4 +20,5 @@ public class CreateClinicRequest
     public string? City { get; set; }
     public string? Neighborhood { get; set; }
     public string? ZipCode { get; set; }
+    public Guid? ContractId { get; set; }
 }

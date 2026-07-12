@@ -288,4 +288,97 @@ describe('<AdminMedicos />', () => {
       expect(usersApi.toggleStatus).toHaveBeenCalledWith('u1');
     });
   });
+
+  // ── Novos testes (mudanças da Sprint 6) ──────────────────────────────────
+
+  // Helper: abre drawer e preenche step 1 usando seletores escopados no drawer
+  async function openDrawerAndFillStep1(user: ReturnType<typeof userEvent.setup>, name: string, email: string) {
+    const novoBtn = document.querySelector('.med-btn-novo') as HTMLElement;
+    await user.click(novoBtn);
+    await waitFor(() => {
+      expect(document.querySelector('.med-drawer.open')).not.toBeNull();
+    });
+    const drawer = document.querySelector('.med-drawer') as HTMLElement;
+
+    await user.type(drawer.querySelector('input[placeholder="Ex: Dra. Jessica Lima"]') as HTMLElement, name);
+    await user.type(drawer.querySelector('input[placeholder="profissional@email.com"]') as HTMLElement, email);
+
+    // Tipo — primeiro CustomSelect dentro do drawer (não o filtro da tabela)
+    const tipoBtn = drawer.querySelector('.med-cselect-btn') as HTMLElement;
+    await user.click(tipoBtn);
+    await waitFor(() => expect(drawer.querySelector('.med-cselect-option:nth-child(2)')).not.toBeNull());
+    await user.click(drawer.querySelector('.med-cselect-option:nth-child(2)') as HTMLElement);
+
+    await user.type(drawer.querySelector('input[placeholder="Ex: 5485-SP"]') as HTMLElement, 'CRM-1-SP');
+    await user.type(drawer.querySelector('input[placeholder="Ex: Clínica Geral"]') as HTMLElement, 'Geral');
+    await user.type(drawer.querySelector('input[placeholder="000.000.000-00"]') as HTMLElement, '123.456.789-00');
+    await user.type(drawer.querySelector('input[placeholder="(11) 99999-9999"]') as HTMLElement, '(11) 98888-7777');
+
+    return drawer;
+  }
+
+  it('cria profissional chamando usersApi.create', async () => {
+    const createdUser = { ...mockUsers[0], id: 'u-new' };
+    (usersApi.create as ReturnType<typeof vi.fn>).mockResolvedValue(createdUser);
+    (usersApi.assignRole as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    (usersApi.getAll as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockUsers)
+      .mockResolvedValueOnce([...mockUsers, createdUser]);
+
+    renderMedicos();
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getAllByText('Dra. Jessica Lima').length).toBeGreaterThanOrEqual(1));
+
+    const drawer = await openDrawerAndFillStep1(user, 'Dr. Teste Novo', 'novo@email.com');
+
+    await waitFor(() => {
+      const nextBtn = drawer.querySelector('.med-btn-next') as HTMLButtonElement;
+      expect(nextBtn?.disabled).toBe(false);
+    }, { timeout: 5000 });
+
+    const nextBtn = drawer.querySelector('.med-btn-next') as HTMLElement;
+    await user.click(nextBtn); // → step 2
+    // Re-query after state update (new step rendered)
+    await waitFor(() => expect(drawer.querySelector('.med-btn-next')).not.toBeNull());
+    await user.click(drawer.querySelector('.med-btn-next') as HTMLElement); // → step 3
+    await user.click(drawer.querySelector('.med-btn-salvar') as HTMLElement);
+
+    await waitFor(() => {
+      expect(usersApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Dr. Teste Novo', email: 'novo@email.com' }),
+      );
+    }, { timeout: 8000 });
+  }, 20000);
+
+  it('drawer step 2 exibe lista de UPAs', async () => {
+    renderMedicos();
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getAllByText('Dra. Jessica Lima').length).toBeGreaterThanOrEqual(1));
+
+    const drawer = await openDrawerAndFillStep1(user, 'Dr. X', 'x@x.com');
+
+    await waitFor(() => {
+      const nextBtn = drawer.querySelector('.med-btn-next') as HTMLButtonElement;
+      expect(nextBtn?.disabled).toBe(false);
+    }, { timeout: 5000 });
+
+    await user.click(drawer.querySelector('.med-btn-next') as HTMLElement);
+
+    await waitFor(() => {
+      // Use drawer-scoped query to avoid matching the table <th>
+      const sectionTitle = drawer.querySelector('.med-form-section-title');
+      expect(sectionTitle?.textContent).toContain('UPAs autorizadas');
+    }, { timeout: 3000 });
+    expect(screen.getAllByText('UPA Centro').length).toBeGreaterThanOrEqual(1);
+  }, 15000);
+
+  it('lida graciosamente quando a API retorna erro', async () => {
+    (usersApi.getAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Offline'));
+    (clinicsApi.getAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Offline'));
+    renderMedicos();
+    await waitFor(() => {
+      // Should render without crash — shows 0 professionals
+      expect(screen.getByText('Profissionais cadastrados')).toBeInTheDocument();
+    });
+  });
 });

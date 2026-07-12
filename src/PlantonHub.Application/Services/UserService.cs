@@ -3,6 +3,7 @@ using PlantonHub.Application.DTOs.Users;
 using PlantonHub.Application.Exceptions;
 using PlantonHub.Application.Interfaces;
 using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Enums;
 using PlantonHub.Domain.Interfaces;
 
 namespace PlantonHub.Application.Services;
@@ -31,13 +32,35 @@ public class UserService : IUserService
 
     public async Task<IEnumerable<UserResponse>> GetAllAsync()
     {
-        if (!_tenantService.IsAdminGlobal())
+        var roles = _tenantService.GetCurrentRoles();
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+        var isAdminClinica = roles.Contains(RoleType.AdminClinica.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        if (!isAdminGlobal && !isAdminClinica)
         {
-            throw new ForbiddenException("Only AdminGlobal can list users.");
+            throw new ForbiddenException("Only AdminGlobal or AdminClinica can list users.");
         }
 
-        var users = await _userRepository.GetAllAsync();
-        return users.Select(MapToResponse);
+        // AdminGlobal: all users
+        // AdminClinica: all professionals (Medico/Enfermeiro) — not scoped to clinic
+        //   because a professional can work at multiple clinics/OS.
+        //   Admin users of other OS are excluded for privacy.
+        if (isAdminGlobal)
+        {
+            var users = await _userRepository.GetAllAsync();
+            return users.Select(MapToResponse);
+        }
+        else
+        {
+            // Return only professionals — exclude AdminGlobal and AdminClinica of other orgs
+            var users = await _userRepository.GetAllAsync();
+            return users
+                .Where(u => u.ProfessionalType == Domain.Enums.ProfessionalType.Medico ||
+                            u.ProfessionalType == Domain.Enums.ProfessionalType.Enfermeiro ||
+                            (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r =>
+                                r.Role == RoleType.Medico || r.Role == RoleType.Enfermeiro))
+                .Select(MapToResponse);
+        }
     }
 
     public async Task<UserResponse?> GetByIdAsync(Guid userId)
@@ -55,9 +78,13 @@ public class UserService : IUserService
 
     public async Task<UserResponse> CreateAsync(CreateUserRequest request)
     {
-        if (!_tenantService.IsAdminGlobal())
+        var roles = _tenantService.GetCurrentRoles();
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+        var isAdminClinica = roles.Contains(RoleType.AdminClinica.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        if (!isAdminGlobal && !isAdminClinica)
         {
-            throw new ForbiddenException("Only AdminGlobal can create users.");
+            throw new ForbiddenException("Only AdminGlobal or AdminClinica can create users.");
         }
 
         if (await _userRepository.EmailExistsAsync(request.Email))
@@ -93,9 +120,23 @@ public class UserService : IUserService
 
     public async Task AssignClinicRoleAsync(Guid userId, AssignRoleRequest request)
     {
-        if (!_tenantService.IsAdminGlobal())
+        var roles = _tenantService.GetCurrentRoles();
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+        var isAdminClinica = roles.Contains(RoleType.AdminClinica.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        if (!isAdminGlobal && !isAdminClinica)
         {
-            throw new ForbiddenException("Only AdminGlobal can assign roles.");
+            throw new ForbiddenException("Only AdminGlobal or AdminClinica can assign roles.");
+        }
+
+        // AdminClinica can only assign roles for clinics they are authorized for
+        if (isAdminClinica && !isAdminGlobal)
+        {
+            var authorizedClinicIds = _tenantService.GetAuthorizedClinicIds().ToHashSet();
+            if (!authorizedClinicIds.Contains(request.ClinicId))
+            {
+                throw new ForbiddenException("AdminClinica can only assign roles for their authorized clinics.");
+            }
         }
 
         var user = await _userRepository.GetByIdAsync(userId);
@@ -127,9 +168,13 @@ public class UserService : IUserService
 
     public async Task<UserResponse?> ToggleStatusAsync(Guid userId)
     {
-        if (!_tenantService.IsAdminGlobal())
+        var roles = _tenantService.GetCurrentRoles();
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+        var isAdminClinica = roles.Contains(RoleType.AdminClinica.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        if (!isAdminGlobal && !isAdminClinica)
         {
-            throw new ForbiddenException("Only AdminGlobal can toggle user status.");
+            throw new ForbiddenException("Only AdminGlobal or AdminClinica can toggle user status.");
         }
 
         var user = await _userRepository.GetByIdAsync(userId);
