@@ -60,7 +60,9 @@ function redirectToLogin(): void {
   localStorage.removeItem('plantonhub_user');
   localStorage.removeItem('plantonhub_active_clinic');
   cognitoLogout();
-  window.location.href = '/login';
+  // Redirect to the correct login page based on current path
+  const isAdminArea = window.location.pathname.startsWith('/admin');
+  window.location.href = isAdminArea ? '/admin/login' : '/login';
 }
 
 axiosInstance.interceptors.response.use(
