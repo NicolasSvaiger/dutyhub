@@ -79,4 +79,38 @@ public class UsersController : ControllerBase
         await _userService.AssignClinicRoleAsync(id, request);
         return Ok();
     }
+
+    /// <summary>
+    /// Alternar status ativo/inativo do usuário. Apenas AdminGlobal.
+    /// </summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPatch("{id:guid}/toggle-status")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ToggleStatus(Guid id)
+    {
+        var user = await _userService.ToggleStatusAsync(id);
+        if (user is null)
+        {
+            return NotFound();
+        }
+        return Ok(user);
+    }
+
+    /// <summary>
+    /// Autocadastro de profissional (público — sem autenticação).
+    /// O profissional se registra sozinho e aguarda vinculação a UPAs pelo admin.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("self-register")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
+    {
+        var user = await _userService.SelfRegisterAsync(request);
+        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+    }
 }

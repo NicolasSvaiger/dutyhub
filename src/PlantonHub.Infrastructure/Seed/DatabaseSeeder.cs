@@ -57,7 +57,11 @@ public class DatabaseSeeder
             Name = "Dr. Médico Teste",
             PasswordHash = _passwordHashService.HashPassword("Teste@123"),
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            ProfessionalType = ProfessionalType.Medico,
+            IsActive = true,
+            RegistrationNumber = "CRM12345",
+            Specialty = "Clínica Geral"
         };
 
         var enfermeiroUser = new User
@@ -67,7 +71,10 @@ public class DatabaseSeeder
             Name = "Enfermeiro Teste",
             PasswordHash = _passwordHashService.HashPassword("Teste@123"),
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            ProfessionalType = ProfessionalType.Enfermeiro,
+            IsActive = true,
+            RegistrationNumber = "COREN54321"
         };
 
         var adminClinicaUser = new User
@@ -104,6 +111,26 @@ public class DatabaseSeeder
         };
 
         _context.Clinics.AddRange(clinicAlpha, clinicBeta);
+
+        // Seed Shift Templates para Clínica Alpha (com enfermagem - 3 turnos médico + 2 enfermeiro)
+        clinicAlpha.HasNursing = true;
+        var templatesAlpha = new List<ClinicShiftTemplate>
+        {
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicAlphaId, Name = "Manhã", StartTime = new TimeSpan(7, 0, 0), EndTime = new TimeSpan(13, 0, 0), RequiredStaff = 2, DisplayOrder = 1, ProfessionalType = ProfessionalType.Medico },
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicAlphaId, Name = "Tarde", StartTime = new TimeSpan(13, 0, 0), EndTime = new TimeSpan(19, 0, 0), RequiredStaff = 2, DisplayOrder = 2, ProfessionalType = ProfessionalType.Medico },
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicAlphaId, Name = "Noite", StartTime = new TimeSpan(19, 0, 0), EndTime = new TimeSpan(7, 0, 0), RequiredStaff = 2, DisplayOrder = 3, ProfessionalType = ProfessionalType.Medico },
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicAlphaId, Name = "Manhã", StartTime = new TimeSpan(7, 0, 0), EndTime = new TimeSpan(19, 0, 0), RequiredStaff = 1, DisplayOrder = 1, ProfessionalType = ProfessionalType.Enfermeiro },
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicAlphaId, Name = "Noite", StartTime = new TimeSpan(19, 0, 0), EndTime = new TimeSpan(7, 0, 0), RequiredStaff = 1, DisplayOrder = 2, ProfessionalType = ProfessionalType.Enfermeiro },
+        };
+        _context.ClinicShiftTemplates.AddRange(templatesAlpha);
+
+        // Seed Shift Templates para Clínica Beta (sem enfermagem - 2 turnos médico)
+        var templatesBeta = new List<ClinicShiftTemplate>
+        {
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicBetaId, Name = "Manhã", StartTime = new TimeSpan(7, 0, 0), EndTime = new TimeSpan(19, 0, 0), RequiredStaff = 3, DisplayOrder = 1, ProfessionalType = ProfessionalType.Medico },
+            new ClinicShiftTemplate { Id = Guid.NewGuid(), ClinicId = ClinicBetaId, Name = "Noite", StartTime = new TimeSpan(19, 0, 0), EndTime = new TimeSpan(7, 0, 0), RequiredStaff = 2, DisplayOrder = 2, ProfessionalType = ProfessionalType.Medico },
+        };
+        _context.ClinicShiftTemplates.AddRange(templatesBeta);
 
         // Seed UserClinicRole associations (all in Clínica Alpha)
         var roles = new List<UserClinicRole>

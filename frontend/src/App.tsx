@@ -17,6 +17,8 @@ import {
   UsersPage,
   DoctorPage,
 } from './pages';
+import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+import { AdminPage } from './pages/admin/AdminPage';
 
 function AppLayout() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -27,6 +29,12 @@ function AppLayout() {
   const isAdminGlobal = roles.includes('AdminGlobal');
   const isAdminClinica = roles.includes('AdminClinica');
   const professional = isProfessional(roles);
+
+  // Hide header on admin pages (they have their own sidebar) and login pages
+  const path = window.location.pathname;
+  if (path.startsWith('/admin') || path === '/login' || path === '/forgot-password') {
+    return null;
+  }
 
   const handleLogout = () => {
     logout();
@@ -81,6 +89,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route
           path="/dashboard"
@@ -127,6 +136,14 @@ function App() {
           element={
             <ProtectedRoute requiredRoles={[...PROFESSIONAL_ROLES]}>
               <DoctorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requiredRoles={['AdminGlobal', 'AdminClinica']}>
+              <AdminPage />
             </ProtectedRoute>
           }
         />

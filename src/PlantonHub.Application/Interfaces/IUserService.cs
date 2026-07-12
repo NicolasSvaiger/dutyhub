@@ -8,4 +8,6 @@ public interface IUserService
     Task<UserResponse?> GetByIdAsync(Guid userId);
     Task<UserResponse> CreateAsync(CreateUserRequest request);
     Task AssignClinicRoleAsync(Guid userId, AssignRoleRequest request);
+    Task<UserResponse?> ToggleStatusAsync(Guid userId);
+    Task<UserResponse> SelfRegisterAsync(SelfRegisterRequest request);
 }

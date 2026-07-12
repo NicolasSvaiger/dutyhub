@@ -71,6 +71,14 @@ public class UserService : IUserService
             Name = request.Name,
             Email = request.Email,
             PasswordHash = _passwordHashService.HashPassword(request.Password),
+            ProfessionalType = request.ProfessionalType,
+            IsActive = true,
+            Cpf = request.Cpf,
+            Phone = request.Phone,
+            RegistrationNumber = request.RegistrationNumber,
+            Specialty = request.Specialty,
+            EmploymentType = request.EmploymentType,
+            DateOfBirth = request.DateOfBirth,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -117,6 +125,60 @@ public class UserService : IUserService
         await _cacheService.RemoveAsync(CacheKeys.UserProfile(userId));
     }
 
+    public async Task<UserResponse?> ToggleStatusAsync(Guid userId)
+    {
+        if (!_tenantService.IsAdminGlobal())
+        {
+            throw new ForbiddenException("Only AdminGlobal can toggle user status.");
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user is null)
+        {
+            return null;
+        }
+
+        user.IsActive = !user.IsActive;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.UpdateAsync(user);
+
+        // Invalidate cache
+        await _cacheService.RemoveAsync(CacheKeys.UserProfile(userId));
+        await _cacheService.RemoveByPrefixAsync("users:");
+
+        return MapToResponse(user);
+    }
+
+    public async Task<UserResponse> SelfRegisterAsync(SelfRegisterRequest request)
+    {
+        if (await _userRepository.EmailExistsAsync(request.Email))
+        {
+            throw new ConflictException("A user with this email already exists.");
+        }
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name,
+            Email = request.Email,
+            PasswordHash = _passwordHashService.HashPassword(request.Password),
+            ProfessionalType = request.ProfessionalType,
+            IsActive = true,
+            Cpf = request.Cpf,
+            Phone = request.Phone,
+            RegistrationNumber = request.RegistrationNumber,
+            Specialty = request.ProfessionalType == Domain.Enums.ProfessionalType.Enfermeiro ? null : request.Specialty,
+            DateOfBirth = request.DateOfBirth,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        await _userRepository.AddAsync(user);
+        await _cacheService.RemoveByPrefixAsync("users:");
+
+        return MapToResponse(user);
+    }
+
     private static UserResponse MapToResponse(User user)
     {
         return new UserResponse
@@ -124,8 +186,24 @@ public class UserService : IUserService
             Id = user.Id,
             Name = user.Name,
             Email = user.Email,
+            ProfessionalType = user.ProfessionalType?.ToString(),
+            IsActive = user.IsActive,
+            Cpf = user.Cpf,
+            Phone = user.Phone,
+            RegistrationNumber = user.RegistrationNumber,
+            Specialty = user.Specialty,
+            EmploymentType = user.EmploymentType,
+            DateOfBirth = user.DateOfBirth,
             CreatedAt = user.CreatedAt,
-            UpdatedAt = user.UpdatedAt
+            UpdatedAt = user.UpdatedAt,
+            Roles = (user.UserClinicRoles ?? new List<UserClinicRole>()).Select(r => new UserClinicRoleResponse
+            {
+                Id = r.Id,
+                UserId = r.UserId,
+                ClinicId = r.ClinicId,
+                Role = r.Role.ToString(),
+                AssignedAt = r.AssignedAt
+            }).ToList()
         };
     }
 }

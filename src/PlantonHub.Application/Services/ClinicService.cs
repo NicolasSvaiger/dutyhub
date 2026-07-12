@@ -106,7 +106,20 @@ public class ClinicService : IClinicService
             Address = clinic.Address,
             Phone = clinic.Phone,
             IsActive = clinic.IsActive,
-            CreatedAt = clinic.CreatedAt
+            HasNursing = clinic.HasNursing,
+            CreatedAt = clinic.CreatedAt,
+            ShiftTemplates = (clinic.ShiftTemplates ?? new List<ClinicShiftTemplate>())
+                .OrderBy(t => t.ProfessionalType).ThenBy(t => t.DisplayOrder)
+                .Select(t => new ShiftTemplateResponse
+                {
+                    Id = t.Id,
+                    Name = t.Name,
+                    StartTime = t.StartTime,
+                    EndTime = t.EndTime,
+                    RequiredStaff = t.RequiredStaff,
+                    DisplayOrder = t.DisplayOrder,
+                    ProfessionalType = t.ProfessionalType.ToString()
+                }).ToList()
         };
     }
 

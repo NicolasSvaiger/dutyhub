@@ -12,8 +12,26 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  professionalType?: string | null;
+  isActive: boolean;
+  cpf?: string | null;
+  phone?: string | null;
+  registrationNumber?: string | null;
+  specialty?: string | null;
+  employmentType?: string | null;
+  dateOfBirth?: string | null;
   createdAt: string;
   roles: UserClinicRole[];
+}
+
+export interface ShiftTemplate {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  requiredStaff: number;
+  displayOrder: number;
+  professionalType: string; // "Medico" or "Enfermeiro"
 }
 
 export interface Clinic {
@@ -22,7 +40,9 @@ export interface Clinic {
   address: string;
   phone: string;
   isActive: boolean;
+  hasNursing: boolean;
   createdAt: string;
+  shiftTemplates?: ShiftTemplate[];
 }
 
 export interface UserClinicRole {
@@ -113,6 +133,13 @@ export interface CreateUserRequest {
   email: string;
   name: string;
   password: string;
+  professionalType?: number;
+  cpf?: string;
+  phone?: string;
+  registrationNumber?: string;
+  specialty?: string;
+  employmentType?: string;
+  dateOfBirth?: string;
 }
 
 export interface AssignRoleRequest {
@@ -123,6 +150,7 @@ export interface AssignRoleRequest {
 // ===== Shift DTOs =====
 
 export interface CreateShiftRequest {
+  clinicId?: string;
   title: string;
   date: string;
   startTime: string;

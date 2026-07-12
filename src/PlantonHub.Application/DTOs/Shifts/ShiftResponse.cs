@@ -16,5 +16,6 @@ public class ShiftAssignmentResponse
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
+    public string? UserName { get; set; }
     public DateTime AssignedAt { get; set; }
 }

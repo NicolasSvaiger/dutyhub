@@ -89,4 +89,18 @@ public class ShiftsController : ControllerBase
         await _shiftService.AssignProfessionalAsync(id, request);
         return Ok();
     }
+
+    /// <summary>
+    /// Deletar um plantão. Apenas AdminClinica.
+    /// </summary>
+    [Authorize(Policy = "AdminClinica")]
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var deleted = await _shiftService.DeleteAsync(id);
+        if (!deleted) return NotFound();
+        return NoContent();
+    }
 }

@@ -7,6 +7,7 @@ public interface IShiftService
     Task<IEnumerable<ShiftResponse>> GetAllAsync();
     Task<ShiftResponse> CreateAsync(CreateShiftRequest request);
     Task AssignProfessionalAsync(Guid shiftId, AssignShiftRequest request);
+    Task<bool> DeleteAsync(Guid shiftId);
 
     /// <summary>
     /// Returns the shifts assigned to the current user for TODAY at the active clinic.

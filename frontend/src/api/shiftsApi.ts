@@ -42,6 +42,10 @@ export const shiftsApi = {
     );
     return data;
   },
+
+  delete: async (shiftId: string): Promise<void> => {
+    await axiosInstance.delete(`/shifts/${shiftId}`);
+  },
 };
 
 export default shiftsApi;

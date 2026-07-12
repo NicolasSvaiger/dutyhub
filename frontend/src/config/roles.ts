@@ -31,5 +31,6 @@ export function isProfessional(roles: readonly string[]): boolean {
 export function getHomeRouteFor(roles: readonly string[] | undefined | null): string {
   if (!roles || roles.length === 0) return '/dashboard';
   if (isProfessional(roles)) return '/doctor';
+  if (roles.includes('AdminGlobal') || roles.includes('AdminClinica')) return '/admin';
   return '/dashboard';
 }

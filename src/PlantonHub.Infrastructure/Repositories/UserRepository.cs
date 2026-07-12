@@ -31,6 +31,7 @@ public class UserRepository : IUserRepository
     public async Task<IEnumerable<User>> GetAllAsync()
     {
         return await _context.Users
+            .Include(u => u.UserClinicRoles)
             .ToListAsync();
     }
 

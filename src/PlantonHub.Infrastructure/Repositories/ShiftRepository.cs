@@ -18,6 +18,7 @@ public class ShiftRepository : IShiftRepository
     {
         return await _context.Shifts
             .Include(s => s.ShiftAssignments)
+                .ThenInclude(a => a.User)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
 
@@ -25,6 +26,7 @@ public class ShiftRepository : IShiftRepository
     {
         return await _context.Shifts
             .Include(s => s.ShiftAssignments)
+                .ThenInclude(a => a.User)
             .ToListAsync();
     }
 
@@ -32,6 +34,7 @@ public class ShiftRepository : IShiftRepository
     {
         return await _context.Shifts
             .Include(s => s.ShiftAssignments)
+                .ThenInclude(a => a.User)
             .Where(s => s.ClinicId == clinicId)
             .ToListAsync();
     }
@@ -62,5 +65,11 @@ public class ShiftRepository : IShiftRepository
     {
         return await _context.ShiftAssignments
             .AnyAsync(sa => sa.ShiftId == shiftId && sa.UserId == userId);
+    }
+
+    public async Task DeleteAsync(Shift shift)
+    {
+        _context.Shifts.Remove(shift);
+        await _context.SaveChangesAsync();
     }
 }

@@ -216,6 +216,15 @@ public class ShiftService : IShiftService
         await _cacheService.RemoveByPrefixAsync("shifts:");
     }
 
+    public async Task<bool> DeleteAsync(Guid shiftId)
+    {
+        var shift = await _shiftRepository.GetByIdAsync(shiftId);
+        if (shift is null) return false;
+        await _shiftRepository.DeleteAsync(shift);
+        await _cacheService.RemoveByPrefixAsync("shifts:");
+        return true;
+    }
+
     private static ShiftResponse MapToResponse(Shift shift)
     {
         return new ShiftResponse
@@ -231,6 +240,7 @@ public class ShiftService : IShiftService
             {
                 Id = a.Id,
                 UserId = a.UserId,
+                UserName = a.User?.Name,
                 AssignedAt = a.AssignedAt
             }).ToList() ?? new List<ShiftAssignmentResponse>()
         };

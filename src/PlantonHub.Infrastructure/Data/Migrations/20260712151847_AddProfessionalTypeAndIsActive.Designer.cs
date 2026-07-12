@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PlantonHub.Infrastructure.Data;
@@ -11,9 +12,11 @@ using PlantonHub.Infrastructure.Data;
 namespace PlantonHub.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260712151847_AddProfessionalTypeAndIsActive")]
+    partial class AddProfessionalTypeAndIsActive
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -162,9 +165,6 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<bool>("HasNursing")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -188,41 +188,6 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Clinics");
-                });
-
-            modelBuilder.Entity("PlantonHub.Domain.Entities.ClinicShiftTemplate", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ClinicId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("integer");
-
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("interval");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("ProfessionalType")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("RequiredStaff")
-                        .HasColumnType("integer");
-
-                    b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("interval");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClinicId");
-
-                    b.ToTable("ClinicShiftTemplates");
                 });
 
             modelBuilder.Entity("PlantonHub.Domain.Entities.DeviceRegistration", b =>
@@ -586,22 +551,13 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Cpf")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<string>("EmploymentType")
-                        .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -615,17 +571,8 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Phone")
-                        .HasColumnType("text");
-
                     b.Property<int?>("ProfessionalType")
                         .HasColumnType("integer");
-
-                    b.Property<string>("RegistrationNumber")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Specialty")
-                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -702,17 +649,6 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("PlantonHub.Domain.Entities.ClinicShiftTemplate", b =>
-                {
-                    b.HasOne("PlantonHub.Domain.Entities.Clinic", "Clinic")
-                        .WithMany("ShiftTemplates")
-                        .HasForeignKey("ClinicId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Clinic");
                 });
 
             modelBuilder.Entity("PlantonHub.Domain.Entities.DeviceRegistration", b =>
@@ -865,8 +801,6 @@ namespace PlantonHub.Infrastructure.Data.Migrations
             modelBuilder.Entity("PlantonHub.Domain.Entities.Clinic", b =>
                 {
                     b.Navigation("Attendances");
-
-                    b.Navigation("ShiftTemplates");
 
                     b.Navigation("Shifts");
 

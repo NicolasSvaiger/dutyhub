@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<FaceEnrollment> FaceEnrollments => Set<FaceEnrollment>();
     public DbSet<DeviceRegistration> DeviceRegistrations => Set<DeviceRegistration>();
     public DbSet<DeviceUnlinkAudit> DeviceUnlinkAudits => Set<DeviceUnlinkAudit>();
+    public DbSet<ClinicShiftTemplate> ClinicShiftTemplates => Set<ClinicShiftTemplate>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

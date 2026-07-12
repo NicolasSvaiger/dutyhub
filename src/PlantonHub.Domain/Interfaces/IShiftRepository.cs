@@ -11,4 +11,5 @@ public interface IShiftRepository
     Task AddAsync(Shift shift);
     Task AddAssignmentAsync(ShiftAssignment assignment);
     Task<bool> AssignmentExistsAsync(Guid shiftId, Guid userId);
+    Task DeleteAsync(Shift shift);
 }

@@ -17,12 +17,14 @@ public class ClinicRepository : IClinicRepository
     public async Task<Clinic?> GetByIdAsync(Guid id)
     {
         return await _context.Clinics
+            .Include(c => c.ShiftTemplates)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
     public async Task<IEnumerable<Clinic>> GetAllAsync()
     {
         return await _context.Clinics
+            .Include(c => c.ShiftTemplates)
             .ToListAsync();
     }
 

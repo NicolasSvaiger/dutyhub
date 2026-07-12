@@ -19,6 +19,26 @@ export const usersApi = {
     );
     return data;
   },
+
+  toggleStatus: async (userId: string): Promise<User> => {
+    const { data } = await axiosInstance.patch<User>(`/users/${userId}/toggle-status`);
+    return data;
+  },
+
+  selfRegister: async (request: {
+    name: string;
+    email: string;
+    password: string;
+    professionalType: number;
+    cpf?: string;
+    phone?: string;
+    registrationNumber?: string;
+    specialty?: string;
+    dateOfBirth?: string;
+  }): Promise<User> => {
+    const { data } = await axiosInstance.post<User>('/users/self-register', request);
+    return data;
+  },
 };
 
 export default usersApi;

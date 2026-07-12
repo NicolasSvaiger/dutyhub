@@ -1,0 +1,229 @@
+/* Admin Dashboard — Welcome/Home screen */
+
+/* ── WELCOME HERO ── */
+.hero {
+  background: linear-gradient(135deg, #1a1f36 0%, #2d3561 55%, #3d4a8a 100%);
+  border-radius: 24px;
+  padding: 2.4rem 2.8rem;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.6rem;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 320px; height: 320px;
+  border-radius: 50%;
+  border: 50px solid rgba(255,255,255,.05);
+  top: -130px; right: -80px;
+}
+.hero::after {
+  content: '';
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  border: 30px solid rgba(99,102,241,.12);
+  bottom: -70px; left: 220px;
+}
+.heroMesh {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.06) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+.heroInner { position: relative; z-index: 1; }
+.heroGreeting {
+  font-size: .78rem; font-weight: 700;
+  opacity: .7; text-transform: uppercase;
+  letter-spacing: .05em; margin-bottom: .4rem;
+}
+.heroName {
+  font-size: 2rem; font-weight: 900;
+  line-height: 1.1; margin-bottom: .5rem;
+}
+.heroEmail {
+  display: flex; align-items: center; gap: .4rem;
+  font-size: .84rem; font-weight: 600;
+  opacity: .75; margin-bottom: 1.8rem;
+}
+.heroTags { display: flex; gap: .7rem; flex-wrap: wrap; }
+.heroTag {
+  display: flex; align-items: center; gap: .4rem;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 10px; padding: .45rem .85rem;
+  font-size: .75rem; font-weight: 700;
+}
+
+/* ── KPI STRIP ── */
+.kpiStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.6rem;
+}
+.kpi {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1.5px solid rgba(99,102,241,.14);
+  padding: 1.1rem 1.3rem;
+  display: flex; flex-direction: column; gap: .3rem;
+  position: relative; overflow: hidden;
+  transition: transform .15s, box-shadow .15s;
+  cursor: default;
+}
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99,102,241,.1);
+}
+.kpi::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 3px; border-radius: 3px 3px 0 0;
+}
+.kpiIndigo::after { background: #6366f1; }
+.kpiTeal::after { background: #2DBFB8; }
+.kpiGreen::after { background: #22c55e; }
+.kpiYellow::after { background: #f59e0b; }
+
+.kpiLabel {
+  font-size: .62rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: #6b7280;
+}
+.kpiValue {
+  font-size: 1.9rem; font-weight: 900; line-height: 1;
+}
+.kpiIndigo .kpiValue { color: #6366f1; }
+.kpiTeal .kpiValue { color: #2DBFB8; }
+.kpiGreen .kpiValue { color: #22c55e; }
+.kpiYellow .kpiValue { color: #f59e0b; }
+
+.kpiSub {
+  font-size: .68rem; font-weight: 600;
+  color: #6b7280;
+}
+
+/* ── HOME GRID ── */
+.homeGrid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.2rem;
+}
+
+.sectionTitle {
+  font-size: .95rem; font-weight: 900;
+  color: #1a1f36;
+  margin-bottom: .9rem;
+}
+
+/* ── QUICK ACTIONS ── */
+.actionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .9rem;
+}
+.actionCard {
+  background: #ffffff;
+  border: 1.5px solid rgba(99,102,241,.14);
+  border-radius: 18px;
+  padding: 1.3rem 1.2rem;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+  display: flex; flex-direction: column; gap: .6rem;
+  text-align: left;
+  font-family: inherit;
+}
+.actionCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(99,102,241,.12);
+  border-color: #6366f1;
+}
+.actionIcon {
+  width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.actionIconIndigo { background: #eef2ff; color: #6366f1; }
+.actionIconTeal { background: #e8faf9; color: #2DBFB8; }
+.actionIconGreen { background: #dcfce7; color: #22c55e; }
+.actionIconYellow { background: #fef3c7; color: #f59e0b; }
+.actionIconPurple { background: #ede9fe; color: #8b5cf6; }
+.actionIconRed { background: #fee2e2; color: #ef4444; }
+
+.actionName {
+  font-size: .88rem; font-weight: 900;
+  color: var(--text, #1a1f36);
+}
+.actionDesc {
+  font-size: .7rem; font-weight: 600;
+  color: var(--muted, #6b7280); line-height: 1.4;
+}
+
+/* ── ALERTS CARD ── */
+.alertsCard {
+  background: var(--surface, #fff);
+  border-radius: 18px;
+  border: 1.5px solid rgba(99,102,241,.14);
+  overflow: hidden;
+}
+.alertsHeader {
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid rgba(99,102,241,.14);
+  display: flex; align-items: center;
+  justify-content: space-between;
+}
+.alertsTitle {
+  font-size: .9rem; font-weight: 900;
+  color: var(--text, #1a1f36);
+}
+.alertsBadge {
+  font-size: .65rem; font-weight: 800;
+  background: #fee2e2; color: #ef4444;
+  padding: .2rem .6rem; border-radius: 10px;
+}
+
+.alertList {
+  overflow-y: auto;
+  max-height: 380px;
+}
+.alertItem {
+  display: flex; align-items: flex-start; gap: .8rem;
+  padding: .85rem 1.4rem;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+  transition: background .12s;
+}
+.alertItem:last-child { border-bottom: none; }
+.alertItem:hover { background: #fafafa; }
+
+.alertDot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.alertDot_red { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+.alertDot_yellow { background: #f59e0b; box-shadow: 0 0 5px #f59e0b; }
+.alertDot_green { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
+.alertDot_indigo { background: #6366f1; box-shadow: 0 0 5px #6366f1; }
+
+.alertBody { flex: 1; }
+.alertText {
+  font-size: .78rem; font-weight: 700;
+  color: var(--text, #1a1f36); line-height: 1.4;
+}
+.alertSub {
+  font-size: .68rem; font-weight: 600;
+  color: var(--muted, #6b7280); margin-top: 2px;
+}
+.alertTime {
+  font-size: .65rem; font-weight: 700;
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .homeGrid { grid-template-columns: 1fr; }
+  .kpiStrip { grid-template-columns: repeat(2, 1fr); }
+  .actionsGrid { grid-template-columns: repeat(2, 1fr); }
+}

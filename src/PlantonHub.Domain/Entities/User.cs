@@ -1,3 +1,5 @@
+using PlantonHub.Domain.Enums;
+
 namespace PlantonHub.Domain.Entities;
 
 public class User
@@ -6,6 +8,14 @@ public class User
     public string Email { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public ProfessionalType? ProfessionalType { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? Cpf { get; set; }
+    public string? Phone { get; set; }
+    public string? RegistrationNumber { get; set; } // CRM or COREN
+    public string? Specialty { get; set; }
+    public string? EmploymentType { get; set; } // CLT, PJ, Estatutário, Temporário
+    public DateTime? DateOfBirth { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
