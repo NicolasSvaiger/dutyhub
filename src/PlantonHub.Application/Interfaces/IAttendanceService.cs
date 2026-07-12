@@ -22,4 +22,5 @@ public interface IAttendanceService
     /// chamadas nem decidir timing entre elas.
     /// </summary>
     Task<AttendanceStatusResponse> GetStatusAsync();
+    Task<AttendanceSummaryResponse> GetSummaryAsync(DateTime? from, DateTime? to);
 }

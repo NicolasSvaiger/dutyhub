@@ -6,4 +6,5 @@ public interface IClinicService
 {
     Task<IEnumerable<ClinicResponse>> GetAllAsync();
     Task<ClinicResponse> CreateAsync(CreateClinicRequest request);
+    Task<IEnumerable<NearestClinicResponse>> GetNearestAsync(double latitude, double longitude, int limit = 5);
 }

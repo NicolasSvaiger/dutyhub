@@ -12,17 +12,20 @@ public class AttendanceService : IAttendanceService
     private readonly IShiftRepository _shiftRepository;
     private readonly IClinicRepository _clinicRepository;
     private readonly ITenantService _tenantService;
+    private readonly IFaceEnrollmentRepository _faceEnrollmentRepository;
 
     public AttendanceService(
         IAttendanceRepository attendanceRepository,
         IShiftRepository shiftRepository,
         IClinicRepository clinicRepository,
-        ITenantService tenantService)
+        ITenantService tenantService,
+        IFaceEnrollmentRepository faceEnrollmentRepository)
     {
         _attendanceRepository = attendanceRepository;
         _shiftRepository = shiftRepository;
         _clinicRepository = clinicRepository;
         _tenantService = tenantService;
+        _faceEnrollmentRepository = faceEnrollmentRepository;
     }
 
     public async Task<AttendanceResponse> CheckInAsync(CheckInRequest request)
@@ -74,6 +77,19 @@ public class AttendanceService : IAttendanceService
                     ["code"] = "ACTIVE_CHECKIN_EXISTS",
                     ["activeAttendance"] = activeInfo!,
                 });
+        }
+
+        // Server-side biometric enforcement: if the user has an active face enrollment,
+        // the client MUST have performed face verification before check-in.
+        // This prevents the app from being tampered to skip the biometric step.
+        if (!request.BiometricValidated)
+        {
+            var hasEnrollment = await _faceEnrollmentRepository.HasEnrollmentAsync(userId);
+            if (hasEnrollment)
+            {
+                throw new BadRequestException(
+                    "Verificação biométrica obrigatória. Realize a verificação facial antes do check-in.");
+            }
         }
 
         var attendance = new Attendance
@@ -273,6 +289,66 @@ public class AttendanceService : IAttendanceService
             CheckOutLatitude = attendance.CheckOutLatitude,
             CheckOutLongitude = attendance.CheckOutLongitude,
             CheckOutDeviceId = attendance.CheckOutDeviceId
+        };
+    }
+
+    public async Task<AttendanceSummaryResponse> GetSummaryAsync(DateTime? from, DateTime? to)
+    {
+        var userId = _tenantService.GetCurrentUserId()
+            ?? throw new UnauthorizedException("User not authenticated.");
+
+        var authorizedClinicIds = _tenantService.GetAuthorizedClinicIds().ToList();
+        if (authorizedClinicIds.Count == 0)
+        {
+            return new AttendanceSummaryResponse { FromDate = from, ToDate = to };
+        }
+
+        // Collect all attendance records across authorized clinics
+        var allRecords = new List<Attendance>();
+        foreach (var clinicId in authorizedClinicIds)
+        {
+            var records = await _attendanceRepository.GetHistoryByUserAndClinicAsync(userId, clinicId);
+            allRecords.AddRange(records);
+        }
+
+        // Apply date filter
+        var fromDate = from ?? DateTime.MinValue;
+        var toDate = to ?? DateTime.MaxValue;
+
+        var filtered = allRecords
+            .Where(a => a.CheckInTime >= fromDate && a.CheckInTime <= toDate)
+            .ToList();
+
+        // Calculate metrics
+        var totalDaysWorked = filtered
+            .Select(a => a.CheckInTime.Date)
+            .Distinct()
+            .Count();
+
+        var completedShifts = filtered.Where(a => a.CheckOutTime.HasValue).ToList();
+        var totalHours = completedShifts
+            .Sum(a => (a.CheckOutTime!.Value - a.CheckInTime).TotalHours);
+
+        // Count absences: assigned shifts with no attendance in the period
+        var userShifts = await _shiftRepository.GetByUserIdAsync(userId);
+        var shiftsInPeriod = userShifts
+            .Where(s => s.Date >= fromDate && s.Date <= toDate)
+            .ToList();
+
+        var attendedShiftIds = filtered.Select(a => a.ShiftId).ToHashSet();
+        var absences = shiftsInPeriod.Count(s => !attendedShiftIds.Contains(s.Id));
+
+        var avgHoursPerDay = totalDaysWorked > 0 ? totalHours / totalDaysWorked : 0;
+
+        return new AttendanceSummaryResponse
+        {
+            TotalDaysWorked = totalDaysWorked,
+            TotalHoursWorked = Math.Round(totalHours, 2),
+            TotalAbsences = absences,
+            TotalShiftsAssigned = shiftsInPeriod.Count,
+            AverageHoursPerDay = Math.Round(avgHoursPerDay, 2),
+            FromDate = from,
+            ToDate = to,
         };
     }
 }

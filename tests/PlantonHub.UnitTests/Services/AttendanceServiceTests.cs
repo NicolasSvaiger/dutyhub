@@ -6,7 +6,6 @@ using PlantonHub.Application.Interfaces;
 using PlantonHub.Application.Services;
 using PlantonHub.Domain.Entities;
 using PlantonHub.Domain.Interfaces;
-using PlantonHub.Domain.Interfaces;
 
 namespace PlantonHub.UnitTests.Services;
 
@@ -24,9 +23,10 @@ public class AttendanceServiceTests
     private readonly Mock<IShiftRepository> _shiftRepo = new();
     private readonly Mock<IClinicRepository> _clinicRepo = new();
     private readonly Mock<ITenantService> _tenant = new();
+    private readonly Mock<IFaceEnrollmentRepository> _faceRepo = new();
 
     private AttendanceService CreateService()
-        => new(_attRepo.Object, _shiftRepo.Object, _clinicRepo.Object, _tenant.Object);
+        => new(_attRepo.Object, _shiftRepo.Object, _clinicRepo.Object, _tenant.Object, _faceRepo.Object);
 
     private static CheckInRequest ValidRequest(Guid shiftId) => new()
     {

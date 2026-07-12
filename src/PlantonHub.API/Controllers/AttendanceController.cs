@@ -118,4 +118,19 @@ public class AttendanceController : ControllerBase
         var response = await _attendanceSyncService.SyncOfflineEventsAsync(request);
         return Ok(response);
     }
+
+    /// <summary>
+    /// Summary of attendance data for the current user.
+    /// Aggregates: total days worked, total hours, absences (shifts without check-in).
+    /// Supports optional date range filtering.
+    /// </summary>
+    [Authorize(Policy = "Profissional")]
+    [HttpGet("summary")]
+    [ProducesResponseType(typeof(AttendanceSummaryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetSummary([FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var summary = await _attendanceService.GetSummaryAsync(from, to);
+        return Ok(summary);
+    }
 }

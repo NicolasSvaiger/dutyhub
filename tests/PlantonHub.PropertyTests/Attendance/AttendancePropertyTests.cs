@@ -62,7 +62,8 @@ public class CheckInRoundTripPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckInRequest
             {
@@ -148,7 +149,8 @@ public class CheckInRoundTripPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             // Act
             var history = service.GetMyHistoryAsync().Result.ToList();
@@ -233,7 +235,8 @@ public class DuplicateCheckInPreventionPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckInRequest
             {
@@ -305,7 +308,8 @@ public class DuplicateCheckInPreventionPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckInRequest
             {
@@ -409,7 +413,8 @@ public class CheckOutUpdatesRecordPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckOutRequest
             {
@@ -493,7 +498,8 @@ public class CheckOutUpdatesRecordPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckOutRequest
             {
@@ -562,7 +568,8 @@ public class CheckOutRequiresActiveCheckInPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckOutRequest
             {
@@ -634,7 +641,8 @@ public class CheckOutRequiresActiveCheckInPropertyTests
                 attendanceRepository.Object,
                 shiftRepository.Object,
                 new Mock<IClinicRepository>().Object,
-                tenantService.Object);
+                tenantService.Object,
+                new Mock<IFaceEnrollmentRepository>().Object);
 
             var request = new CheckOutRequest
             {

@@ -109,4 +109,59 @@ public class ClinicService : IClinicService
             CreatedAt = clinic.CreatedAt
         };
     }
+
+    public async Task<IEnumerable<NearestClinicResponse>> GetNearestAsync(double latitude, double longitude, int limit = 5)
+    {
+        // Get clinics the user is authorized to check-in at
+        var authorizedIds = _tenantService.GetAuthorizedClinicIds().ToList();
+        if (authorizedIds.Count == 0)
+            return Enumerable.Empty<NearestClinicResponse>();
+
+        var clinics = new List<Clinic>();
+        foreach (var id in authorizedIds)
+        {
+            var clinic = await _clinicRepository.GetByIdAsync(id);
+            if (clinic is not null && clinic.IsActive && clinic.Latitude.HasValue && clinic.Longitude.HasValue)
+            {
+                clinics.Add(clinic);
+            }
+        }
+
+        return clinics
+            .Select(c =>
+            {
+                var distance = HaversineDistance(latitude, longitude, c.Latitude!.Value, c.Longitude!.Value);
+                var allowedRadius = c.AllowedRadiusMeters ?? 500;
+                return new NearestClinicResponse
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Address = c.Address,
+                    Latitude = c.Latitude,
+                    Longitude = c.Longitude,
+                    DistanceMeters = distance,
+                    WithinRadius = distance <= allowedRadius,
+                };
+            })
+            .OrderBy(c => c.DistanceMeters)
+            .Take(limit)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Haversine formula: calculates distance in meters between two lat/lng points.
+    /// </summary>
+    public static double HaversineDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371000; // Earth radius in meters
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return R * c;
+    }
+
+    private static double ToRadians(double deg) => deg * Math.PI / 180.0;
 }

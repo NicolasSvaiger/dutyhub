@@ -39,4 +39,11 @@ public class AntiFraudSettings
     /// Default: 10 minutes.
     /// </summary>
     public int ReplayAttackWindowMinutes { get; set; } = 10;
+
+    /// <summary>
+    /// Minimum cosine similarity score (0.0-1.0) for a face verification match.
+    /// FaceNet embeddings typically use 0.6-0.7 for verification.
+    /// Default: 0.6 (60% confidence).
+    /// </summary>
+    public double FaceMatchThreshold { get; set; } = 0.6;
 }

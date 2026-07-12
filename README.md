@@ -13,7 +13,7 @@ O projeto segue **Clean Architecture** com 4 camadas:
 | **Infrastructure** | EF Core, repositórios concretos, JWT, hash de senha |
 | **API** | Controllers, middlewares, configuração e Program.cs |
 
-**Stack tecnológica:** .NET 8 + React (TypeScript) + PostgreSQL
+**Stack tecnológica:** .NET 8 + React (TypeScript) + Flutter (mobile) + PostgreSQL + AWS (Cognito, App Runner, RDS, S3/CloudFront)
 
 ## Estrutura de Diretórios
 
@@ -124,16 +124,19 @@ dotnet ef database update --project src/PlantonHub.Infrastructure --startup-proj
 dotnet ef migrations remove --project src/PlantonHub.Infrastructure --startup-project src/PlantonHub.API
 ```
 
-## Dados de Acesso (Seed)
+## Dados de Acesso (Cognito)
 
-O sistema é inicializado com os seguintes usuários de teste:
+A autenticacao e feita via AWS Cognito. Os usuarios de teste abaixo estao no User Pool:
 
-| Email | Senha | Perfil |
-|-------|-------|--------|
-| admin@plantonhub.com | Admin@123 | AdminGlobal |
-| adminclinica@plantonhub.com | Teste@123 | AdminClinica (Clínica Alpha) |
-| medico@plantonhub.com | Teste@123 | Medico (Clínica Alpha) |
-| enfermeiro@plantonhub.com | Teste@123 | Enfermeiro (Clínica Alpha) |
+| Email | Perfil | Clinicas |
+|-------|--------|----------|
+| admin@plantonhub.com | AdminGlobal | Todas |
+| adminclinica@plantonhub.com | AdminClinica | Clinica Alpha |
+| medico@plantonhub.com | Medico | Clinica Alpha |
+| enfermeiro@plantonhub.com | Enfermeiro | Clinica Alpha |
+
+> Login via Cognito SDK (frontend/mobile). O backend recebe o ID Token como Bearer.  
+> Claims customizados (`roles`, `clinicIds`) sao injetados pela Lambda pre-token-generation.
 
 **Clínicas criadas pelo seed:**
 
@@ -288,11 +291,57 @@ window.dispatchEvent(new Event('online'));
 | ORM | Entity Framework Core |
 | Banco de Dados | PostgreSQL 16 |
 | Cache Distribuído | Redis 7 (Alpine) |
-| Autenticação | JWT + Refresh Token (BCrypt) |
+| Autenticação | AWS Cognito (JWT ID Token + pre-token Lambda) |
 | Validação | FluentValidation |
 | Frontend | React 18, TypeScript, Vite |
+| Mobile | Flutter (em desenvolvimento) |
 | HTTP Client | Axios |
 | Roteamento | React Router |
 | Testes | xUnit, FsCheck, Moq, FluentAssertions, fast-check |
 | Containerização | Docker, Docker Compose |
 | Documentação API | Swagger / OpenAPI |
+| Infra (AWS) | App Runner, RDS PostgreSQL, ElastiCache Redis, Cognito, Secrets Manager, CloudFront + S3 |
+| Biometria | FaceNet/MobileFaceNet (embeddings 128-dim, cosine similarity) |
+
+## Biometria Facial (Sprint 3)
+
+O sistema utiliza verificacao facial para garantir que o profissional que faz check-in e realmente quem diz ser. O processamento de imagem ocorre no dispositivo (Flutter), e o backend armazena e compara os embeddings.
+
+### Fluxo
+
+```
+App Flutter → captura selfie → gera embedding (MobileFaceNet 128-dim)
+           → POST /api/biometric/verify → backend compara via cosine similarity
+           → se match (>= 0.6): permite check-in
+```
+
+### Endpoints de Biometria
+
+| Método | Endpoint | Descrição | Acesso |
+|--------|----------|-----------|--------|
+| GET | `/api/biometric/status` | Verifica se usuario tem enrollment | Profissional |
+| POST | `/api/biometric/enroll/me` | Self-enrollment da face | Profissional |
+| DELETE | `/api/biometric/enroll/me` | Deletar enrollment (LGPD) | Profissional |
+| POST | `/api/biometric/verify` | Verificar face no check-in | Profissional |
+| POST | `/api/biometric/enroll/{userId}` | Admin cadastra face | AdminClinica |
+| POST | `/api/biometric/re-enroll/{userId}` | Recadastrar face | AdminClinica |
+| GET | `/api/biometric/enrollments/{userId}` | Listar enrollments (auditoria) | AdminClinica |
+
+### Documentação para Dev Flutter
+
+Consulte [`docs/flutter-biometric-api.md`](docs/flutter-biometric-api.md) para o guia completo de integração.
+
+## Infraestrutura AWS
+
+| Serviço | Uso |
+|---------|-----|
+| **App Runner** | Hospeda a API .NET 8 |
+| **RDS PostgreSQL** | Banco de dados principal |
+| **ElastiCache Redis** | Cache + locks distribuidos + rate limiting |
+| **Cognito** | Autenticação (User Pool + pre-token Lambda) |
+| **Secrets Manager** | Connection strings (DB, Redis) |
+| **S3 + CloudFront** | Frontend React (SPA estático) |
+
+**Domínios:**
+- API: `api.laulab.com.br`
+- Frontend: via CloudFront distribution

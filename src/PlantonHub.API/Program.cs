@@ -31,6 +31,8 @@ builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IOfflineAttendanceEventRepository, OfflineAttendanceEventRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IOfflineSyncAuditLogRepository, OfflineSyncAuditLogRepository>();
+builder.Services.AddScoped<IFaceEnrollmentRepository, FaceEnrollmentRepository>();
+builder.Services.AddScoped<IDeviceRegistrationRepository, DeviceRegistrationRepository>();
 
 // ----- Application Services -----
 builder.Services.AddScoped<IClinicService, ClinicService>();
@@ -39,6 +41,8 @@ builder.Services.AddScoped<IShiftService, ShiftService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAttendanceSyncService, AttendanceSyncService>();
 builder.Services.AddScoped<IOfflineEventValidator, OfflineEventValidator>();
+builder.Services.AddScoped<IFaceVerificationService, FaceVerificationService>();
+builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IOfflineSyncAuditService, PlantonHub.Infrastructure.Services.OfflineSyncAuditService>();
@@ -85,7 +89,7 @@ builder.Services.AddScoped<IDistributedLockService, RedisDistributedLockService>
 builder.Services.AddScoped<DatabaseSeeder>();
 
 // ----- FluentValidation -----
-builder.Services.AddValidatorsFromAssemblyContaining<PlantonHub.Application.Validators.LoginRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<PlantonHub.Application.Validators.CheckInRequestValidator>();
 
 // ----- Authentication (Cognito JWT) -----
 var cognitoRegion = builder.Configuration["Cognito:Region"] ?? "us-east-1";
@@ -142,11 +146,14 @@ builder.Services.AddControllers(options =>
 });
 
 // ----- CORS -----
+var corsOrigins = builder.Configuration.GetValue<string>("Cors:AllowedOrigins")
+    ?? "http://localhost:3000,http://localhost:5173";
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.WithOrigins(corsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -224,15 +231,18 @@ app.MapControllers();
 // 7. Health check endpoint (used by Docker/ECS health checks - no auth required)
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
-// ----- Run Migrations and Seed (Development) -----
-if (app.Environment.IsDevelopment())
+// ----- Run Migrations (all environments) -----
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
 
-    var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-    await seeder.SeedAsync();
+    // Seed only in development
+    if (app.Environment.IsDevelopment())
+    {
+        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+        await seeder.SeedAsync();
+    }
 }
 
 app.Run();

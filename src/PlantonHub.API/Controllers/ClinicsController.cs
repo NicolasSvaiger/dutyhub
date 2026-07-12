@@ -43,4 +43,24 @@ public class ClinicsController : ControllerBase
         var clinic = await _clinicService.CreateAsync(request);
         return CreatedAtAction(nameof(GetAll), new { id = clinic.Id }, clinic);
     }
+
+    /// <summary>
+    /// Find the nearest clinic based on GPS coordinates.
+    /// Returns clinics ordered by distance, limited to the user's authorized clinics.
+    /// Used by the Flutter app to auto-suggest which clinic the professional is at.
+    /// </summary>
+    [Authorize(Policy = "Profissional")]
+    [HttpGet("nearest")]
+    [ProducesResponseType(typeof(IEnumerable<NearestClinicResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetNearest([FromQuery] double latitude, [FromQuery] double longitude, [FromQuery] int limit = 5)
+    {
+        if (latitude < -90 || latitude > 90)
+            return BadRequest(new { message = "Latitude inválida (deve estar entre -90 e 90)." });
+        if (longitude < -180 || longitude > 180)
+            return BadRequest(new { message = "Longitude inválida (deve estar entre -180 e 180)." });
+
+        var clinics = await _clinicService.GetNearestAsync(latitude, longitude, limit);
+        return Ok(clinics);
+    }
 }
