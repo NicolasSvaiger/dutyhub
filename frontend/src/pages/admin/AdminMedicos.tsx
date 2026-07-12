@@ -238,7 +238,6 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme }: Props) {
         });
 
         // Assign role (Medico or Enfermeiro) to selected clinics
-        const role = formTipo === 'Médico' ? 'Medico' : 'Enfermeiro';
         const roleNum = formTipo === 'Médico' ? 2 : 3; // RoleType enum: Medico=2, Enfermeiro=3
         const selectedClinicIds = selectedClinics.length > 0 ? selectedClinics : (clinics[0] ? [clinics[0].id] : []);
 

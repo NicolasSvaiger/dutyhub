@@ -178,6 +178,28 @@ export function cognitoCompleteNewPassword(
 }
 
 /**
+ * Complete a SOFTWARE_TOKEN_MFA challenge by sending the TOTP code.
+ * Called after cognitoLogin returns { challenge: 'MFA_REQUIRED' }.
+ */
+export function cognitoSendMfaCode(
+  cognitoUser: CognitoUser,
+  code: string,
+): Promise<LoginResult> {
+  return new Promise((resolve, reject) => {
+    cognitoUser.sendMFACode(code, {
+      onSuccess(session) {
+        const tokens = extractTokens(session);
+        const user = parseUserFromSession(session);
+        resolve({ success: true, tokens, user });
+      },
+      onFailure(err) {
+        reject(new Error(err.message || 'Invalid MFA code'));
+      },
+    }, 'SOFTWARE_TOKEN_MFA');
+  });
+}
+
+/**
  * Refresh the session using the stored refresh token.
  * The Cognito SDK handles this automatically when calling getSession(),
  * but this explicit method is useful for the axios interceptor.
