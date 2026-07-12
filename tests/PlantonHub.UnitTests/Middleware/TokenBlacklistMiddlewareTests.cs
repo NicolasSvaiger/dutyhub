@@ -155,12 +155,14 @@ public class TokenBlacklistMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_BlacklistServiceThrows_PassesThroughFailOpen()
+    public async Task InvokeAsync_BlacklistServiceThrows_Returns503FailClosed()
     {
         // Arrange
         var jti = Guid.NewGuid().ToString();
         var user = CreateAuthenticatedUser(new Claim("jti", jti));
         var (middleware, context, nextCalled) = CreateMiddleware(user);
+
+        context.Response.Body = new MemoryStream();
 
         _blacklistServiceMock
             .Setup(s => s.IsBlacklistedAsync(jti, It.IsAny<CancellationToken>()))
@@ -169,9 +171,9 @@ public class TokenBlacklistMiddlewareTests
         // Act
         await middleware.InvokeAsync(context);
 
-        // Assert
-        nextCalled[0].Should().BeTrue("fail-open: should pass through when Redis is unavailable");
-        context.Response.StatusCode.Should().NotBe(401);
+        // Assert — fail-closed: block request when Redis is unavailable
+        nextCalled[0].Should().BeFalse("fail-closed: should block when Redis is unavailable");
+        context.Response.StatusCode.Should().Be(503);
     }
 
     #endregion

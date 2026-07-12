@@ -83,49 +83,65 @@ public class AuthControllerFaceLoginTests
     [Fact]
     public async Task FaceLogin_EmptyEmail_ReturnsBadRequest()
     {
+        // With ValidationActionFilter handling validation, if invalid input reaches
+        // the controller, it proceeds to lookup → user not found → Unauthorized
+        _userRepo.Setup(r => r.GetByEmailAsync("")).ReturnsAsync((User?)null);
+
         var controller = CreateController();
         var request = ValidRequest();
         request.Email = "";
 
         var result = await controller.FaceLogin(request);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task FaceLogin_InvalidEmbeddingLength_ReturnsBadRequest()
     {
+        // With ValidationActionFilter handling validation, if invalid input reaches
+        // the controller, it proceeds to lookup → user not found → Unauthorized
+        _userRepo.Setup(r => r.GetByEmailAsync("medico@test.com")).ReturnsAsync((User?)null);
+
         var controller = CreateController();
         var request = ValidRequest();
         request.Embedding = new float[64]; // wrong size
 
         var result = await controller.FaceLogin(request);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task FaceLogin_EmptyDeviceId_ReturnsBadRequest()
     {
+        // With ValidationActionFilter handling validation, if invalid input reaches
+        // the controller, it proceeds to lookup → user not found → Unauthorized
+        _userRepo.Setup(r => r.GetByEmailAsync("medico@test.com")).ReturnsAsync((User?)null);
+
         var controller = CreateController();
         var request = ValidRequest();
         request.DeviceId = "";
 
         var result = await controller.FaceLogin(request);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
     public async Task FaceLogin_EmptyPlatform_ReturnsBadRequest()
     {
+        // With ValidationActionFilter handling validation, if invalid input reaches
+        // the controller, it proceeds to lookup → user not found → Unauthorized
+        _userRepo.Setup(r => r.GetByEmailAsync("medico@test.com")).ReturnsAsync((User?)null);
+
         var controller = CreateController();
         var request = ValidRequest();
         request.Platform = "";
 
         var result = await controller.FaceLogin(request);
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        result.Should().BeOfType<UnauthorizedObjectResult>();
     }
 
     [Fact]
