@@ -35,6 +35,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
+# Create non-root user for security
+RUN adduser --disabled-password --no-create-home --gecos "" appuser
+
 EXPOSE 5000
 
 ENV ASPNETCORE_URLS=http://+:5000
@@ -42,5 +45,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Copy published output
 COPY --from=build /app/publish .
+
+# Run as non-root user
+USER appuser
 
 ENTRYPOINT ["dotnet", "PlantonHub.API.dll"]

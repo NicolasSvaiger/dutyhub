@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using PlantonHub.Application.DTOs.Auth;
 using PlantonHub.Application.Interfaces;
 using PlantonHub.Domain.Entities;
@@ -47,25 +48,13 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("face-login")]
     [AllowAnonymous]
+    [EnableRateLimiting("FaceLogin")]
     [ProducesResponseType(typeof(FaceLoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> FaceLogin([FromBody] FaceLoginRequest request)
     {
-        // Validate input
-        if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest(new { message = "Email é obrigatório." });
-
-        if (request.Embedding.Length != 128)
-            return BadRequest(new { message = "Embedding deve ter 128 dimensões." });
-
-        if (string.IsNullOrWhiteSpace(request.DeviceId))
-            return BadRequest(new { message = "DeviceId é obrigatório." });
-
-        if (string.IsNullOrWhiteSpace(request.Platform))
-            return BadRequest(new { message = "Platform é obrigatório (android/ios)." });
-
         // 1. Resolve email → local user
         var user = await _userRepository.GetByEmailAsync(request.Email);
         if (user is null)
@@ -245,8 +234,9 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Admin: set up face-login for a professional by setting their service password in Cognito.
-    /// Call this after creating a new professional or to migrate existing ones.
+    /// Admin: set up face-login for a professional by ensuring they exist in Cognito.
+    /// No password is needed — CUSTOM_AUTH flow handles authentication via HMAC challenge.
+    /// Call this after creating a new professional user.
     /// </summary>
     [HttpPost("setup-face-login/{userId:guid}")]
     [Authorize(Policy = "AdminClinica")]
@@ -269,7 +259,7 @@ public class AuthController : ControllerBase
         if (!isProfessional)
             return BadRequest(new { message = "Face-login só pode ser configurado para profissionais (Médico, Enfermeiro, Técnico)." });
 
-        await _cognitoAuthService.SetServicePasswordAsync(user.Email);
+        await _cognitoAuthService.EnsureUserExistsAsync(user.Email);
 
         return NoContent();
     }

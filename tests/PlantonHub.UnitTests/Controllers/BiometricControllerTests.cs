@@ -15,13 +15,15 @@ public class BiometricControllerTests
     private readonly Mock<IFaceEnrollmentRepository> _enrollmentRepo = new();
     private readonly Mock<IFaceVerificationService> _verificationService = new();
     private readonly Mock<ITenantService> _tenant = new();
+    private readonly Mock<IBiometricProofService> _biometricProof = new();
 
     private BiometricController CreateController()
     {
         var controller = new BiometricController(
             _enrollmentRepo.Object,
             _verificationService.Object,
-            _tenant.Object);
+            _tenant.Object,
+            _biometricProof.Object);
 
         controller.ControllerContext = new ControllerContext
         {

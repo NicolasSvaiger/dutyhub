@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using PlantonHub.Application.DTOs.Attendance;
 using PlantonHub.Application.Interfaces;
 
@@ -25,6 +26,7 @@ public class AttendanceController : ControllerBase
     /// </summary>
     [Authorize(Policy = "Profissional")]
     [HttpPost("check-in")]
+    [EnableRateLimiting("CheckIn")]
     [ProducesResponseType(typeof(AttendanceResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

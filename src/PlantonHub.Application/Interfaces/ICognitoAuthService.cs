@@ -2,23 +2,23 @@ namespace PlantonHub.Application.Interfaces;
 
 /// <summary>
 /// Service for server-side Cognito authentication operations.
-/// Used by face-login flow: after face verification succeeds, this service
-/// authenticates the user via Cognito AdminInitiateAuth using a service-managed password.
+/// Uses CUSTOM_AUTH flow: after face verification succeeds, this service
+/// authenticates the user via Cognito's custom challenge (HMAC-based, no passwords).
 /// </summary>
 public interface ICognitoAuthService
 {
     /// <summary>
-    /// Authenticate a user via Cognito AdminInitiateAuth.
+    /// Authenticate a user via Cognito CUSTOM_AUTH flow.
     /// Returns ID Token, Access Token, and Refresh Token.
     /// </summary>
     Task<CognitoAuthResult> AuthenticateAsync(string email);
 
     /// <summary>
-    /// Set the service-managed password for a professional user.
-    /// Called when a new professional is created or when migrating existing users.
-    /// This password is never visible to the user — face verification is their auth factor.
+    /// Ensure the user exists in Cognito (create if not).
+    /// Called when a new professional is onboarded for face-login.
+    /// No password is set — CUSTOM_AUTH flow doesn't require one.
     /// </summary>
-    Task SetServicePasswordAsync(string email);
+    Task EnsureUserExistsAsync(string email);
 }
 
 public record CognitoAuthResult(

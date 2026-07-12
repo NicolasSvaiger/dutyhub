@@ -13,19 +13,22 @@ public class AttendanceService : IAttendanceService
     private readonly IClinicRepository _clinicRepository;
     private readonly ITenantService _tenantService;
     private readonly IFaceEnrollmentRepository _faceEnrollmentRepository;
+    private readonly IBiometricProofService _biometricProofService;
 
     public AttendanceService(
         IAttendanceRepository attendanceRepository,
         IShiftRepository shiftRepository,
         IClinicRepository clinicRepository,
         ITenantService tenantService,
-        IFaceEnrollmentRepository faceEnrollmentRepository)
+        IFaceEnrollmentRepository faceEnrollmentRepository,
+        IBiometricProofService biometricProofService)
     {
         _attendanceRepository = attendanceRepository;
         _shiftRepository = shiftRepository;
         _clinicRepository = clinicRepository;
         _tenantService = tenantService;
         _faceEnrollmentRepository = faceEnrollmentRepository;
+        _biometricProofService = biometricProofService;
     }
 
     public async Task<AttendanceResponse> CheckInAsync(CheckInRequest request)
@@ -80,15 +83,23 @@ public class AttendanceService : IAttendanceService
         }
 
         // Server-side biometric enforcement: if the user has an active face enrollment,
-        // the client MUST have performed face verification before check-in.
+        // the client MUST provide a valid biometric proof token from POST /api/biometric/verify.
         // This prevents the app from being tampered to skip the biometric step.
-        if (!request.BiometricValidated)
+        // The proof token is single-use and expires in 5 minutes.
+        var hasEnrollment = await _faceEnrollmentRepository.HasEnrollmentAsync(userId);
+        if (hasEnrollment)
         {
-            var hasEnrollment = await _faceEnrollmentRepository.HasEnrollmentAsync(userId);
-            if (hasEnrollment)
+            if (string.IsNullOrWhiteSpace(request.BiometricProofToken))
             {
                 throw new BadRequestException(
                     "Verificação biométrica obrigatória. Realize a verificação facial antes do check-in.");
+            }
+
+            var isValidProof = await _biometricProofService.ValidateAndConsumeAsync(userId, request.BiometricProofToken);
+            if (!isValidProof)
+            {
+                throw new BadRequestException(
+                    "Token de verificação biométrica inválido ou expirado. Realize a verificação facial novamente.");
             }
         }
 

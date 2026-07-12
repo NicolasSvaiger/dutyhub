@@ -1,0 +1,9 @@
+{
+  "name": "dutyhub-custom-auth-lambdas",
+  "version": "1.0.0",
+  "description": "Cognito Custom Auth Challenge Lambda triggers for DutyHub face-login flow",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

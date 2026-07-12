@@ -8,6 +8,7 @@ import { Construct } from "constructs";
 interface CognitoStackProps extends cdk.StackProps {
   dbEndpoint: string;
   dbSecretArn: string;
+  customAuthSecretArn: string;
   vpc: ec2.Vpc;
   dbSecurityGroup: ec2.SecurityGroup;
 }
@@ -15,6 +16,7 @@ interface CognitoStackProps extends cdk.StackProps {
 export class CognitoStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
+  public readonly backendClient: cognito.UserPoolClient;
 
   constructor(scope: Construct, id: string, props: CognitoStackProps) {
     super(scope, id, props);
@@ -36,7 +38,7 @@ export class CognitoStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // App Client (SPA, no secret)
+    // SPA Client (frontend — admin login with email/password)
     this.userPoolClient = this.userPool.addClient("DutyHubSpaClient", {
       userPoolClientName: "dutyhub-spa",
       generateSecret: false,
@@ -63,6 +65,19 @@ export class CognitoStack extends cdk.Stack {
       refreshTokenValidity: cdk.Duration.days(30),
     });
 
+    // Backend Client (server-side — face-login via CUSTOM_AUTH flow)
+    this.backendClient = this.userPool.addClient("DutyHubBackendClient", {
+      userPoolClientName: "dutyhub-backend",
+      generateSecret: true, // Backend client uses a secret
+      authFlows: {
+        custom: true, // CUSTOM_AUTH for face-login (no passwords)
+        adminUserPassword: true, // Fallback for admin operations
+      },
+      accessTokenValidity: cdk.Duration.hours(1),
+      idTokenValidity: cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(30),
+    });
+
     // Groups
     const groups = ["Medico", "Enfermeiro", "Tecnico", "AdminClinica", "AdminGlobal"];
     for (const group of groups) {
@@ -73,10 +88,60 @@ export class CognitoStack extends cdk.Stack {
       });
     }
 
-    // Pre-token-generation Lambda
+    // ----- Custom Auth Challenge Lambdas -----
+    // These implement passwordless auth: the backend proves identity via HMAC challenge
+
+    const defineAuthChallenge = new lambda.Function(this, "DefineAuthChallenge", {
+      functionName: "dutyhub-define-auth-challenge",
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "define-auth-challenge.handler",
+      code: lambda.Code.fromAsset("lambda/custom-auth"),
+      timeout: cdk.Duration.seconds(5),
+    });
+
+    const createAuthChallenge = new lambda.Function(this, "CreateAuthChallenge", {
+      functionName: "dutyhub-create-auth-challenge",
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "create-auth-challenge.handler",
+      code: lambda.Code.fromAsset("lambda/custom-auth"),
+      timeout: cdk.Duration.seconds(5),
+      environment: {
+        CUSTOM_AUTH_SECRET_ARN: props.customAuthSecretArn,
+      },
+    });
+
+    const verifyAuthChallenge = new lambda.Function(this, "VerifyAuthChallenge", {
+      functionName: "dutyhub-verify-auth-challenge",
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "verify-auth-challenge.handler",
+      code: lambda.Code.fromAsset("lambda/custom-auth"),
+      timeout: cdk.Duration.seconds(5),
+    });
+
+    // Grant CreateAuthChallenge access to the secret
+    const customAuthSecret = cdk.aws_secretsmanager.Secret.fromSecretCompleteArn(
+      this, "CustomAuthSecret", props.customAuthSecretArn
+    );
+    customAuthSecret.grantRead(createAuthChallenge);
+
+    // Attach Custom Auth triggers to User Pool
+    this.userPool.addTrigger(
+      cognito.UserPoolOperation.DEFINE_AUTH_CHALLENGE,
+      defineAuthChallenge
+    );
+    this.userPool.addTrigger(
+      cognito.UserPoolOperation.CREATE_AUTH_CHALLENGE,
+      createAuthChallenge
+    );
+    this.userPool.addTrigger(
+      cognito.UserPoolOperation.VERIFY_AUTH_CHALLENGE_RESPONSE,
+      verifyAuthChallenge
+    );
+
+    // ----- Pre-token-generation Lambda -----
     const preTokenLambda = new lambda.Function(this, "PreTokenGeneration", {
       functionName: "dutyhub-pre-token-generation",
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: "index.handler",
       code: lambda.Code.fromAsset("lambda/pre-token-generation"),
       timeout: cdk.Duration.seconds(10),
@@ -85,15 +150,13 @@ export class CognitoStack extends cdk.Stack {
       securityGroups: [props.dbSecurityGroup],
       environment: {
         DB_ENDPOINT: props.dbEndpoint,
-        DB_SECRET_ARN: props.dbSecretArn,
+        // Password injected directly from Secrets Manager at deploy time
+        // This avoids needing a VPC Endpoint for Secrets Manager ($14/mo)
+        DB_PASSWORD: cdk.SecretValue.secretsManager(props.dbSecretArn, {
+          jsonField: "password",
+        }).unsafeUnwrap(),
       },
     });
-
-    // Grant Lambda permission to read the DB password from SecretsManager
-    const dbSecret = cdk.aws_secretsmanager.Secret.fromSecretCompleteArn(
-      this, "DbSecret", props.dbSecretArn
-    );
-    dbSecret.grantRead(preTokenLambda);
 
     // Attach Lambda trigger to User Pool
     this.userPool.addTrigger(
@@ -108,6 +171,10 @@ export class CognitoStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "UserPoolClientId", {
       value: this.userPoolClient.userPoolClientId,
+    });
+
+    new cdk.CfnOutput(this, "BackendClientId", {
+      value: this.backendClient.userPoolClientId,
     });
 
     new cdk.CfnOutput(this, "UserPoolDomain", {

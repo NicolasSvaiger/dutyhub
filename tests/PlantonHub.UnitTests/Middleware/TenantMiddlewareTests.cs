@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Moq;
 using PlantonHub.API.Middleware;
 
 namespace PlantonHub.UnitTests.Middleware;
@@ -22,7 +24,7 @@ public class TenantMiddlewareTests
 
         RequestDelegate next = _ => Task.CompletedTask;
 
-        var middleware = new TenantMiddleware(next);
+        var middleware = new TenantMiddleware(next, Mock.Of<ILogger<TenantMiddleware>>());
         return (middleware, context);
     }
 
@@ -141,7 +143,7 @@ public class TenantMiddlewareTests
             nextCalled = true;
             return Task.CompletedTask;
         };
-        var middleware = new TenantMiddleware(next);
+        var middleware = new TenantMiddleware(next, Mock.Of<ILogger<TenantMiddleware>>());
 
         await middleware.InvokeAsync(context);
 
@@ -172,7 +174,7 @@ public class TenantMiddlewareTests
             nextCalled = true;
             return Task.CompletedTask;
         };
-        var middleware = new TenantMiddleware(next);
+        var middleware = new TenantMiddleware(next, Mock.Of<ILogger<TenantMiddleware>>());
 
         await middleware.InvokeAsync(context);
 

@@ -16,7 +16,7 @@ public class AttendanceSummaryTests
     private readonly Mock<IFaceEnrollmentRepository> _faceRepo = new();
 
     private AttendanceService CreateService() =>
-        new(_attRepo.Object, _shiftRepo.Object, _clinicRepo.Object, _tenant.Object, _faceRepo.Object);
+        new(_attRepo.Object, _shiftRepo.Object, _clinicRepo.Object, _tenant.Object, _faceRepo.Object, new Mock<IBiometricProofService>().Object);
 
     private void SetupUser(Guid userId, Guid clinicId)
     {

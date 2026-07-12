@@ -44,6 +44,22 @@ export class ApiStack extends cdk.Stack {
       })
     );
 
+    // Allow instance to call Cognito Admin APIs (for face-login CUSTOM_AUTH flow)
+    instanceRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminRespondToAuthChallenge",
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminSetUserPassword",
+        ],
+        resources: [
+          `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/*`,
+        ],
+      })
+    );
+
     // VPC Connector for App Runner to reach RDS in private subnet
     const vpcConnector = new apprunner.CfnVpcConnector(this, "VpcConnector", {
       subnets: props.vpc.selectSubnets({
@@ -79,10 +95,8 @@ export class ApiStack extends cdk.Stack {
               { name: "Cognito__Region", value: this.region },
               { name: "Cognito__UserPoolId", value: "us-east-1_0PARyV1xj" },
               { name: "Cognito__ClientId", value: "3g1hnk76ksd3cbt8aqlio0bb87" },
+              { name: "Cognito__BackendClientId", value: "2iumkl3gd6spj38cjclmn3fvvh" },
             ],
-            // NOTE: ConnectionStrings are injected via App Runner secrets configuration
-            // pointing to Secrets Manager ARNs. See apprunner-prod.json for the mapping.
-            // Do NOT hardcode database passwords or connection strings here.
           },
         },
       },

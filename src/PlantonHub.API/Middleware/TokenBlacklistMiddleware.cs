@@ -56,8 +56,15 @@ public class TokenBlacklistMiddleware
         }
         catch (Exception ex)
         {
-            // Fail-open: if Redis is unavailable, allow the request through
-            _logger.LogWarning(ex, "Failed to check token blacklist for JTI: {Jti}. Allowing request (fail-open).", jti);
+            // Fail-closed: if Redis is unavailable, reject the request (503)
+            // This prevents revoked tokens from being used during infrastructure outages
+            _logger.LogError(ex, "Failed to check token blacklist for JTI: {Jti}. Blocking request (fail-closed).", jti);
+
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(
+                JsonSerializer.Serialize(new { message = "Serviço temporariamente indisponível. Tente novamente." }));
+            return;
         }
 
         await _next(context);

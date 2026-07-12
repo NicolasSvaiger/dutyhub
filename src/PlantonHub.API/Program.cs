@@ -1,6 +1,8 @@
+using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -18,6 +20,14 @@ using PlantonHub.Infrastructure.Services;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ----- Kestrel: suppress Server header + request size limits -----
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    // Limit request body to 1MB — prevents OOM from oversized payloads (e.g., giant embedding arrays)
+    options.Limits.MaxRequestBodySize = 1_048_576; // 1 MB
+});
 
 // ----- Database -----
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -84,12 +94,57 @@ builder.Services.Configure<PlantonHub.Application.DTOs.Attendance.AntiFraudSetti
 builder.Services.AddScoped<ICacheService, RedisCacheService>();
 builder.Services.AddScoped<ITokenBlacklistService, RedisTokenBlacklistService>();
 builder.Services.AddScoped<IDistributedLockService, RedisDistributedLockService>();
+builder.Services.AddScoped<IBiometricProofService, PlantonHub.Infrastructure.Services.RedisBiometricProofService>();
 
 // ----- Database Seeder -----
 builder.Services.AddScoped<DatabaseSeeder>();
 
 // ----- FluentValidation -----
 builder.Services.AddValidatorsFromAssemblyContaining<PlantonHub.Application.Validators.CheckInRequestValidator>();
+
+// ----- Rate Limiting -----
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // face-login: max 5 attempts per minute per IP (anonymous endpoint)
+    options.AddPolicy("FaceLogin", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // check-in: max 10 attempts per minute per user
+    options.AddPolicy("CheckIn", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.User?.FindFirst("sub")?.Value
+                          ?? context.Connection.RemoteIpAddress?.ToString()
+                          ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Global fallback: on rejection, add Retry-After header
+    options.OnRejected = async (ctx, cancellationToken) =>
+    {
+        ctx.HttpContext.Response.Headers["Retry-After"] = "60";
+        ctx.HttpContext.Response.ContentType = "application/problem+json";
+        await ctx.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            type = "https://tools.ietf.org/html/rfc6585#section-4",
+            title = "Too Many Requests",
+            status = 429,
+            detail = "Limite de requisições excedido. Tente novamente em 60 segundos.",
+        }, cancellationToken);
+    };
+});
 
 // ----- Authentication (Cognito JWT) -----
 var cognitoRegion = builder.Configuration["Cognito:Region"] ?? "us-east-1";
@@ -143,6 +198,7 @@ builder.Services.AddAuthorizationPolicies();
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ETagActionFilter>();
+    options.Filters.Add<ValidationActionFilter>();
 });
 
 // ----- CORS -----
@@ -153,10 +209,22 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(corsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-              .AllowAnyHeader()
+        var origins = corsOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // Block wildcard "*" — never allow in any environment
+        origins = origins.Where(o => o != "*").ToArray();
+
+        if (origins.Length == 0)
+        {
+            // Fallback safe: no origins allowed if misconfigured
+            origins = new[] { "http://localhost:3000" };
+        }
+
+        policy.WithOrigins(origins)
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowCredentials()
+              .WithHeaders("Authorization", "Content-Type", "X-Clinic-Id", "If-None-Match")
+              .WithExposedHeaders("Retry-After", "X-Clinic-Id", "ETag");
     });
 });
 
@@ -204,7 +272,10 @@ var app = builder.Build();
 // 1. Exception Handling (outermost)
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// 2. Swagger (development only)
+// 2. Security Headers (all responses)
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
+// 3. Swagger (development only)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -217,7 +288,10 @@ if (app.Environment.IsDevelopment())
 // 3. CORS
 app.UseCors();
 
-// 4. Authentication & Authorization
+// 4. Rate Limiting
+app.UseRateLimiter();
+
+// 5. Authentication & Authorization
 app.UseAuthentication();
 app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseAuthorization();

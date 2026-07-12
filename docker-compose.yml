@@ -46,6 +46,8 @@ services:
       Cognito__Region: "${COGNITO_REGION:-us-east-1}"
       Cognito__UserPoolId: "${COGNITO_USER_POOL_ID:-us-east-1_0PARyV1xj}"
       Cognito__ClientId: "${COGNITO_CLIENT_ID:-3g1hnk76ksd3cbt8aqlio0bb87}"
+      Cognito__BackendClientId: "${COGNITO_BACKEND_CLIENT_ID:-2iumkl3gd6spj38cjclmn3fvvh}"
+      Cognito__CustomAuthSecret: "${COGNITO_CUSTOM_AUTH_SECRET:-dev-secret-not-for-production}"
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:5000"
     depends_on:

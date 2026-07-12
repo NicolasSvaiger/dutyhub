@@ -15,15 +15,18 @@ public class BiometricController : ControllerBase
     private readonly IFaceEnrollmentRepository _enrollmentRepository;
     private readonly IFaceVerificationService _verificationService;
     private readonly ITenantService _tenantService;
+    private readonly IBiometricProofService _biometricProofService;
 
     public BiometricController(
         IFaceEnrollmentRepository enrollmentRepository,
         IFaceVerificationService verificationService,
-        ITenantService tenantService)
+        ITenantService tenantService,
+        IBiometricProofService biometricProofService)
     {
         _enrollmentRepository = enrollmentRepository;
         _verificationService = verificationService;
         _tenantService = tenantService;
+        _biometricProofService = biometricProofService;
     }
 
     /// <summary>
@@ -139,10 +142,18 @@ public class BiometricController : ControllerBase
 
         var result = await _verificationService.VerifyAsync(userId.Value, request.Embedding);
 
+        // Issue a single-use proof token if verification succeeded
+        string? proofToken = null;
+        if (result.IsMatch)
+        {
+            proofToken = await _biometricProofService.IssueTokenAsync(userId.Value);
+        }
+
         return Ok(new FaceVerifyResponse
         {
             IsMatch = result.IsMatch,
             Confidence = result.Confidence,
+            BiometricProofToken = proofToken,
         });
     }
 

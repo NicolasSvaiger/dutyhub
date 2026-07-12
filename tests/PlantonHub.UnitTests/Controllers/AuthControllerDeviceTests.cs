@@ -221,6 +221,6 @@ public class AuthControllerDeviceTests
         var result = await controller.SetupFaceLogin(userId);
 
         result.Should().BeOfType<NoContentResult>();
-        _cognitoAuth.Verify(s => s.SetServicePasswordAsync("medico@test.com"), Times.Once);
+        _cognitoAuth.Verify(s => s.EnsureUserExistsAsync("medico@test.com"), Times.Once);
     }
 }

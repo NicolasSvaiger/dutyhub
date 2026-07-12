@@ -51,7 +51,7 @@ Sistema de gestão de presença para profissionais de saúde (médicos, enfermei
 
 ## Sprints Planejados
 
-### Sprint 2 — Migração Auth → Cognito (CRÍTICO)
+### Sprint 2 — Migração Auth → Cognito ✅ CONCLUÍDO (v1.2)
 **Prioridade:** 🔴 Alta  
 **Esforço:** 2-3 dias  
 **Bloqueado por:** Sprint 1 ✅  
@@ -70,10 +70,10 @@ Sistema de gestão de presença para profissionais de saúde (médicos, enfermei
 
 ---
 
-### Sprint 3 — Biometria
+### Sprint 3 — Biometria ✅ CONCLUÍDO (v1.3)
 **Prioridade:** 🟡 Média  
 **Esforço:** 1-3 dias  
-**Bloqueado por:** Sprint 2
+**Bloqueado por:** Sprint 2 ✅
 
 | Item | Descrição |
 |------|-----------|
@@ -89,17 +89,22 @@ Sistema de gestão de presença para profissionais de saúde (médicos, enfermei
 
 ---
 
-### Sprint 4 — Segurança & Hardening
-**Prioridade:** 🟡 Média (pode rodar paralelo)  
-**Esforço:** 1 dia
+### Sprint 4 — Migração ECS Express Mode + Segurança
+**Prioridade:** 🔴 Alta (App Runner descontinuado)  
+**Esforço:** 2-3 dias  
+**Bloqueado por:** Sprint 3 ✅
 
 | Item | Descrição |
 |------|-----------|
+| Migrar App Runner → ECS Express Mode | AWS descontinuou App Runner (abril 2026). Migrar para ECS Express Mode — mesmo Dockerfile, mesma ECR, VPC já existe |
+| Atualizar CDK stack (api-stack.ts) | Substituir CfnService por ECS Express Mode construct |
+| Atualizar CI/CD workflow | Deploy via ECS em vez de App Runner auto-deploy |
+| Validar env vars e secrets | Mapear RuntimeEnvironmentSecrets → ECS task definition secrets |
 | Rate limiting no login | WAF ou middleware |
-| HTTPS em dev (mkcert) | Necessário pra WebAuthn |
-| FluentValidation nos requests | Validação explícita antes do service |
 | Headers de segurança | CSP, HSTS, X-Frame-Options |
 | Refresh token rotation | Proteção contra token leak |
+
+**Por que é urgente:** App Runner não aceita novos clientes desde abril 2026. Serviços existentes continuam funcionando mas sem novos features. Migrar antes de ficar dependente de um serviço em sunset.
 
 ---
 
