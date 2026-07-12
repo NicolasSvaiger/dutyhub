@@ -161,17 +161,14 @@ builder.Services.AddAuthentication(options =>
 {
     options.MapInboundClaims = false;
 
-    options.Authority = cognitoIssuer;
-    options.MetadataAddress = $"{cognitoIssuer}/.well-known/openid-configuration";
-
-    // Reduce JWKS fetch timeout — default is 1 min which causes 60s hangs when
-    // the VPC egress is slow reaching Cognito's JWKS endpoint.
-    options.BackchannelTimeout = TimeSpan.FromSeconds(10);
-
-    // Cache the JWKS signing keys for 1 hour to avoid repeated outbound fetches
-    options.RefreshOnIssuerKeyNotFound = true;
-    options.AutomaticRefreshInterval = TimeSpan.FromHours(1);
-    options.RequireHttpsMetadata = true;
+    // We do NOT set Authority/MetadataAddress — that would make the framework
+    // fetch JWKS keys from Cognito on every startup, which fails when the
+    // App Runner VPC has no egress to the internet. Instead we load the
+    // JWKS keys statically from a file baked into the image (config/jwks.json)
+    // and cache them for the process lifetime.
+    var jwksPath = Path.Combine(AppContext.BaseDirectory, "config", "jwks.json");
+    var jwksJson = File.ReadAllText(jwksPath);
+    var jwks = new Microsoft.IdentityModel.Tokens.JsonWebKeySet(jwksJson);
 
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -181,6 +178,7 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = cognitoClientId,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
+        IssuerSigningKeys = jwks.GetSigningKeys(),
         ClockSkew = TimeSpan.FromSeconds(30),
     };
 
@@ -314,19 +312,30 @@ app.MapControllers();
 // 7. Health check endpoint (used by Docker/ECS health checks - no auth required)
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
-// ----- Run Migrations (all environments) -----
+// ----- Run Migrations (background, non-blocking) -----
+// Running MigrateAsync before app.Run() blocks all startup requests for 30s+.
+// Running in background lets the API serve health checks and requests immediately.
+_ = Task.Run(async () =>
 {
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await dbContext.Database.MigrateAsync();
-
-    // Seed only in development
-    if (app.Environment.IsDevelopment())
+    await Task.Delay(500);
+    try
     {
-        var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-        await seeder.SeedAsync();
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.MigrateAsync();
+
+        if (app.Environment.IsDevelopment())
+        {
+            var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedAsync();
+        }
     }
-}
+    catch (Exception ex)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        logger.LogCritical(ex, "Failed to run database migrations on startup");
+    }
+});
 
 app.Run();
 

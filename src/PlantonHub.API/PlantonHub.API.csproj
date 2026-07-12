@@ -22,4 +22,10 @@
     <ProjectReference Include="..\PlantonHub.Infrastructure\PlantonHub.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="config\jwks.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

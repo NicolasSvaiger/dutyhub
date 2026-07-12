@@ -255,6 +255,12 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_API_REPO:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_API_REPO:latest
 
+      - name: Deploy API to App Runner
+        run: |
+          aws apprunner start-deployment \
+            --service-arn arn:aws:apprunner:us-east-1:569206841715:service/dutyhub-api/b730d2f649564fed9fc531a8ee573f78 \
+            --region us-east-1
+
       - name: Build & push Frontend image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
