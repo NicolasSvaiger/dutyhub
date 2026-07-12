@@ -44,21 +44,6 @@ function CustomSelect({ value, onChange, options }: {
   );
 }
 
-const CORES = ['#6366f1','#2DBFB8','#22c55e','#f97316','#8b5cf6','#f59e0b','#3b82f6','#ef4444'];
-
-// Mock access-level labels derived from user role context
-// In future this will come from a UserPublicOrganRole entity
-function accessLabel(): string {
-  const labels = ['Acesso completo', 'Somente relatórios', 'Dashboard + TV', 'Somente leitura'];
-  return labels[Math.floor(Math.random() * labels.length)];
-}
-
-function accessBadgeClass(label: string): string {
-  if (label === 'Acesso completo') return 'gest-access-full';
-  if (label === 'Somente relatórios') return 'gest-access-read';
-  if (label === 'Dashboard + TV') return 'gest-access-dash';
-  return 'gest-access-ro';
-}
 
 interface GestorView {
   id: string;
@@ -70,7 +55,6 @@ interface GestorView {
   contractNumber: string;
   clinics: string[];
   isActive: boolean;
-  accessLabel: string;
 }
 
 interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; }
@@ -90,7 +74,6 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme }: Props) {
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [fName, setFName] = useState('');
   const [fEmail, setFEmail] = useState('');
   const [fPhone, setFPhone] = useState('');
@@ -267,7 +250,7 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme }: Props) {
                       }
                     </td>
                     <td className="center">
-                      <span className={`gest-access-badge ${accessBadgeClass(g.accessLabel)}`}>{g.accessLabel}</span>
+                      <span className="gest-access-badge gest-access-full">Acesso completo</span>
                     </td>
                     <td className="center">
                       <span className={`gest-badge ${g.isActive ? 'gest-badge-ativo' : 'gest-badge-inativo'}`}>

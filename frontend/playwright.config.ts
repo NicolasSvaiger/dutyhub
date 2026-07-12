@@ -21,7 +21,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: process.env.CI
-    ? [['html', { open: 'never' }], ['json', { outputFile: 'test-results/results.json' }], ['github']]
+    ? [
+        ['html', { open: 'never' }],
+        ['json', { outputFile: 'test-results/results.json' }],
+        ['github'],
+        ['list'],
+      ]
     : [['list']],
   timeout: 30_000,
   expect: { timeout: 5_000 },
