@@ -29,6 +29,7 @@ redis_data/
 # Temporary AWS config files
 frontend/bucket-policy.json
 frontend/cf-config.json
+cf-config.json
 frontend/cf-update.json
 infrastructure/apprunner-dev.json
 infrastructure/apprunner-prod.json

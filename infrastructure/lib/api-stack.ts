@@ -76,13 +76,13 @@ export class ApiStack extends cdk.Stack {
             runtimeEnvironmentVariables: [
               { name: "ASPNETCORE_ENVIRONMENT", value: "Production" },
               { name: "ASPNETCORE_URLS", value: "http://+:5000" },
-              {
-                name: "ConnectionStrings__DefaultConnection",
-                value: `Host=${props.dbEndpoint};Port=5432;Database=dutyhub;Username=dutyhub_admin;Password=tBwPzDMs8Ubkggxy=6A=39CS=8IiW0`,
-              },
-              { name: "ConnectionStrings__Redis", value: "localhost:6379,abortConnect=false" },
-              { name: "JwtSettings__Secret", value: "temp-jwt-secret-change-later-to-secure-value" },
+              { name: "Cognito__Region", value: this.region },
+              { name: "Cognito__UserPoolId", value: "us-east-1_0PARyV1xj" },
+              { name: "Cognito__ClientId", value: "3g1hnk76ksd3cbt8aqlio0bb87" },
             ],
+            // NOTE: ConnectionStrings are injected via App Runner secrets configuration
+            // pointing to Secrets Manager ARNs. See apprunner-prod.json for the mapping.
+            // Do NOT hardcode database passwords or connection strings here.
           },
         },
       },
