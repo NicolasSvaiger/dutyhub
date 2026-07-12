@@ -315,27 +315,33 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymo
 // ----- Run Migrations (background, non-blocking) -----
 // Running MigrateAsync before app.Run() blocks all startup requests for 30s+.
 // Running in background lets the API serve health checks and requests immediately.
-_ = Task.Run(async () =>
+// Integration tests run migrations themselves via WebApplicationFactory, so we
+// skip the background task in Testing environment to avoid concurrent MigrateAsync
+// calls hitting the same DB (which fails with "column already exists" / duplicate key).
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    await Task.Delay(500);
-    try
+    _ = Task.Run(async () =>
     {
-        using var scope = app.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        await dbContext.Database.MigrateAsync();
-
-        if (app.Environment.IsDevelopment())
+        await Task.Delay(500);
+        try
         {
-            var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-            await seeder.SeedAsync();
+            using var scope = app.Services.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await dbContext.Database.MigrateAsync();
+
+            if (app.Environment.IsDevelopment())
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+                await seeder.SeedAsync();
+            }
         }
-    }
-    catch (Exception ex)
-    {
-        var logger = app.Services.GetRequiredService<ILogger<Program>>();
-        logger.LogCritical(ex, "Failed to run database migrations on startup");
-    }
-});
+        catch (Exception ex)
+        {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogCritical(ex, "Failed to run database migrations on startup");
+        }
+    });
+}
 
 app.Run();
 
