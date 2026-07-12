@@ -85,9 +85,15 @@ export class CognitoStack extends cdk.Stack {
       securityGroups: [props.dbSecurityGroup],
       environment: {
         DB_ENDPOINT: props.dbEndpoint,
-        DB_PASSWORD: "tBwPzDMs8Ubkggxy=6A=39CS=8IiW0",
+        DB_SECRET_ARN: props.dbSecretArn,
       },
     });
+
+    // Grant Lambda permission to read the DB password from SecretsManager
+    const dbSecret = cdk.aws_secretsmanager.Secret.fromSecretCompleteArn(
+      this, "DbSecret", props.dbSecretArn
+    );
+    dbSecret.grantRead(preTokenLambda);
 
     // Attach Lambda trigger to User Pool
     this.userPool.addTrigger(

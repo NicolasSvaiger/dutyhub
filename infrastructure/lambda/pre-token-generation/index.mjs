@@ -1,17 +1,45 @@
 import pg from "pg";
+import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 
 const { Client } = pg;
+const smClient = new SecretsManagerClient({});
+
+// Cache the secret to avoid fetching on every invocation
+let cachedPassword = null;
+
+async function getDbPassword() {
+  if (cachedPassword) return cachedPassword;
+
+  // Fallback: if DB_PASSWORD env var is set directly (dev/testing), use it
+  if (process.env.DB_PASSWORD) {
+    cachedPassword = process.env.DB_PASSWORD;
+    return cachedPassword;
+  }
+
+  const secretArn = process.env.DB_SECRET_ARN;
+  if (!secretArn) throw new Error("DB_SECRET_ARN not configured");
+
+  const response = await smClient.send(
+    new GetSecretValueCommand({ SecretId: secretArn })
+  );
+
+  const secret = JSON.parse(response.SecretString);
+  cachedPassword = secret.password;
+  return cachedPassword;
+}
 
 export async function handler(event) {
   const email = event.request.userAttributes.email;
 
   try {
+    const password = await getDbPassword();
+
     const client = new Client({
       host: process.env.DB_ENDPOINT,
       port: 5432,
       database: "dutyhub",
       user: "dutyhub_admin",
-      password: process.env.DB_PASSWORD,
+      password,
       ssl: { rejectUnauthorized: false },
       connectionTimeoutMillis: 5000,
     });

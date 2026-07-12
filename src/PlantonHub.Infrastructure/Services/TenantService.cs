@@ -72,8 +72,8 @@ public class TenantService : ITenantService
         {
             // Check if this GUID is a known user — if Cognito sub is a different UUID,
             // it won't match. Fall through to email-based resolution.
-            if (_resolvedUserIds.TryGetValue(sub, out var cached))
-                return cached;
+            if (_resolvedUserIds.TryGetValue(sub, out var cached) && cached.expiresAt > DateTime.UtcNow)
+                return cached.userId;
 
             // Try resolving by looking up the user repository by email
             var email = httpContext.User?.FindFirst("email")?.Value
@@ -87,22 +87,24 @@ public class TenantService : ITenantService
                     var user = userRepo.GetByEmailAsync(email).GetAwaiter().GetResult();
                     if (user is not null)
                     {
-                        _resolvedUserIds[sub] = user.Id;
+                        _resolvedUserIds[sub] = (user.Id, DateTime.UtcNow.Add(_cacheTtl));
                         return user.Id;
                     }
                 }
             }
 
             // Fallback: trust the sub as user ID (backward compat)
-            _resolvedUserIds[sub] = directId;
+            _resolvedUserIds[sub] = (directId, DateTime.UtcNow.Add(_cacheTtl));
             return directId;
         }
 
         return null;
     }
 
-    // Cache sub → userId to avoid repeated DB lookups per request
-    private static readonly ConcurrentDictionary<string, Guid> _resolvedUserIds = new();
+    // Cache sub → userId with TTL to avoid unbounded growth.
+    // Entries expire after 10 minutes; stale entries are lazily evicted on access.
+    private static readonly ConcurrentDictionary<string, (Guid userId, DateTime expiresAt)> _resolvedUserIds = new();
+    private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(10);
 
     public IEnumerable<string> GetCurrentRoles()
     {

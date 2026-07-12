@@ -181,11 +181,24 @@ jobs:
         run: npx playwright test
 
       - name: Publish E2E summary
-        uses: daun/playwright-report-summary@v3
         if: always()
-        with:
-          report-file: frontend/test-results/results.json
-          comment-title: "Frontend E2E Tests"
+        working-directory: frontend
+        run: |
+          if [ -f test-results/results.json ]; then
+            echo "## Frontend E2E Tests" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            TOTAL=$(jq '.stats.expected + .stats.unexpected + .stats.flaky' test-results/results.json)
+            PASSED=$(jq '.stats.expected' test-results/results.json)
+            FAILED=$(jq '.stats.unexpected' test-results/results.json)
+            echo "| Status | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| ✅ Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+            echo "| ❌ Failed | $FAILED |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📊 Total | $TOTAL |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## Frontend E2E Tests" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ No results.json found" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload E2E test results
         uses: actions/upload-artifact@v4

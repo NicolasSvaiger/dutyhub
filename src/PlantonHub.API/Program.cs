@@ -19,9 +19,6 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ----- Configuration -----
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
-
 // ----- Database -----
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -34,13 +31,8 @@ builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IOfflineAttendanceEventRepository, OfflineAttendanceEventRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IOfflineSyncAuditLogRepository, OfflineSyncAuditLogRepository>();
-builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 // ----- Application Services -----
-// [DEPRECATED - Sprint 2] AuthService kept for backward compat during migration.
-#pragma warning disable CS0618
-builder.Services.AddScoped<IAuthService, AuthService>();
-#pragma warning restore CS0618
 builder.Services.AddScoped<IClinicService, ClinicService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IShiftService, ShiftService>();
@@ -52,10 +44,6 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IOfflineSyncAuditService, PlantonHub.Infrastructure.Services.OfflineSyncAuditService>();
 
 // ----- Infrastructure Services -----
-// [DEPRECATED - Sprint 2] Kept for backward compat during migration; suppress obsolete warnings.
-#pragma warning disable CS0618
-builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
-#pragma warning restore CS0618
 builder.Services.AddScoped<IPasswordHashService, PasswordHashService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddHttpContextAccessor();

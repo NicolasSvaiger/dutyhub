@@ -1,54 +1,22 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using PlantonHub.Application.DTOs.Auth;
 using PlantonHub.Application.Interfaces;
 
 namespace PlantonHub.API.Controllers;
 
 /// <summary>
-/// [DEPRECATED - Sprint 2] Legacy auth endpoints — replaced by AWS Cognito.
-/// Login and refresh are now handled client-side via Cognito SDK.
-/// Logout endpoint remains functional (blacklists Cognito JWTs by jti).
-/// These endpoints will be removed once all clients migrate to Cognito.
+/// Auth controller — handles token blacklisting for logout.
+/// Login and refresh are handled client-side via AWS Cognito SDK.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Obsolete("Use Cognito SDK for login/refresh. Logout still works for token blacklisting.")]
 public class AuthController : ControllerBase
 {
-    private readonly IAuthService _authService;
     private readonly ITokenBlacklistService _tokenBlacklistService;
 
-    public AuthController(IAuthService authService, ITokenBlacklistService tokenBlacklistService)
+    public AuthController(ITokenBlacklistService tokenBlacklistService)
     {
-        _authService = authService;
         _tokenBlacklistService = tokenBlacklistService;
-    }
-
-    /// <summary>
-    /// Autenticar usuário com email e senha.
-    /// </summary>
-    [AllowAnonymous]
-    [HttpPost("login")]
-    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
-    {
-        var response = await _authService.LoginAsync(request);
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Renovar tokens usando refresh token válido.
-    /// </summary>
-    [AllowAnonymous]
-    [HttpPost("refresh-token")]
-    [ProducesResponseType(typeof(RefreshTokenResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
-    {
-        var response = await _authService.RefreshTokenAsync(request);
-        return Ok(response);
     }
 
     /// <summary>

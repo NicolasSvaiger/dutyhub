@@ -49,8 +49,6 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
     private static readonly Guid BetaShiftId   = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccc02");
     private static readonly Guid UnrelatedClinicId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff");
 
-    private const string TestUserEmail = "medico@plantonhub.com";
-
     public DoctorFlowIntegrationTests()
     {
         _postgresContainer = new PostgreSqlBuilder()
