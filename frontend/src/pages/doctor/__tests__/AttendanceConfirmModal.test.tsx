@@ -56,6 +56,8 @@ function blockedStatus(): AttendanceStatusResponse {
 describe('<AttendanceConfirmModal />', () => {
   beforeEach(() => {
     getStatusMock.mockReset();
+    // Clear offline cache between tests to avoid cross-test contamination
+    localStorage.clear();
   });
 
   describe('modo check-in', () => {
