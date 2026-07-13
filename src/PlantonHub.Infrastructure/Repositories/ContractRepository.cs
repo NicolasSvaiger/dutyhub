@@ -42,7 +42,8 @@ public class ContractRepository : IContractRepository
 
     public async Task UpdateAsync(Contract contract)
     {
-        _context.Contracts.Update(contract);
+        // EF is already tracking the contract (and its PublicOrgan) via GetByIdAsync + Include.
+        // Just call SaveChangesAsync — the change tracker detects all modifications automatically.
         await _context.SaveChangesAsync();
     }
 }

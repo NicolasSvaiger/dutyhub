@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Clinic> Clinics => Set<Clinic>();
     public DbSet<PublicOrgan> PublicOrgans => Set<PublicOrgan>();
     public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<SystemSettings> SystemSettings => Set<SystemSettings>();
     public DbSet<UserClinicRole> UserClinicRoles => Set<UserClinicRole>();
     public DbSet<Shift> Shifts => Set<Shift>();
     public DbSet<ShiftAssignment> ShiftAssignments => Set<ShiftAssignment>();

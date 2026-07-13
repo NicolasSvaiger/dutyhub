@@ -3,6 +3,7 @@ using PlantonHub.Application.DTOs.Clinics;
 using PlantonHub.Application.Exceptions;
 using PlantonHub.Application.Interfaces;
 using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Enums;
 using PlantonHub.Domain.Interfaces;
 
 namespace PlantonHub.Application.Services;
@@ -92,6 +93,12 @@ public class ClinicService : IClinicService
         };
 
         await _clinicRepository.AddAsync(clinic);
+
+        // Propagate roles: if linked to a contract, give all existing AdminClinica
+        // of that contract access to this new clinic automatically.
+        if (request.ContractId.HasValue)
+            await PropagateContractRolesAsync(clinic.Id, request.ContractId.Value);
+
         await _cacheService.RemoveByPrefixAsync("clinics:");
 
         return MapToResponse(clinic);
@@ -121,6 +128,12 @@ public class ClinicService : IClinicService
         clinic.ContractId = request.ContractId;
 
         await _clinicRepository.UpdateAsync(clinic);
+
+        // Propagate roles: if ContractId changed (or was set), give all existing
+        // AdminClinica of that contract access to this clinic automatically.
+        if (request.ContractId.HasValue)
+            await PropagateContractRolesAsync(clinic.Id, request.ContractId.Value);
+
         await _cacheService.RemoveByPrefixAsync("clinics:");
 
         return MapToResponse(clinic);
@@ -205,6 +218,26 @@ public class ClinicService : IClinicService
             .OrderBy(c => c.DistanceMeters)
             .Take(limit)
             .ToList();
+    }
+
+    /// <summary>
+    /// When a clinic is added or linked to a contract, automatically propagate
+    /// AdminClinica roles from existing clinics in that contract to the new clinic.
+    /// This ensures AdminClinica users don't need to be manually re-assigned.
+    /// </summary>
+    private async Task PropagateContractRolesAsync(Guid newClinicId, Guid contractId)
+    {
+        var existingRoles = await _clinicRepository.GetRolesByContractAsync(contractId);
+
+        // Only propagate AdminClinica roles — not Medico/Enfermeiro/Tecnico
+        var adminRoles = existingRoles
+            .Where(r => r.Role == RoleType.AdminClinica)
+            .GroupBy(r => r.UserId)
+            .Select(g => g.First())
+            .ToList();
+
+        foreach (var role in adminRoles)
+            await _clinicRepository.AddRoleIfNotExistsAsync(role.UserId, newClinicId, RoleType.AdminClinica);
     }
 
     private static ClinicResponse MapToResponse(Clinic clinic)

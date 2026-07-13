@@ -7,6 +7,11 @@ export const usersApi = {
     return data;
   },
 
+  getAdmins: async (): Promise<User[]> => {
+    const { data } = await axiosInstance.get<User[]>('/users/admins');
+    return data;
+  },
+
   create: async (request: CreateUserRequest): Promise<User> => {
     const { data } = await axiosInstance.post<User>('/users', request);
     return data;

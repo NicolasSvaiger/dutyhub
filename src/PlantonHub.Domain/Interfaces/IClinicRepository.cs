@@ -1,4 +1,5 @@
 using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Enums;
 
 namespace PlantonHub.Domain.Interfaces;
 
@@ -15,4 +16,15 @@ public interface IClinicRepository
     /// Checks if a user has any role assignment at the specified clinic.
     /// </summary>
     Task<bool> UserBelongsToClinicAsync(Guid userId, Guid clinicId);
+
+    /// <summary>
+    /// Returns all UserClinicRoles for clinics belonging to the given contract.
+    /// Used to propagate roles when a new clinic is added to a contract.
+    /// </summary>
+    Task<IEnumerable<UserClinicRole>> GetRolesByContractAsync(Guid contractId);
+
+    /// <summary>
+    /// Adds a UserClinicRole if it doesn't already exist (idempotent).
+    /// </summary>
+    Task AddRoleIfNotExistsAsync(Guid userId, Guid clinicId, RoleType role);
 }

@@ -10,4 +10,6 @@ public interface IContractService
     /// </summary>
     Task<IEnumerable<ContractResponse>> GetAllAsync();
     Task<ContractResponse?> GetByIdAsync(Guid id);
+    Task<ContractResponse> CreateAsync(CreateContractRequest request);
+    Task<ContractResponse> UpdateAsync(Guid id, UpdateContractRequest request);
 }

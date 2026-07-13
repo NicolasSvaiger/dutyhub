@@ -30,6 +30,34 @@ public class UserService : IUserService
         _cacheService = cacheService;
     }
 
+    public async Task<IEnumerable<UserResponse>> GetAdminUsersAsync()
+    {
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+
+        if (isAdminGlobal)
+        {
+            // AdminGlobal: all admin users (AdminGlobal + AdminClinica)
+            var users = await _userRepository.GetAllAsync();
+            return users
+                .Where(u => (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r =>
+                    r.Role == RoleType.AdminGlobal || r.Role == RoleType.AdminClinica))
+                .Select(MapToResponse);
+        }
+        else
+        {
+            // AdminClinica: admin users sharing the same clinics
+            var authorizedClinicIds = _tenantService.GetAuthorizedClinicIds().ToList();
+            if (authorizedClinicIds.Count == 0) return Enumerable.Empty<UserResponse>();
+
+            var users = await _userRepository.GetAllAsync();
+            return users
+                .Where(u => (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r =>
+                    (r.Role == RoleType.AdminClinica) &&
+                    authorizedClinicIds.Contains(r.ClinicId)))
+                .Select(MapToResponse);
+        }
+    }
+
     public async Task<IEnumerable<UserResponse>> GetAllAsync()
     {
         var roles = _tenantService.GetCurrentRoles();

@@ -1,0 +1,559 @@
+/**
+ * Admin OS — Usuários da OS.
+ * Manages OS collaborators (AdminGlobal, AdminClinica).
+ * Read-only view of users with admin roles + status toggle.
+ * Replicates the mock at /originais/OS/admin-usuarios.html.
+ */
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { usersApi } from '../../api/usersApi';
+import { useAuth } from '../../hooks/useAuth';
+import type { User } from '../../types';
+
+// ─── Types ────────────────────────────────────────────────────────────────
+
+type PerfilBadge = 'Admin Master' | 'Admin OS';
+type StatusBadge = 'Ativo' | 'Pendente' | 'Inativo';
+
+interface UsuarioOSView {
+  id: string;
+  nome: string;
+  iniciais: string;
+  cargo: string;
+  email: string;
+  dept: string;
+  perfil: PerfilBadge;
+  status: StatusBadge;
+  ultimo: string;
+  cor: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+const CORES = ['#6366f1', '#2DBFB8', '#8b5cf6', '#f97316', '#22c55e', '#f59e0b', '#6b7280', '#ef4444'];
+
+function roleToPerfil(roles: { role: string }[]): PerfilBadge {
+  const roleNames = roles.map(r => r.role);
+  if (roleNames.includes('AdminGlobal')) return 'Admin Master';
+  if (roleNames.includes('AdminClinica')) return 'Admin OS';
+  return 'Admin OS';
+}
+
+function formatLastAccess(iso?: string | null): string {
+  if (!iso) return 'Nunca acessou';
+  const date = new Date(iso);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+  if (isToday) return `Hoje, ${time}`;
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `Ontem, ${time}`;
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + `, ${time}`;
+}
+
+// ─── CustomSelect ─────────────────────────────────────────────────────────
+
+function CustomSelect({ value, onChange, options }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.value === value);
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+  return (
+    <div className="uos-cselect" ref={ref}>
+      <button className="uos-cselect-btn" type="button" onClick={() => setOpen(!open)}>
+        <span>{selected?.label || '—'}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+      </button>
+      {open && (
+        <div className="uos-cselect-dropdown">
+          {options.map(o => (
+            <div key={o.value} className={`uos-cselect-option ${o.value === value ? 'active' : ''}`}
+              onClick={() => { onChange(o.value); setOpen(false); }}>
+              {o.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────
+
+interface Props {
+  onBack: () => void;
+  dark: boolean;
+  onToggleTheme: () => void;
+}
+
+export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme }: Props) {
+  const { user: authUser } = useAuth();
+  const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterPerfil, setFilterPerfil] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [toast, setToast] = useState('');
+  const [toastError, setToastError] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Form state
+  const [fNome, setFNome] = useState('');
+  const [fEmail, setFEmail] = useState('');
+  const [fCargo, setFCargo] = useState('');
+  const [fDept, setFDept] = useState('');
+  const [fPerfil, setFPerfil] = useState('');
+  const [fObs, setFObs] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    usersApi.getAdmins()
+      .then(u => setUsers(Array.isArray(u) ? u : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const usuarios: UsuarioOSView[] = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    return users.map((u, i) => {
+      const roles = u.roles || [];
+      const perfil = roleToPerfil(roles);
+      const iniciais = (u.name || u.email || 'U').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+      return {
+        id: u.id,
+        nome: u.name || u.email || 'Usuário',
+        iniciais,
+        cargo: perfil === 'Admin Master' ? 'Administrador 24p7' : 'Admin OS',
+        email: u.email || '',
+        dept: perfil === 'Admin Master' ? '24p7' : 'Organização de Saúde',
+        perfil,
+        status: u.isActive === false ? 'Inativo' : 'Ativo' as StatusBadge,
+        ultimo: formatLastAccess(u.createdAt),
+        cor: CORES[i % CORES.length],
+      };
+    });
+  }, [users]);
+
+  const filtered = useMemo(() => {
+    return usuarios.filter(u => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (!u.nome.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q)) return false;
+      }
+      if (filterPerfil && u.perfil !== filterPerfil) return false;
+      if (filterStatus && u.status !== filterStatus) return false;
+      return true;
+    });
+  }, [usuarios, search, filterPerfil, filterStatus]);
+
+  const kpiTotal = usuarios.length;
+  const kpiAtivos = usuarios.filter(u => u.status === 'Ativo').length;
+  const kpiPendentes = usuarios.filter(u => u.status === 'Pendente').length;
+  const kpiInativos = usuarios.filter(u => u.status === 'Inativo').length;
+
+  function showToast(msg: string, error = false) {
+    setToast(msg);
+    setToastError(error);
+    setTimeout(() => setToast(''), 3000);
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false);
+    setFNome(''); setFEmail(''); setFCargo(''); setFDept(''); setFPerfil(''); setFObs('');
+  }
+
+  const formValid = fNome.trim() !== '' && fEmail.trim() !== '' && fPerfil !== '';
+
+  async function salvar() {
+    if (!formValid) return;
+    setSaving(true);
+    try {
+      // 1. Criar o usuário
+      const newUser = await usersApi.create({
+        name: fNome.trim(),
+        email: fEmail.trim(),
+        password: `Temp@${Date.now()}`,
+      });
+
+      // 2. Atribuir a role — pega a primeira clinicId do usuário logado
+      const clinicId = authUser?.clinicIds?.[0] ?? authUser?.clinicId ?? '';
+      if (clinicId) {
+        await usersApi.assignRole(newUser.id, {
+          clinicId,
+          role: fPerfil === 'Admin Master' ? 'AdminGlobal' : 'AdminClinica',
+        });
+      }
+
+      // 3. Adiciona à lista local
+      setUsers(prev => [...prev, {
+        ...newUser,
+        roles: [{ id: '', userId: newUser.id, clinicId, role: fPerfil === 'Admin Master' ? 'AdminGlobal' : 'AdminClinica', assignedAt: new Date().toISOString() }],
+      }]);
+
+      showToast(`${fNome} criado(a) com sucesso!`);
+      closeDrawer();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Erro ao criar usuário', true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleStatus(u: UsuarioOSView) {
+    const willActivate = u.status === 'Inativo';
+    try {
+      const updated = await usersApi.toggleStatus(u.id);
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, isActive: updated.isActive } : x));
+      showToast(willActivate ? `${u.nome} reativado(a)` : `${u.nome} suspenso(a)`);
+    } catch {
+      showToast('Erro ao alterar status', true);
+    }
+  }
+
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: USUARIOS_CSS }} />
+
+      <div className="uos-topbar">
+        <div>
+          <div className="uos-topbar-title">Usuários da OS</div>
+          <div className="uos-topbar-sub">Gerencie os colaboradores com acesso ao painel administrativo</div>
+        </div>
+        <button className="theme-toggle" onClick={onToggleTheme} title={dark ? 'Tema claro' : 'Tema escuro'}>
+          {dark ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          )}
+        </button>
+      </div>
+
+      <div className="uos-content">
+        <div className="uos-page-header">
+          <div>
+            <div className="uos-page-title">Gestão de Usuários</div>
+            <div className="uos-page-sub">Controle de acesso e perfis dos colaboradores da OS</div>
+          </div>
+          <button className="uos-btn-novo" onClick={() => setDrawerOpen(true)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Novo usuário
+          </button>
+        </div>
+
+        {/* KPIs */}
+        <div className="uos-kpi-strip">
+          <div className="uos-kpi indigo">
+            <div className="uos-kpi-lbl">Total de usuários</div>
+            <div className="uos-kpi-val">{loading ? '…' : kpiTotal}</div>
+            <div className="uos-kpi-sub">cadastrados na OS</div>
+          </div>
+          <div className="uos-kpi green">
+            <div className="uos-kpi-lbl">Ativos</div>
+            <div className="uos-kpi-val">{loading ? '…' : kpiAtivos}</div>
+            <div className="uos-kpi-sub">com acesso liberado</div>
+          </div>
+          <div className="uos-kpi yellow">
+            <div className="uos-kpi-lbl">Convite pendente</div>
+            <div className="uos-kpi-val">{loading ? '…' : kpiPendentes}</div>
+            <div className="uos-kpi-sub">aguardando confirmação</div>
+          </div>
+          <div className="uos-kpi red">
+            <div className="uos-kpi-lbl">Inativos</div>
+            <div className="uos-kpi-val">{loading ? '…' : kpiInativos}</div>
+            <div className="uos-kpi-sub">acesso suspenso</div>
+          </div>
+        </div>
+
+        {/* Filtros */}
+        <div className="uos-filter-bar">
+          <div className="uos-search-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+            <input className="uos-search-input" type="text" placeholder="Buscar por nome ou e-mail..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          <CustomSelect
+            value={filterPerfil}
+            onChange={setFilterPerfil}
+            options={[
+              { value: '', label: 'Todos os perfis' },
+              { value: 'Admin Master', label: 'Admin Master' },
+              { value: 'Admin OS', label: 'Admin OS' },
+            ]}
+          />
+          <CustomSelect
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={[
+              { value: '', label: 'Todos os status' },
+              { value: 'Ativo', label: 'Ativo' },
+              { value: 'Pendente', label: 'Pendente' },
+              { value: 'Inativo', label: 'Inativo' },
+            ]}
+          />
+        </div>
+
+        {/* Tabela */}
+        <div className="uos-table-card">
+          <div className="uos-table-header">
+            <div className="uos-table-title">Colaboradores cadastrados</div>
+            <div className="uos-table-count">{filtered.length} {filtered.length === 1 ? 'usuário' : 'usuários'}</div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="uos-table">
+              <thead>
+                <tr>
+                  <th>Colaborador</th>
+                  <th>Perfil</th>
+                  <th className="center">Status</th>
+                  <th>Departamento</th>
+                  <th>Último acesso</th>
+                  <th className="center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr><td colSpan={6} className="uos-empty-cell">Carregando…</td></tr>
+                )}
+                {!loading && filtered.length === 0 && (
+                  <tr><td colSpan={6} className="uos-empty-cell">Nenhum usuário encontrado.</td></tr>
+                )}
+                {!loading && filtered.map(u => (
+                  <tr key={u.id}>
+                    <td>
+                      <div className="uos-td-user">
+                        <div className="uos-td-avatar" style={{ background: u.cor }}>{u.iniciais}</div>
+                        <div>
+                          <div className="uos-td-name">{u.nome}</div>
+                          <div className="uos-td-email">{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span className={`uos-badge ${u.perfil === 'Admin Master' ? 'uos-badge-admin' : 'uos-badge-op'}`}>{u.perfil}</span></td>
+                    <td className="center"><span className={`uos-badge ${u.status === 'Ativo' ? 'uos-badge-ativo' : u.status === 'Pendente' ? 'uos-badge-pendente' : 'uos-badge-inativo'}`}>{u.status}</span></td>
+                    <td className="uos-td-dept">{u.dept}</td>
+                    <td><span className="uos-last-access">{u.ultimo}</span></td>
+                    <td className="center">
+                      <div className="uos-actions-cell">
+                        <button className={`uos-act-btn ${u.status === 'Ativo' ? 'danger' : 'success'}`}
+                          title={u.status === 'Ativo' ? 'Suspender' : 'Reativar'}
+                          onClick={() => toggleStatus(u)}>
+                          {u.status === 'Ativo' ? (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          )}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {toast && (
+        <div className={`uos-toast ${toastError ? 'error' : ''}`}>
+          <span>{toast}</span>
+        </div>
+      )}
+
+      {/* Overlay */}
+      {drawerOpen && <div className="uos-overlay" onClick={closeDrawer} />}
+
+      {/* Drawer Novo Usuário */}
+      <div className={`uos-drawer ${drawerOpen ? 'open' : ''}`}>
+        <div className="uos-drawer-header">
+          <div className="uos-drawer-title">Novo usuário</div>
+          <button className="uos-drawer-close" onClick={closeDrawer}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="uos-drawer-body">
+          <div className="uos-form-section">
+            <div className="uos-form-section-title">Dados pessoais</div>
+            <div className="uos-form-row">
+              <div className="uos-field"><label>Nome completo *</label><input type="text" placeholder="Ex: João da Silva" value={fNome} onChange={e => setFNome(e.target.value)} /></div>
+              <div className="uos-field"><label>Cargo</label><input type="text" placeholder="Ex: Coordenador" value={fCargo} onChange={e => setFCargo(e.target.value)} /></div>
+            </div>
+            <div className="uos-form-row">
+              <div className="uos-field"><label>E-mail corporativo *</label><input type="email" placeholder="joao@organizacao.com.br" value={fEmail} onChange={e => setFEmail(e.target.value)} /></div>
+            </div>
+            <div className="uos-form-row">
+              <div className="uos-field">
+                <label>Departamento</label>
+                <CustomSelect
+                  value={fDept}
+                  onChange={setFDept}
+                  options={[
+                    { value: '', label: 'Selecione...' },
+                    { value: 'Coordenação de Escalas', label: 'Coordenação de Escalas' },
+                    { value: 'Recursos Humanos', label: 'Recursos Humanos' },
+                    { value: 'Diretoria', label: 'Diretoria' },
+                    { value: 'Financeiro', label: 'Financeiro' },
+                    { value: 'Operações', label: 'Operações' },
+                    { value: 'TI', label: 'TI' },
+                  ]}
+                />
+              </div>
+              <div className="uos-field">
+                <label>Perfil de acesso *</label>
+                <CustomSelect
+                  value={fPerfil}
+                  onChange={setFPerfil}
+                  options={[
+                    { value: '', label: 'Selecione...' },
+                    ...(isAdminGlobal ? [{ value: 'Admin Master', label: 'Admin Master (24p7)' }] : []),
+                    { value: 'Admin OS', label: 'Admin OS' },
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="uos-form-section">
+            <div className="uos-form-section-title">Observações</div>
+            <div className="uos-form-row uos-full">
+              <div className="uos-field"><label>Notas internas</label><textarea placeholder="Informações adicionais sobre este usuário..." value={fObs} onChange={e => setFObs(e.target.value)} rows={3} /></div>
+            </div>
+          </div>
+        </div>
+        <div className="uos-drawer-footer">
+          <button className="uos-btn-cancelar" onClick={closeDrawer}>Cancelar</button>
+          <button className="uos-btn-salvar" onClick={salvar} disabled={!formValid || saving}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {saving ? 'Enviando…' : 'Salvar e enviar convite'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── CSS scoped to #adm-root ─────────────────────────────────────────────
+
+const USUARIOS_CSS = `
+#adm-root .uos-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+#adm-root .uos-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
+#adm-root .uos-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; }
+
+#adm-root .uos-content { flex:1; padding:2rem; animation:uos-fadeUp .35s ease; }
+@keyframes uos-fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+#adm-root .uos-page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:1.6rem; flex-wrap:wrap; gap:1rem; }
+#adm-root .uos-page-title { font-family:'Nunito',sans-serif; font-size:1.3rem; font-weight:900; color:var(--text); }
+#adm-root .uos-page-sub { font-size:.78rem; font-weight:600; color:var(--muted); margin-top:.25rem; }
+
+#adm-root .uos-kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.6rem; }
+#adm-root .uos-kpi { background:var(--surface); border-radius:16px; border:1.5px solid var(--border); padding:1rem 1.2rem; position:relative; overflow:hidden; }
+#adm-root .uos-kpi::after { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:3px 3px 0 0; }
+#adm-root .uos-kpi.indigo::after { background:#6366f1; }
+#adm-root .uos-kpi.green::after { background:#22c55e; }
+#adm-root .uos-kpi.yellow::after { background:#f59e0b; }
+#adm-root .uos-kpi.red::after { background:#ef4444; }
+#adm-root .uos-kpi-lbl { font-size:.62rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:.25rem; }
+#adm-root .uos-kpi-val { font-family:'Nunito',sans-serif; font-size:1.7rem; font-weight:900; line-height:1; }
+#adm-root .uos-kpi.indigo .uos-kpi-val { color:#6366f1; }
+#adm-root .uos-kpi.green .uos-kpi-val { color:#22c55e; }
+#adm-root .uos-kpi.yellow .uos-kpi-val { color:#f59e0b; }
+#adm-root .uos-kpi.red .uos-kpi-val { color:#ef4444; }
+#adm-root .uos-kpi-sub { font-size:.67rem; font-weight:600; color:var(--muted); margin-top:.25rem; }
+
+#adm-root .uos-filter-bar { display:flex; align-items:center; gap:.8rem; margin-bottom:1.2rem; flex-wrap:wrap; }
+#adm-root .uos-search-wrap { position:relative; flex:1; min-width:220px; }
+#adm-root .uos-search-wrap svg { position:absolute; left:.85rem; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; }
+#adm-root .uos-search-input { width:100%; padding:.65rem 1rem .65rem 2.5rem; border:1.5px solid var(--border); border-radius:12px; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:600; color:var(--text); background:var(--surface); outline:none; transition:border-color .2s; }
+#adm-root .uos-search-input:focus { border-color:#6366f1; }
+
+#adm-root .uos-cselect { position:relative; min-width:170px; }
+#adm-root .uos-cselect-btn { width:100%; background:var(--surface); border:1.5px solid var(--border); border-radius:12px; padding:.65rem 1rem; font-family:'Nunito Sans',sans-serif; font-size:.82rem; font-weight:700; color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:.5rem; transition:border-color .2s; }
+#adm-root .uos-cselect-btn:hover { border-color:#6366f1; }
+#adm-root .uos-cselect-btn svg { color:#6366f1; }
+#adm-root .uos-cselect-dropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--surface); border:1.5px solid var(--border); border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.08); padding:.35rem; z-index:200; }
+#adm-root .uos-cselect-option { padding:.55rem .85rem; font-size:.82rem; font-weight:700; color:var(--text); cursor:pointer; border-radius:8px; transition:background .12s; }
+#adm-root .uos-cselect-option:hover { background:#eef2ff; color:#6366f1; }
+#adm-root .uos-cselect-option.active { background:#6366f1; color:#fff; }
+
+#adm-root .uos-table-card { background:var(--surface); border-radius:18px; border:1.5px solid var(--border); overflow:hidden; }
+#adm-root .uos-table-header { padding:1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+#adm-root .uos-table-title { font-family:'Nunito',sans-serif; font-size:.9rem; font-weight:900; color:var(--text); }
+#adm-root .uos-table-count { font-size:.72rem; font-weight:700; color:var(--muted); }
+#adm-root .uos-table { width:100%; border-collapse:collapse; }
+#adm-root .uos-table thead tr { background:var(--bg); border-bottom:1px solid var(--border); }
+#adm-root .uos-table thead th { padding:.75rem 1.1rem; font-size:.63rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); text-align:left; white-space:nowrap; }
+#adm-root .uos-table thead th.center { text-align:center; }
+#adm-root .uos-table tbody tr { border-bottom:1px solid rgba(0,0,0,.04); transition:background .12s; }
+#adm-root .uos-table tbody tr:last-child { border-bottom:none; }
+#adm-root .uos-table tbody tr:hover { background:rgba(99,102,241,.03); }
+#adm-root .uos-table tbody td { padding:.85rem 1.1rem; font-size:.82rem; font-weight:600; color:var(--text); vertical-align:middle; }
+#adm-root .uos-table tbody td.center { text-align:center; }
+#adm-root .uos-empty-cell { text-align:center; padding:2.5rem; color:var(--muted); font-weight:700; }
+
+#adm-root .uos-td-user { display:flex; align-items:center; gap:.75rem; }
+#adm-root .uos-td-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; color:#fff; flex-shrink:0; }
+#adm-root .uos-td-name { font-weight:800; color:var(--text); line-height:1.2; }
+#adm-root .uos-td-email { font-size:.7rem; font-weight:600; color:var(--muted); }
+#adm-root .uos-td-dept { font-weight:700; }
+#adm-root .uos-last-access { font-size:.75rem; font-weight:700; color:var(--muted); }
+
+#adm-root .uos-badge { display:inline-block; padding:.28rem .7rem; border-radius:8px; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+#adm-root .uos-badge-admin { background:#eef2ff; color:#4f46e5; }
+#adm-root .uos-badge-op { background:#e8faf9; color:#2DBFB8; }
+#adm-root .uos-badge-ativo { background:#dcfce7; color:#22c55e; }
+#adm-root .uos-badge-pendente { background:#fef3c7; color:#f59e0b; }
+#adm-root .uos-badge-inativo { background:#fee2e2; color:#ef4444; }
+
+#adm-root .uos-actions-cell { display:flex; gap:.4rem; justify-content:center; }
+#adm-root .uos-act-btn { width:30px; height:30px; background:#eef2ff; border:none; border-radius:8px; color:#6366f1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:all .12s; }
+#adm-root .uos-act-btn:hover { background:#6366f1; color:#fff; transform:translateY(-1px); }
+#adm-root .uos-act-btn.danger { background:#fee2e2; color:#ef4444; }
+#adm-root .uos-act-btn.danger:hover { background:#ef4444; color:#fff; }
+#adm-root .uos-act-btn.success { background:#dcfce7; color:#22c55e; }
+#adm-root .uos-act-btn.success:hover { background:#22c55e; color:#fff; }
+
+#adm-root .uos-toast { position:fixed; bottom:2rem; right:2rem; background:var(--surface); border:1.5px solid #22c55e; border-radius:12px; padding:.85rem 1.2rem; font-size:.85rem; font-weight:700; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.12); z-index:100; animation:uos-slideIn .3s ease; }
+#adm-root .uos-toast.error { border-color:#ef4444; color:#ef4444; }
+@keyframes uos-slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+
+#adm-root .uos-btn-novo { display:flex; align-items:center; gap:.45rem; padding:.65rem 1.3rem; border:none; border-radius:12px; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,.35); transition:transform .14s,box-shadow .14s; }
+#adm-root .uos-btn-novo:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,.45); }
+
+#adm-root .uos-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; animation:uos-fadeIn .2s ease; }
+@keyframes uos-fadeIn { from{opacity:0} to{opacity:1} }
+
+#adm-root .uos-drawer { position:fixed; top:0; right:0; bottom:0; width:520px; background:var(--surface); z-index:101; display:flex; flex-direction:column; box-shadow:-8px 0 40px rgba(0,0,0,.12); transform:translateX(110%); transition:transform .3s cubic-bezier(.4,0,.2,1); }
+#adm-root .uos-drawer.open { transform:translateX(0); }
+#adm-root .uos-drawer-header { padding:1.4rem 1.6rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+#adm-root .uos-drawer-title { font-family:'Nunito',sans-serif; font-size:1.1rem; font-weight:900; color:var(--text); }
+#adm-root .uos-drawer-close { background:none; border:none; cursor:pointer; color:var(--muted); padding:4px; line-height:0; }
+#adm-root .uos-drawer-close:hover { color:var(--text); }
+#adm-root .uos-drawer-body { flex:1; overflow-y:auto; padding:1.6rem; }
+#adm-root .uos-form-section { margin-bottom:1.4rem; }
+#adm-root .uos-form-section-title { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#6366f1; margin-bottom:.9rem; padding-bottom:.5rem; border-bottom:1.5px solid #eef2ff; }
+#adm-root .uos-form-row { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; margin-bottom:.9rem; }
+#adm-root .uos-form-row.uos-full { grid-template-columns:1fr; }
+#adm-root .uos-field { display:flex; flex-direction:column; gap:.35rem; }
+#adm-root .uos-field label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
+#adm-root .uos-field input, #adm-root .uos-field textarea { padding:.7rem .9rem; border:1.5px solid var(--border); border-radius:10px; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:600; color:var(--text); background:var(--bg); outline:none; transition:border-color .2s; }
+#adm-root .uos-field input:focus, #adm-root .uos-field textarea:focus { border-color:#6366f1; background:#fff; }
+#adm-root .uos-field textarea { resize:vertical; }
+#adm-root .uos-select { padding:.7rem .9rem; border:1.5px solid var(--border); border-radius:10px; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:600; color:var(--text); appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .8rem center; background-color:var(--bg); cursor:pointer; outline:none; transition:border-color .2s; width:100%; }
+#adm-root .uos-select:focus { border-color:#6366f1; }
+#adm-root .uos-drawer-footer { padding:1.2rem 1.6rem; border-top:1px solid var(--border); display:flex; gap:.8rem; justify-content:flex-end; flex-shrink:0; }
+#adm-root .uos-btn-cancelar { padding:.65rem 1.3rem; border:1.5px solid var(--border); border-radius:12px; background:transparent; color:var(--muted); font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .14s; }
+#adm-root .uos-btn-cancelar:hover { border-color:var(--text); color:var(--text); }
+#adm-root .uos-btn-salvar { display:flex; align-items:center; gap:.45rem; padding:.65rem 1.3rem; border:none; border-radius:12px; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,.35); transition:transform .14s,box-shadow .14s; }
+#adm-root .uos-btn-salvar:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,.45); }
+#adm-root .uos-btn-salvar:disabled { opacity:.5; cursor:not-allowed; }
+`;

@@ -41,6 +41,8 @@ public class DatabaseSeeder
         // Idempotency check: skip if users already exist
         if (await _context.Users.AnyAsync(u => u.Email == "admin@plantonhub.com"))
         {
+            // Even if base seed was done, ensure PublicOrgan/Contract seed is applied
+            await SeedPublicOrgansAndContractsAsync();
             return;
         }
 
@@ -364,6 +366,17 @@ public class DatabaseSeeder
 
         await _context.SaveChangesAsync();
 
+        await SeedPublicOrgansAndContractsAsync();
+    }
+
+    private async Task SeedPublicOrgansAndContractsAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        // Idempotency: skip if already seeded
+        if (await _context.PublicOrgans.AnyAsync(p => p.Id == PublicOrganSantoAndreId))
+            return;
+
         // ── Órgãos Públicos ───────────────────────────────────────────────
         // Duas prefeituras + uma subprefeitura filha de Santo André.
         var publicOrganSantoAndre = new PublicOrgan
@@ -449,11 +462,13 @@ public class DatabaseSeeder
         await _context.SaveChangesAsync();
 
         // Vincular clínicas aos contratos (atualizar ContractId nas clínicas)
-        var alpha = await _context.Clinics.FindAsync(ClinicAlphaId);
-        var beta  = await _context.Clinics.FindAsync(ClinicBetaId);
-        if (alpha is not null) alpha.ContractId = ContractSantoAndreId;
-        if (beta  is not null) beta.ContractId  = ContractDiademaId;
+        // Use ExecuteUpdate to avoid change-tracker issues
+        await _context.Clinics
+            .Where(c => c.Id == ClinicAlphaId && c.ContractId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ContractId, ContractSantoAndreId));
 
-        await _context.SaveChangesAsync();
+        await _context.Clinics
+            .Where(c => c.Id == ClinicBetaId && c.ContractId == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.ContractId, ContractDiademaId));
     }
 }

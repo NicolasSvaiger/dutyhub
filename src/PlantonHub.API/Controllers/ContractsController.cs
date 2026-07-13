@@ -36,4 +36,28 @@ public class ContractsController : ControllerBase
         var result = await _service.GetByIdAsync(id);
         return result is null ? NotFound() : Ok(result);
     }
+
+    /// <summary>Create a new public organ + contract. AdminGlobal only.</summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPost]
+    [ProducesResponseType(typeof(ContractResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Create([FromBody] CreateContractRequest request)
+    {
+        var result = await _service.CreateAsync(request);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    /// <summary>Update contract and its linked public organ. AdminGlobal only.</summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(ContractResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateContractRequest request)
+    {
+        var result = await _service.UpdateAsync(id, request);
+        return Ok(result);
+    }
 }

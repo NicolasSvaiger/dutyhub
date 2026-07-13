@@ -11,8 +11,10 @@ import { AdminEscalas } from './AdminEscalas';
 import { AdminUpas } from './AdminUpas';
 import { AdminOrgaos } from './AdminOrgaos';
 import { AdminGestores } from './AdminGestores';
+import { AdminUsuariosOS } from './AdminUsuariosOS';
+import { AdminConfiguracoes } from './AdminConfiguracoes';
 
-type AdminView = 'home' | 'medicos' | 'escalas' | 'upas' | 'orgaos' | 'gestores';
+type AdminView = 'home' | 'medicos' | 'escalas' | 'upas' | 'orgaos' | 'gestores' | 'usuarios' | 'configuracoes';
 
 export function AdminPage() {
   const [dark, setDark] = useState(false);
@@ -81,7 +83,7 @@ export function AdminPage() {
         </a>
 
         <div className="nav-section-label">Cadastros</div>
-        <a className="nav-item" href="#">
+        <a className={`nav-item ${activeView === 'usuarios' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('usuarios'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Usuários da OS
         </a>
@@ -131,7 +133,7 @@ export function AdminPage() {
         </a>
 
         <div className="nav-section-label">Sistema</div>
-        <a className="nav-item" href="#">
+        <a className={`nav-item ${activeView === 'configuracoes' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('configuracoes'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>
           Configurações
         </a>
@@ -277,6 +279,8 @@ export function AdminPage() {
         {activeView === 'upas' && <AdminUpas onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
         {activeView === 'orgaos' && <AdminOrgaos onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
         {activeView === 'gestores' && <AdminGestores onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
+        {activeView === 'usuarios' && <AdminUsuariosOS onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
+        {activeView === 'configuracoes' && <AdminConfiguracoes onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
       </main>
     </div>
   );

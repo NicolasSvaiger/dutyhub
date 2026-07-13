@@ -17,6 +17,20 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Listar usuários administradores (AdminGlobal e AdminClinica).
+    /// AdminGlobal: todos os admins.
+    /// AdminClinica: apenas admins das mesmas clínicas.
+    /// </summary>
+    [Authorize(Policy = "AdminClinica")]
+    [HttpGet("admins")]
+    [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAdmins()
+    {
+        var users = await _userService.GetAdminUsersAsync();
+        return Ok(users);
+    }
+
+    /// <summary>
     /// Listar usuários.
     /// AdminGlobal: todos os usuários.
     /// AdminClinica: apenas profissionais (Médico/Enfermeiro).

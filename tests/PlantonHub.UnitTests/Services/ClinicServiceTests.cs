@@ -458,4 +458,134 @@ public class ClinicServiceTests
 
         _cache.Verify(c => c.RemoveByPrefixAsync("clinics:", It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // ─── Role propagation (ContractId) ────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_WithContractId_PropagatesAdminClinicaRoles()
+    {
+        var contractId = Guid.NewGuid();
+        var newClinicId = Guid.Empty; // captured below
+        var existingUserId = Guid.NewGuid();
+
+        var existingRole = new UserClinicRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = existingUserId,
+            ClinicId = Guid.NewGuid(),
+            Role = RoleType.AdminClinica,
+            AssignedAt = DateTime.UtcNow,
+        };
+
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Clinic>()))
+             .Callback<Clinic>(c => newClinicId = c.Id)
+             .Returns(Task.CompletedTask);
+        _repo.Setup(r => r.GetRolesByContractAsync(contractId))
+             .ReturnsAsync(new[] { existingRole });
+        _repo.Setup(r => r.AddRoleIfNotExistsAsync(existingUserId, It.IsAny<Guid>(), RoleType.AdminClinica))
+             .Returns(Task.CompletedTask);
+        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await CreateService().CreateAsync(new CreateClinicRequest
+        {
+            Name = "Nova UPA",
+            ContractId = contractId,
+        });
+
+        _repo.Verify(r => r.GetRolesByContractAsync(contractId), Times.Once);
+        _repo.Verify(r => r.AddRoleIfNotExistsAsync(existingUserId, It.IsAny<Guid>(), RoleType.AdminClinica), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithoutContractId_DoesNotPropagateRoles()
+    {
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _repo.Setup(r => r.AddAsync(It.IsAny<Clinic>())).Returns(Task.CompletedTask);
+        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await CreateService().CreateAsync(new CreateClinicRequest { Name = "UPA Sem Contrato" });
+
+        _repo.Verify(r => r.GetRolesByContractAsync(It.IsAny<Guid>()), Times.Never);
+        _repo.Verify(r => r.AddRoleIfNotExistsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<RoleType>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithContractId_PropagatesAdminClinicaRoles()
+    {
+        var id = Guid.NewGuid();
+        var contractId = Guid.NewGuid();
+        var existingUserId = Guid.NewGuid();
+
+        var existingRole = new UserClinicRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = existingUserId,
+            ClinicId = Guid.NewGuid(),
+            Role = RoleType.AdminClinica,
+            AssignedAt = DateTime.UtcNow,
+        };
+
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _repo.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(MakeClinic(id));
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<Clinic>())).Returns(Task.CompletedTask);
+        _repo.Setup(r => r.GetRolesByContractAsync(contractId)).ReturnsAsync(new[] { existingRole });
+        _repo.Setup(r => r.AddRoleIfNotExistsAsync(existingUserId, id, RoleType.AdminClinica)).Returns(Task.CompletedTask);
+        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await CreateService().UpdateAsync(id, new UpdateClinicRequest
+        {
+            Name = "UPA Atualizada",
+            ContractId = contractId,
+        });
+
+        _repo.Verify(r => r.GetRolesByContractAsync(contractId), Times.Once);
+        _repo.Verify(r => r.AddRoleIfNotExistsAsync(existingUserId, id, RoleType.AdminClinica), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithoutContractId_DoesNotPropagateRoles()
+    {
+        var id = Guid.NewGuid();
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _repo.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(MakeClinic(id));
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<Clinic>())).Returns(Task.CompletedTask);
+        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await CreateService().UpdateAsync(id, new UpdateClinicRequest { Name = "X", ContractId = null });
+
+        _repo.Verify(r => r.GetRolesByContractAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_PropagatesOnlyAdminClinicaRole_NotMedico()
+    {
+        var id = Guid.NewGuid();
+        var contractId = Guid.NewGuid();
+        var medicoUserId = Guid.NewGuid();
+
+        var medicoRole = new UserClinicRole
+        {
+            Id = Guid.NewGuid(),
+            UserId = medicoUserId,
+            ClinicId = Guid.NewGuid(),
+            Role = RoleType.Medico, // should NOT be propagated
+            AssignedAt = DateTime.UtcNow,
+        };
+
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _repo.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(MakeClinic(id));
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<Clinic>())).Returns(Task.CompletedTask);
+        _repo.Setup(r => r.GetRolesByContractAsync(contractId)).ReturnsAsync(new[] { medicoRole });
+        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await CreateService().UpdateAsync(id, new UpdateClinicRequest
+        {
+            Name = "X",
+            ContractId = contractId,
+        });
+
+        // Medico roles should NOT be propagated
+        _repo.Verify(r => r.AddRoleIfNotExistsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<RoleType>()), Times.Never);
+    }
 }

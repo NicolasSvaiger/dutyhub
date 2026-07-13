@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Enums;
 using PlantonHub.Domain.Interfaces;
 using PlantonHub.Infrastructure.Data;
 
@@ -36,7 +37,13 @@ public class ClinicRepository : IClinicRepository
 
     public async Task UpdateAsync(Clinic clinic)
     {
-        _context.Clinics.Update(clinic);
+        // Explicitly mark as modified to ensure EF persists all scalar changes
+        // including ContractId FK even when the navigation property isn't loaded.
+        _context.Entry(clinic).State = EntityState.Modified;
+        // Shift templates are managed separately via ReplaceShiftTemplatesAsync
+        // — ignore them here to avoid trying to update/insert them again.
+        foreach (var template in clinic.ShiftTemplates ?? new List<ClinicShiftTemplate>())
+            _context.Entry(template).State = EntityState.Detached;
         await _context.SaveChangesAsync();
     }
 
@@ -72,5 +79,32 @@ public class ClinicRepository : IClinicRepository
     {
         return await _context.UserClinicRoles
             .AnyAsync(ucr => ucr.UserId == userId && ucr.ClinicId == clinicId);
+    }
+
+    public async Task<IEnumerable<UserClinicRole>> GetRolesByContractAsync(Guid contractId)
+    {
+        // All UserClinicRoles for clinics that belong to this contract
+        return await _context.UserClinicRoles
+            .Where(ucr => _context.Clinics
+                .Any(c => c.Id == ucr.ClinicId && c.ContractId == contractId))
+            .ToListAsync();
+    }
+
+    public async Task AddRoleIfNotExistsAsync(Guid userId, Guid clinicId, RoleType role)
+    {
+        var exists = await _context.UserClinicRoles
+            .AnyAsync(ucr => ucr.UserId == userId && ucr.ClinicId == clinicId);
+        if (!exists)
+        {
+            _context.UserClinicRoles.Add(new UserClinicRole
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ClinicId = clinicId,
+                Role = role,
+                AssignedAt = DateTime.UtcNow,
+            });
+            await _context.SaveChangesAsync();
+        }
     }
 }

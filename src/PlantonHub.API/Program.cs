@@ -19,6 +19,9 @@ using PlantonHub.Infrastructure.Seed;
 using PlantonHub.Infrastructure.Services;
 using StackExchange.Redis;
 
+// Treat DateTime.Kind=Unspecified as UTC globally for Npgsql (timestamp with time zone columns)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ----- Kestrel: suppress Server header + request size limits -----
@@ -45,6 +48,7 @@ builder.Services.AddScoped<IPublicOrganRepository, PublicOrganRepository>();
 builder.Services.AddScoped<IContractRepository, ContractRepository>();
 builder.Services.AddScoped<IFaceEnrollmentRepository, FaceEnrollmentRepository>();
 builder.Services.AddScoped<IDeviceRegistrationRepository, DeviceRegistrationRepository>();
+builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
 
 // ----- Application Services -----
 builder.Services.AddScoped<IClinicService, ClinicService>();
@@ -55,7 +59,12 @@ builder.Services.AddScoped<IAttendanceSyncService, AttendanceSyncService>();
 builder.Services.AddScoped<IOfflineEventValidator, OfflineEventValidator>();
 builder.Services.AddScoped<IFaceVerificationService, FaceVerificationService>();
 builder.Services.AddScoped<IPublicOrganService, PublicOrganService>();
-builder.Services.AddScoped<IContractService, ContractService>();
+builder.Services.AddScoped<IContractService>(sp => new ContractService(
+    sp.GetRequiredService<IContractRepository>(),
+    sp.GetRequiredService<IPublicOrganRepository>(),
+    sp.GetRequiredService<ITenantService>()
+));
+builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
 builder.Services.AddScoped<IAuditService, AuditService>();
@@ -210,6 +219,12 @@ builder.Services.AddControllers(options =>
 {
     options.Filters.Add<ETagActionFilter>();
     options.Filters.Add<ValidationActionFilter>();
+})
+.AddJsonOptions(options =>
+{
+    // Serialize enums as strings (e.g. "Active" instead of 1)
+    options.JsonSerializerOptions.Converters.Add(
+        new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
 
 // ----- CORS -----

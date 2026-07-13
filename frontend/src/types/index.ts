@@ -208,6 +208,13 @@ export interface Contract {
   publicOrganId: string;
   publicOrganName: string;
   publicOrganAcronym?: string | null;
+  publicOrganCnpj?: string | null;
+  publicOrganDepartment?: string | null;
+  publicOrganContactName?: string | null;
+  publicOrganContactEmail?: string | null;
+  publicOrganContactPhone?: string | null;
+  publicOrganCity?: string | null;
+  publicOrganState?: string | null;
   monthlyValue?: number | null;
   startDate: string;
   endDate: string;
@@ -218,6 +225,29 @@ export interface Contract {
   createdAt: string;
   clinics: ContractClinicSummary[];
 }
+
+// ===== Contract DTOs =====
+
+export interface CreateContractRequest {
+  organName: string;
+  organAcronym?: string | null;
+  organCnpj?: string | null;
+  organDepartment?: string | null;
+  organContactName?: string | null;
+  organContactEmail?: string | null;
+  organContactPhone?: string | null;
+  organCity?: string | null;
+  organState?: string | null;
+  contractNumber: string;
+  monthlyValue?: number | null;
+  startDate: string;
+  endDate: string;
+  minSlaPercent?: number | null;
+  status: ContractStatus;
+  notes?: string | null;
+}
+
+export interface UpdateContractRequest extends CreateContractRequest {}
 
 // ===== User DTOs =====
 

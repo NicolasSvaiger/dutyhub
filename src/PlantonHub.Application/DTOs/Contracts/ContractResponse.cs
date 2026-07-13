@@ -17,6 +17,13 @@ public class ContractResponse
     public Guid PublicOrganId { get; set; }
     public string PublicOrganName { get; set; } = string.Empty;
     public string? PublicOrganAcronym { get; set; }
+    public string? PublicOrganCnpj { get; set; }
+    public string? PublicOrganDepartment { get; set; }
+    public string? PublicOrganContactName { get; set; }
+    public string? PublicOrganContactEmail { get; set; }
+    public string? PublicOrganContactPhone { get; set; }
+    public string? PublicOrganCity { get; set; }
+    public string? PublicOrganState { get; set; }
     public decimal? MonthlyValue { get; set; }
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }

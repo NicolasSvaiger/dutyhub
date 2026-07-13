@@ -52,6 +52,12 @@ public class Clinic
     public Guid? ContractId { get; set; }
     public Contract? Contract { get; set; }
 
+    /// <summary>
+    /// Check-in tolerance in minutes for this specific clinic.
+    /// If null, the global system tolerance (SystemSettings.CheckInToleranceMinutes) applies.
+    /// </summary>
+    public int? CheckInToleranceMinutes { get; set; }
+
     // Navigation properties
     public ICollection<UserClinicRole> UserClinicRoles { get; set; } = new List<UserClinicRole>();
     public ICollection<Shift> Shifts { get; set; } = new List<Shift>();
