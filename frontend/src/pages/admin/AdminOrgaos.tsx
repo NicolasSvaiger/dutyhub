@@ -19,12 +19,6 @@ const CARD_COLORS = [
   { bg: '#fee2e2', stroke: '#ef4444' },
 ];
 
-function statusBadgeClass(status: ContractStatus): string {
-  if (status === 'Active') return 'org-badge-ativo';
-  if (status === 'Renewal') return 'org-badge-renovacao';
-  return 'org-badge-inativo';
-}
-
 function isExpired(endDate: string): boolean {
   return new Date(endDate) < new Date();
 }
