@@ -3,7 +3,7 @@
 # ============================================
 
 # Stage 1: Restore dependencies
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
 WORKDIR /src
 
 # Copy solution and project files for dependency resolution
