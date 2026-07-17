@@ -337,6 +337,16 @@ jobs:
           exit-code: "0"
           ignore-unfixed: true
 
+      # Cada scan é uma "run" SARIF distinta e o Code Scanning (a partir de
+      # julho/2025) rejeita múltiplas runs sob a mesma category. Um upload
+      # por imagem, category diferente, roda em paralelo no mesmo commit.
+      - name: Upload API SARIF (GitHub Code Scanning)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-api.sarif
+          category: trivy-api
+
       - name: Scan Frontend image
         if: always()
         uses: aquasecurity/trivy-action@v0.36.0
@@ -348,12 +358,12 @@ jobs:
           exit-code: "0"
           ignore-unfixed: true
 
-      - name: Upload SARIF (GitHub Code Scanning)
+      - name: Upload Frontend SARIF (GitHub Code Scanning)
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: .
-          category: trivy
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
 
   deploy-frontend:
     name: Deploy Frontend to S3
