@@ -328,7 +328,7 @@ jobs:
       # HIGH aparece no dashboard mas não bloqueia deploy — evita travar
       # produção por CVE de base image sem correção disponível ainda.
       - name: Scan API image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_API_REPO }}:${{ github.sha }}
           format: sarif
@@ -339,7 +339,7 @@ jobs:
 
       - name: Scan Frontend image
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPO }}:${{ github.sha }}
           format: sarif
