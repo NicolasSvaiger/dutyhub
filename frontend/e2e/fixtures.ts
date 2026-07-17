@@ -12,6 +12,16 @@ export const DOCTOR_CREDENTIALS = {
 } as const;
 
 /**
+ * Credenciais do admin global no Cognito. Mesmo padrão de seed que o médico —
+ * usuário é criado pelo DatabaseSeeder + script cognito-migrate-users.
+ * AdminGlobal é redirecionado pra /admin após login pela AdminLoginPage.
+ */
+export const ADMIN_CREDENTIALS = {
+  email: 'admin@plantonhub.com',
+  password: 'Admin@123',
+} as const;
+
+/**
  * Ativa listeners de console/erro/rede — quando algo quebra o motivo
  * imprime no output do Playwright, o que ajuda a diagnosticar falhas
  * silenciosas do frontend em CI.
@@ -49,6 +59,23 @@ export async function loginAsDoctor(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Entrar' }).click();
   // Médico é profissional → cai direto em /doctor após login (roles.ts:getHomeRouteFor)
   await page.waitForURL(/\/doctor/, { timeout: 15_000 });
+}
+
+/**
+ * Faz login como AdminGlobal via /admin/login (tela separada com layout split).
+ * Espera o redirect pra /admin (view "home" ativa por padrão).
+ *
+ * A AdminLoginPage usa o mesmo login() do useAuth, então o SDK Cognito é o
+ * mesmo — o layout e a rota de destino é que diferem.
+ */
+export async function loginAsAdmin(page: Page): Promise<void> {
+  attachDebugListeners(page);
+  await page.goto('/admin/login');
+  await page.getByRole('textbox', { name: /E-?mail/i }).fill(ADMIN_CREDENTIALS.email);
+  await page.locator('#password').fill(ADMIN_CREDENTIALS.password);
+  await page.getByRole('button', { name: /Entrar/i }).click();
+  // AdminGlobal → cai em /admin (AdminLoginPage.useEffect redireciona por role)
+  await page.waitForURL(/\/admin(?!\/login)/, { timeout: 15_000 });
 }
 
 /**
