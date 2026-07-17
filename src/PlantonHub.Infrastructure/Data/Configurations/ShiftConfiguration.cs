@@ -28,5 +28,12 @@ public class ShiftConfiguration : IEntityTypeConfiguration<Shift>
             .WithOne(a => a.Shift)
             .HasForeignKey(a => a.ShiftId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Índice composto para queries de período por clínica (relatório gerencial,
+        // billing, live-status). ShiftRepository.GetInPeriodWithDetailsAsync filtra
+        // Where(s => s.Date >= from && s.Date < to) e frequentemente joga por
+        // ClinicId nos includes; um índice composto cobre ambos.
+        builder.HasIndex(s => new { s.ClinicId, s.Date })
+            .HasDatabaseName("IX_Shift_ClinicId_Date");
     }
 }

@@ -7,6 +7,14 @@ public interface IClinicRepository
 {
     Task<Clinic?> GetByIdAsync(Guid id);
     Task<IEnumerable<Clinic>> GetAllAsync();
+
+    /// <summary>
+    /// Batch fetch by primary key. Used to eliminate N+1 loops of GetByIdAsync
+    /// per id (e.g. ClinicService.GetAllAsync for non-AdminGlobal). Includes
+    /// the same graph as GetByIdAsync (ShiftTemplates + Contract + PublicOrgan).
+    /// </summary>
+    Task<IEnumerable<Clinic>> GetByIdsAsync(IEnumerable<Guid> ids);
+
     Task AddAsync(Clinic clinic);
     Task UpdateAsync(Clinic clinic);
     Task DeleteShiftTemplatesAsync(Guid clinicId);

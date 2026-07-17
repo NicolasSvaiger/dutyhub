@@ -30,7 +30,9 @@ public class UserRepository : IUserRepository
 
     public async Task<IEnumerable<User>> GetAllAsync()
     {
+        // Admin listing — read only (UserService.GetAllAsync maps to DTO).
         return await _context.Users
+            .AsNoTracking()
             .Include(u => u.UserClinicRoles)
             .ToListAsync();
     }

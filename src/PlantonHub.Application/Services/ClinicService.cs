@@ -53,14 +53,11 @@ public class ClinicService : IClinicService
                 cacheKey,
                 async () =>
                 {
-                    var list = new List<ClinicResponse>();
-                    foreach (var id in authorized)
-                    {
-                        var clinic = await _clinicRepository.GetByIdAsync(id);
-                        if (clinic is not null)
-                            list.Add(MapToResponse(clinic));
-                    }
-                    return list;
+                    // Single query for the whole authorized set — avoids N+1
+                    // that would issue one GetByIdAsync per authorized clinic
+                    // (each with 3 Includes: ShiftTemplates + Contract + PublicOrgan).
+                    var clinics = await _clinicRepository.GetByIdsAsync(authorized);
+                    return clinics.Select(MapToResponse).ToList();
                 });
 
             return results ?? Enumerable.Empty<ClinicResponse>();

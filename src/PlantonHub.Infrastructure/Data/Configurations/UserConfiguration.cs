@@ -17,6 +17,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.Email)
             .IsUnique();
 
+        // Cpf: unique partial — permite múltiplos NULLs (nem todo usuário
+        // tem CPF), mas rejeita duplicatas. Uso: busca admin por CPF +
+        // integridade contra dois cadastros para a mesma pessoa.
+        builder.HasIndex(u => u.Cpf)
+            .IsUnique()
+            .HasFilter("\"Cpf\" IS NOT NULL")
+            .HasDatabaseName("IX_User_Cpf_Unique");
+
         builder.Property(u => u.Name)
             .IsRequired()
             .HasMaxLength(200);

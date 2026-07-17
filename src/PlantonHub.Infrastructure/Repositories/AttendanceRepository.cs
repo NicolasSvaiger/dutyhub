@@ -28,7 +28,9 @@ public class AttendanceRepository : IAttendanceRepository
 
     public async Task<IEnumerable<Attendance>> GetHistoryByUserAndClinicAsync(Guid userId, Guid clinicId)
     {
+        // Read-only display path (/attendance/my-history). No mutation downstream.
         return await _context.Attendances
+            .AsNoTracking()
             .Where(a => a.UserId == userId && a.ClinicId == clinicId)
             .OrderByDescending(a => a.CheckInTime)
             .ToListAsync();
@@ -36,7 +38,9 @@ public class AttendanceRepository : IAttendanceRepository
 
     public async Task<IEnumerable<Attendance>> GetActiveByUserAndClinicAsync(Guid userId, Guid clinicId)
     {
+        // Read-only display path (/attendance/active dashboard). No mutation downstream.
         return await _context.Attendances
+            .AsNoTracking()
             .Where(a => a.UserId == userId && a.ClinicId == clinicId && a.CheckOutTime == null)
             .OrderByDescending(a => a.CheckInTime)
             .ToListAsync();
@@ -44,7 +48,9 @@ public class AttendanceRepository : IAttendanceRepository
 
     public async Task<IEnumerable<Attendance>> GetByClinicAndDateRangeAsync(Guid clinicId, DateTime fromUtc, DateTime toUtc)
     {
+        // Aggregations for BillingService / ManagementReportService — read only.
         return await _context.Attendances
+            .AsNoTracking()
             .Where(a => a.ClinicId == clinicId && a.CheckInTime >= fromUtc && a.CheckInTime < toUtc)
             .ToListAsync();
     }

@@ -26,7 +26,27 @@ public class ClinicRepository : IClinicRepository
 
     public async Task<IEnumerable<Clinic>> GetAllAsync()
     {
+        // Read-only list for AdminGlobal — MapToResponse only.
         return await _context.Clinics
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(c => c.ShiftTemplates)
+            .Include(c => c.Contract)
+                .ThenInclude(ct => ct!.PublicOrgan)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Clinic>> GetByIdsAsync(IEnumerable<Guid> ids)
+    {
+        // Batch fetch used by ClinicService.GetAllAsync to eliminate N+1
+        // (loop of GetByIdAsync per authorized clinic). Read-only.
+        var idSet = ids.ToHashSet();
+        if (idSet.Count == 0) return Array.Empty<Clinic>();
+
+        return await _context.Clinics
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(c => idSet.Contains(c.Id))
             .Include(c => c.ShiftTemplates)
             .Include(c => c.Contract)
                 .ThenInclude(ct => ct!.PublicOrgan)

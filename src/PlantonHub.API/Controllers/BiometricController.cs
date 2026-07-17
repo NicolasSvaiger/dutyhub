@@ -128,9 +128,11 @@ public class BiometricController : ControllerBase
     /// </summary>
     [HttpPost("verify")]
     [Authorize(Policy = "Profissional")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("BiometricVerify")]
     [ProducesResponseType(typeof(FaceVerifyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Verify([FromBody] FaceVerifyRequest request)
     {
         var userId = _tenantService.GetCurrentUserId();

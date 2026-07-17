@@ -17,12 +17,51 @@ using PlantonHub.Infrastructure.Data;
 using PlantonHub.Infrastructure.Repositories;
 using PlantonHub.Infrastructure.Seed;
 using PlantonHub.Infrastructure.Services;
+using Serilog;
+using Serilog.Events;
 using StackExchange.Redis;
 
 // Treat DateTime.Kind=Unspecified as UTC globally for Npgsql (timestamp with time zone columns)
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ----- Structured logging (Serilog) -----
+// JSON-to-stdout only — no CloudWatch sink. Both App Runner and ECS Fargate
+// with the awslogs driver capture stdout and ship it to CloudWatch natively,
+// so a dedicated sink would be duplicated infrastructure. Log level is
+// environment-aware to keep test output usable.
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    var env = context.HostingEnvironment;
+
+    var minimumLevel = env.IsEnvironment("Testing")
+        ? LogEventLevel.Warning
+        : env.IsDevelopment()
+            ? LogEventLevel.Debug
+            : LogEventLevel.Information;
+
+    configuration
+        .MinimumLevel.Is(minimumLevel)
+        .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithEnvironmentName()
+        .Enrich.WithProperty("Application", "PlantonHub.API");
+
+    // JSON in prod/staging (parsed by CloudWatch Logs Insights); text in dev
+    // for humans reading the terminal.
+    if (env.IsDevelopment() || env.IsEnvironment("Testing"))
+    {
+        configuration.WriteTo.Console(
+            outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj} {Properties:j}{NewLine}{Exception}");
+    }
+    else
+    {
+        configuration.WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter());
+    }
+});
 
 // ----- Kestrel: suppress Server header + request size limits -----
 builder.WebHost.ConfigureKestrel(options =>
@@ -127,6 +166,22 @@ builder.Services.AddScoped<IBiometricProofService, PlantonHub.Infrastructure.Ser
 // ----- Database Seeder -----
 builder.Services.AddScoped<DatabaseSeeder>();
 
+// ----- Health Checks -----
+// /health   → liveness (process alive, always 200).
+// /health/ready → readiness: probes Postgres + Redis. Used by ECS/App Runner
+//                to gate traffic during rollout and detect degraded pods.
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        connectionStringFactory: sp => sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")!,
+        name: "postgres",
+        failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+        tags: new[] { "ready" })
+    .AddRedis(
+        connectionStringFactory: sp => sp.GetRequiredService<IConfiguration>().GetConnectionString("Redis") ?? "localhost:6379",
+        name: "redis",
+        failureStatus: Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy,
+        tags: new[] { "ready" });
+
 // ----- FluentValidation -----
 builder.Services.AddValidatorsFromAssemblyContaining<PlantonHub.Application.Validators.CheckInRequestValidator>();
 
@@ -155,6 +210,60 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Shared per-user partition key used by the policies below.
+    // Falls back to remote IP for endpoints that may be accessed anonymously
+    // during the transitional window between token expiry and refresh.
+    static string PerUserOrIp(HttpContext context) =>
+        context.User?.FindFirst("sub")?.Value
+        ?? context.Connection.RemoteIpAddress?.ToString()
+        ?? "unknown";
+
+    // Biometric verify: 10/min per user — hot path for check-in flow, but not
+    // as sensitive as the anonymous face-login (which is 5/min per IP).
+    options.AddPolicy("BiometricVerify", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PerUserOrIp(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Device reset: 3/min per user — sensitive action, low frequency in normal use.
+    options.AddPolicy("DeviceReset", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PerUserOrIp(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 3,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Logout: 10/min per user — protects Redis blacklist writes from token flooding.
+    options.AddPolicy("Logout", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PerUserOrIp(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Session validation: 60/min per user — used on app launch and periodically
+    // by the Flutter client; higher permit but still bounded to catch runaways.
+    options.AddPolicy("Session", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PerUserOrIp(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));
@@ -340,11 +449,43 @@ app.UseAuthorization();
 // 5. Tenant Middleware (after auth, so claims are available)
 app.UseMiddleware<TenantMiddleware>();
 
-// 6. Map Controllers
+// 6. Structured request logging — one line per HTTP request with method,
+//    status, duration, and Serilog properties. Must come before endpoint
+//    mapping so it wraps controller execution.
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0}ms";
+});
+
+// 7. Map Controllers
 app.MapControllers();
 
-// 7. Health check endpoint (used by Docker/ECS health checks - no auth required)
+// 8. Health check endpoints (no auth required).
+//    /health         → liveness probe: always 200 as long as the process is up.
+//    /health/ready   → readiness probe: 503 if Postgres or Redis is unreachable.
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
+
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var payload = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                durationMs = e.Value.Duration.TotalMilliseconds,
+                error = e.Value.Exception?.Message,
+            }),
+            totalDurationMs = report.TotalDuration.TotalMilliseconds,
+        };
+        await context.Response.WriteAsJsonAsync(payload);
+    },
+}).AllowAnonymous();
 
 // ----- Run Migrations (synchronous, blocking startup) -----
 // Migrations run BEFORE app.Run() so the API only starts serving requests

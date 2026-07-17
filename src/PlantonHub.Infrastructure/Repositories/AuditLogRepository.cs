@@ -16,7 +16,10 @@ public class AuditLogRepository : IAuditLogRepository
 
     public async Task<IEnumerable<AuditLog>> GetAllAsync()
     {
+        // AuditLog is append-only by convention (no Update/Delete in this repo).
+        // Every read path is display, so AsNoTracking is universally safe here.
         return await _context.AuditLogs
+            .AsNoTracking()
             .Include(a => a.User)
             .OrderByDescending(a => a.Timestamp)
             .ToListAsync();
@@ -31,6 +34,7 @@ public class AuditLogRepository : IAuditLogRepository
     public async Task<AuditLogPageResult> GetPagedAsync(AuditLogFilter filter)
     {
         var query = _context.AuditLogs
+            .AsNoTracking()
             .Include(a => a.User)
             .AsQueryable();
 
@@ -67,6 +71,7 @@ public class AuditLogRepository : IAuditLogRepository
     public async Task<IEnumerable<AuditLog>> GetInPeriodAsync(DateTime fromUtc, DateTime toUtc)
     {
         return await _context.AuditLogs
+            .AsNoTracking()
             .Include(a => a.User)
             .Where(a => a.Timestamp >= fromUtc && a.Timestamp < toUtc)
             .OrderByDescending(a => a.Timestamp)

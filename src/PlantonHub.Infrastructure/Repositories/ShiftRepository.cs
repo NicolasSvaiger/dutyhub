@@ -24,7 +24,9 @@ public class ShiftRepository : IShiftRepository
 
     public async Task<IEnumerable<Shift>> GetAllAsync()
     {
+        // List for admin display. No mutation downstream — MapToResponse only.
         return await _context.Shifts
+            .AsNoTracking()
             .Include(s => s.ShiftAssignments)
                 .ThenInclude(a => a.User)
             .ToListAsync();
@@ -32,7 +34,9 @@ public class ShiftRepository : IShiftRepository
 
     public async Task<IEnumerable<Shift>> GetByClinicIdAsync(Guid clinicId)
     {
+        // List for admin display filtered by clinic. Read-only.
         return await _context.Shifts
+            .AsNoTracking()
             .Include(s => s.ShiftAssignments)
                 .ThenInclude(a => a.User)
             .Where(s => s.ClinicId == clinicId)
@@ -41,7 +45,9 @@ public class ShiftRepository : IShiftRepository
 
     public async Task<IEnumerable<Shift>> GetByUserIdAsync(Guid userId)
     {
+        // /shifts/me — read-only professional view.
         return await _context.ShiftAssignments
+            .AsNoTracking()
             .Where(sa => sa.UserId == userId)
             .Include(sa => sa.Shift)
                 .ThenInclude(s => s.ShiftAssignments)
@@ -90,7 +96,12 @@ public class ShiftRepository : IShiftRepository
 
     public async Task<IEnumerable<Shift>> GetInPeriodWithDetailsAsync(DateTime fromUtc, DateTime toUtc)
     {
+        // Heavy read for ManagementReportService — 4-level Include chain.
+        // AsNoTracking + AsSplitQuery avoid change-tracker overhead + cartesian
+        // explosion between the two "one-to-many" branches (Assignments/Attendances).
         return await _context.Shifts
+            .AsNoTracking()
+            .AsSplitQuery()
             .Where(s => s.Date >= fromUtc && s.Date < toUtc)
             .Include(s => s.ShiftAssignments)
                 .ThenInclude(a => a.User)

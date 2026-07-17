@@ -66,5 +66,23 @@ public class AttendanceConfiguration : IEntityTypeConfiguration<Attendance>
             .WithMany(c => c.Attendances)
             .HasForeignKey(a => a.ClinicId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Índices para queries frequentes. Attendance é a tabela de maior cardinalidade
+        // (1 linha/check-in × N profissionais/dia). Filtros comuns:
+        //   • ClinicId  → LiveStatus, relatórios gerenciais, tempo real
+        //   • UserId    → /my-history, /active, resumo por profissional
+        //   • ShiftId   → HasActiveCheckIn, existência de registro por plantão
+        //   • CheckInTime → filtros de período (billing, management report)
+        builder.HasIndex(a => a.ClinicId)
+            .HasDatabaseName("IX_Attendance_ClinicId");
+
+        builder.HasIndex(a => a.UserId)
+            .HasDatabaseName("IX_Attendance_UserId");
+
+        builder.HasIndex(a => a.ShiftId)
+            .HasDatabaseName("IX_Attendance_ShiftId");
+
+        builder.HasIndex(a => a.CheckInTime)
+            .HasDatabaseName("IX_Attendance_CheckInTime");
     }
 }

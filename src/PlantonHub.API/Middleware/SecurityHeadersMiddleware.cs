@@ -32,8 +32,11 @@ public class SecurityHeadersMiddleware
             // Basic CSP: restrict resources to same origin, block framing
             headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'";
 
-            // Force HTTPS for 1 year including subdomains
-            headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+            // Force HTTPS for 1 year including subdomains + preload eligibility.
+            // `preload` allows submission to the HSTS preload list (hstspreload.org)
+            // — browsers refuse HTTP even before the first response is seen.
+            // The list submission itself is a manual, one-way commitment for ops.
+            headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";
 
             // Prevent cross-origin resource leakage
             headers["X-Permitted-Cross-Domain-Policies"] = "none";

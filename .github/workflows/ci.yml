@@ -26,11 +26,25 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Run unit tests
-        run: dotnet test tests/PlantonHub.UnitTests --no-restore --verbosity normal --logger "trx;LogFileName=unit-results.trx"
+        run: |
+          dotnet test tests/PlantonHub.UnitTests \
+            --no-restore \
+            --verbosity normal \
+            --logger "trx;LogFileName=unit-results.trx" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
 
       - name: Publish test results
         uses: dorny/test-reporter@v1
@@ -39,6 +53,14 @@ jobs:
           name: Unit Tests Report
           path: "**/unit-results.trx"
           reporter: dotnet-trx
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-backend-unit
+          path: TestResults/**/coverage.cobertura.xml
+          retention-days: 7
 
   backend-property-tests:
     name: Backend Property Tests
@@ -137,7 +159,15 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npx vitest --run --reporter=default --reporter=github-actions
+        run: npx vitest --run --reporter=default --reporter=github-actions --coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-frontend
+          path: frontend/coverage/
+          retention-days: 7
 
   frontend-e2e-tests:
     name: Frontend E2E Tests
@@ -270,6 +300,56 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_FRONTEND_REPO:latest -f frontend/Dockerfile frontend/
           docker push $ECR_REGISTRY/$ECR_FRONTEND_REPO:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_FRONTEND_REPO:latest
+
+  security-scan:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build-and-push]
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Scan API image (fails on CRITICAL / HIGH)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_API_REPO }}:${{ github.sha }}
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Scan Frontend image (fails on CRITICAL / HIGH)
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND_REPO }}:${{ github.sha }}
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload SARIF (GitHub Code Scanning)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .
+          category: trivy
 
   deploy-frontend:
     name: Deploy Frontend to S3

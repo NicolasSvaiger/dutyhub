@@ -136,9 +136,11 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("reset-device")]
     [Authorize]
+    [EnableRateLimiting("DeviceReset")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResetDeviceSelf([FromBody] ResetDeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
@@ -175,10 +177,12 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("reset-device/{userId:guid}")]
     [Authorize(Policy = "AdminClinica")]
+    [EnableRateLimiting("DeviceReset")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResetDeviceAdmin(Guid userId, [FromBody] ResetDeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
@@ -282,8 +286,10 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpGet("session")]
     [Authorize]
+    [EnableRateLimiting("Session")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public IActionResult GetSession()
     {
         var userId = _tenantService.GetCurrentUserId();
@@ -308,8 +314,10 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("logout")]
     [Authorize]
+    [EnableRateLimiting("Logout")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Logout()
     {
         // 1. Extract JTI from the current token's claims
