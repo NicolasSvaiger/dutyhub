@@ -4,7 +4,7 @@
  * AdminGlobal: leitura e edição completa.
  * AdminClinica: somente leitura.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { clinicsApi } from '../../api/clinicsApi';
 import { settingsApi } from '../../api/settingsApi';
 import { useAuth } from '../../hooks/useAuth';
@@ -64,6 +64,16 @@ export function AdminConfiguracoes({ dark, onToggleTheme, onOpenSidebar }: Props
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [toast, setToast] = useState('');
   const [saving, setSaving] = useState(false);
+  // Toast auto-dismiss timer. Kept in a ref so we can cancel on unmount or
+  // when a new toast fires while the previous one is still pending —
+  // otherwise the callback runs after cleanup and calls setState on an
+  // unmounted component (React warning + JSDOM ReferenceError in tests).
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   // ── Tolerâncias ──────────────────────────────────────────────────────────────
   const [tolGlobal, setTolGlobal] = useState(15);
@@ -171,7 +181,11 @@ export function AdminConfiguracoes({ dark, onToggleTheme, onOpenSidebar }: Props
 
   function showToast(msg: string) {
     setToast(msg);
-    setTimeout(() => setToast(''), 3500);
+    if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setToast('');
+    }, 3500);
   }
 
   async function salvarTudo() {

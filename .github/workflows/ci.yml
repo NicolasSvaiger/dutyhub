@@ -93,6 +93,14 @@ jobs:
   backend-integration-tests:
     name: Backend Integration Tests
     runs-on: ubuntu-latest
+    # Dependabot-triggered runs cannot access repository secrets by default
+    # (GitHub security policy since 2021). Without AWS credentials and Cognito
+    # config, the "Configure AWS Credentials" step fails and the actual test
+    # step is skipped — producing no .trx and a red check for reasons that
+    # have nothing to do with the dependency bump under review. Unit +
+    # property + frontend unit tests still cover the bump; if something
+    # slips through, the post-merge run on main catches it before deploy.
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
       checks: write
@@ -172,6 +180,9 @@ jobs:
   frontend-e2e-tests:
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
+    # Same reason as backend-integration-tests: Playwright + docker-compose
+    # need Cognito secrets to authenticate, which Dependabot runs cannot see.
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
       pull-requests: write

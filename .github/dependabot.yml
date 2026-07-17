@@ -16,9 +16,6 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 3
-    labels:
-      - dependencies
-      - backend
     # Um PR único por família — bumps de patch/minor viram commits em bloco.
     groups:
       aspnetcore-and-ef:
@@ -59,7 +56,9 @@ updates:
           - "coverlet*"
           - "Testcontainers*"
     # Ignora majors que exigem sprint dedicada — .NET 8 → 9/10 é
-    # decisão de projeto, não deve virar PR automático.
+    # decisão de projeto, não deve virar PR automático. AWSSDK 3→4 tem
+    # breaking changes no naming (ex.: property renames) que exigem
+    # revisão manual — PR #63 escapou antes desse ignore existir.
     ignore:
       - dependency-name: "Microsoft.AspNetCore.*"
         update-types: ["version-update:semver-major"]
@@ -68,6 +67,10 @@ updates:
       - dependency-name: "Microsoft.EntityFrameworkCore*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "Npgsql*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "AWSSDK*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "AWS.*"
         update-types: ["version-update:semver-major"]
 
   # ─────────────────────────────────────────────────────────────
@@ -81,9 +84,6 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 3
-    labels:
-      - dependencies
-      - frontend
     groups:
       react-and-router:
         applies-to: version-updates
@@ -161,9 +161,6 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 1
-    labels:
-      - dependencies
-      - ci
     # Um PR mensal com TUDO agrupado — actions são estáveis, bumps são
     # essencialmente inofensivos, não queremos 1 PR por action.
     groups:
@@ -185,9 +182,6 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 1
-    labels:
-      - dependencies
-      - docker
     groups:
       dotnet-images:
         applies-to: version-updates
@@ -212,9 +206,6 @@ updates:
       time: "09:00"
       timezone: America/Sao_Paulo
     open-pull-requests-limit: 1
-    labels:
-      - dependencies
-      - docker
     groups:
       frontend-images:
         applies-to: version-updates
