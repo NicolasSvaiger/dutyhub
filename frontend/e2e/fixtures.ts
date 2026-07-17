@@ -71,9 +71,13 @@ export async function loginAsDoctor(page: Page): Promise<void> {
 export async function loginAsAdmin(page: Page): Promise<void> {
   attachDebugListeners(page);
   await page.goto('/admin/login');
-  await page.getByRole('textbox', { name: /E-?mail/i }).fill(ADMIN_CREDENTIALS.email);
-  await page.locator('#password').fill(ADMIN_CREDENTIALS.password);
-  await page.getByRole('button', { name: /Entrar/i }).click();
+  // AdminLoginPage uses admin-scoped ids and a different submit label
+  // than the doctor login page (id="admin-email"/"admin-password",
+  // button "Acessar painel"). Getting these wrong causes the earlier
+  // timeout at locator.fill('#password') seen in the run for 844b39c.
+  await page.locator('#admin-email').fill(ADMIN_CREDENTIALS.email);
+  await page.locator('#admin-password').fill(ADMIN_CREDENTIALS.password);
+  await page.getByRole('button', { name: /Acessar painel/i }).click();
   // AdminGlobal → cai em /admin (AdminLoginPage.useEffect redireciona por role)
   await page.waitForURL(/\/admin(?!\/login)/, { timeout: 15_000 });
 }
