@@ -60,10 +60,25 @@ public class BiometricControllerTests
     }
 
     [Fact]
+    public async Task Enroll_TargetUserOutsideTenantScope_ReturnsForbid()
+    {
+        var targetUserId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(targetUserId)).ReturnsAsync(false);
+        var controller = CreateController();
+        var request = new FaceEnrollmentRequest { Embedding = ValidEmbedding() };
+
+        var result = await controller.Enroll(targetUserId, request);
+
+        result.Should().BeOfType<ForbidResult>();
+        _enrollmentRepo.Verify(r => r.AddAsync(It.IsAny<FaceEnrollment>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Enroll_Valid_ReturnsCreated()
     {
-        var controller = CreateController();
         var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
+        var controller = CreateController();
         var request = new FaceEnrollmentRequest { Embedding = ValidEmbedding() };
 
         var result = await controller.Enroll(userId, request);
@@ -235,9 +250,24 @@ public class BiometricControllerTests
     }
 
     [Fact]
+    public async Task ReEnroll_TargetUserOutsideTenantScope_ReturnsForbid()
+    {
+        var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(false);
+        var controller = CreateController();
+        var request = new FaceEnrollmentRequest { Embedding = ValidEmbedding() };
+
+        var result = await controller.ReEnroll(userId, request);
+
+        result.Should().BeOfType<ForbidResult>();
+        _enrollmentRepo.Verify(r => r.DeactivateAllForUserAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ReEnroll_Valid_DeactivatesOldAndCreatesNew()
     {
         var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         var controller = CreateController();
         var request = new FaceEnrollmentRequest { Embedding = ValidEmbedding() };
 
@@ -252,9 +282,23 @@ public class BiometricControllerTests
     // --- Get Enrollments (Admin) ---
 
     [Fact]
+    public async Task GetEnrollments_TargetUserOutsideTenantScope_ReturnsForbid()
+    {
+        var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(false);
+        var controller = CreateController();
+
+        var result = await controller.GetEnrollments(userId);
+
+        result.Should().BeOfType<ForbidResult>();
+        _enrollmentRepo.Verify(r => r.GetAllByUserIdAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetEnrollments_ReturnsAll()
     {
         var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         _enrollmentRepo.Setup(r => r.GetAllByUserIdAsync(userId))
             .ReturnsAsync(new[]
             {

@@ -10,6 +10,9 @@ interface ApiStackProps extends cdk.StackProps {
   vpc: ec2.Vpc;
   dbSecurityGroup: ec2.SecurityGroup;
   dbEndpoint: string;
+  cognitoUserPoolId: string;
+  cognitoClientId: string;
+  cognitoBackendClientId: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -93,9 +96,9 @@ export class ApiStack extends cdk.Stack {
               { name: "ASPNETCORE_ENVIRONMENT", value: "Production" },
               { name: "ASPNETCORE_URLS", value: "http://+:5000" },
               { name: "Cognito__Region", value: this.region },
-              { name: "Cognito__UserPoolId", value: "us-east-1_0PARyV1xj" },
-              { name: "Cognito__ClientId", value: "3g1hnk76ksd3cbt8aqlio0bb87" },
-              { name: "Cognito__BackendClientId", value: "2iumkl3gd6spj38cjclmn3fvvh" },
+              { name: "Cognito__UserPoolId", value: props.cognitoUserPoolId },
+              { name: "Cognito__ClientId", value: props.cognitoClientId },
+              { name: "Cognito__BackendClientId", value: props.cognitoBackendClientId },
             ],
           },
         },

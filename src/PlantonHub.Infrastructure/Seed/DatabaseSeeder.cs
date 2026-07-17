@@ -65,6 +65,8 @@ public class DatabaseSeeder
             await SeedPublicOrgansAndContractsAsync();
             await SeedAvailabilityRestrictionsAsync();
             await SeedExtraDoctorsAndSubstitutionsAsync();
+            await SeedAuditLogsAsync();
+            await SeedAlertsAsync();
             return;
         }
 
@@ -397,6 +399,8 @@ public class DatabaseSeeder
         await SeedPublicOrgansAndContractsAsync();
         await SeedAvailabilityRestrictionsAsync();
         await SeedExtraDoctorsAndSubstitutionsAsync();
+        await SeedAuditLogsAsync();
+        await SeedAlertsAsync();
     }
 
     /// <summary>
@@ -1015,6 +1019,279 @@ public class DatabaseSeeder
                 Notes = "Restrição recorrente de fins de semana.",
                 CreatedAt = now,
                 CreatedByUserId = AdminUserId,
+            }
+        );
+
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Popula alguns exemplos de audit log (últimos 10 dias) para a tela
+    /// Auditoria já mostrar dados sem depender de eventos reais. Idempotente
+    /// pela existência de qualquer registro.
+    /// </summary>
+    private async Task SeedAuditLogsAsync()
+    {
+        if (await _context.AuditLogs.AnyAsync()) return;
+
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+
+        // Só semeia se pelo menos o admin já existe (é o principal ator)
+        if (!await _context.Users.AnyAsync(u => u.Id == AdminUserId)) return;
+
+        var admin = AdminUserId;
+        var adminClinica = AdminClinicaUserId;
+        var medico = MedicoUserId;
+        var enfermeiro = EnfermeiroUserId;
+
+        DateTime At(int daysAgo, int h, int min) =>
+            DateTime.SpecifyKind(today.AddDays(-daysAgo).AddHours(h).AddMinutes(min), DateTimeKind.Utc);
+
+        _context.AuditLogs.AddRange(
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(0, 11, 23),
+                Operation = "Update", Module = "Configurações", Entity = "SystemSettings", EntityId = "singleton",
+                Details = "Tolerância de atraso alterada",
+                BeforeValue = "10 min", AfterValue = "15 min", IpAddress = "189.14.55.22",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(0, 11, 20),
+                Operation = "Login", Module = "Acesso", Entity = "User", EntityId = admin.ToString(),
+                Details = "Login no sistema — MFA validado com sucesso",
+                IpAddress = "189.14.55.22",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = adminClinica, Timestamp = At(0, 9, 45),
+                Operation = "Update", Module = "Escalas", Entity = "Shift", EntityId = Guid.NewGuid().ToString(),
+                Details = "Escala editada — UPA Centro (12/05 — noite)",
+                BeforeValue = "Vaga em aberto", AfterValue = "Dr. Roberto Alves", IpAddress = "187.32.10.4",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = adminClinica, Timestamp = At(0, 9, 30),
+                Operation = "Login", Module = "Acesso", Entity = "User", EntityId = adminClinica.ToString(),
+                Details = "Login no sistema — MFA validado com sucesso",
+                IpAddress = "187.32.10.4",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(1, 18, 55),
+                Operation = "Create", Module = "Médicos", Entity = "User", EntityId = Guid.NewGuid().ToString(),
+                Details = "Médico cadastrado — Dr. Lucas Prado (CRM 8834-SP)",
+                AfterValue = "Ativo", IpAddress = "200.148.3.91",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(1, 16, 22),
+                Operation = "Export", Module = "Faturamento", Entity = "Report", EntityId = "faturamento-2026-05",
+                Details = "Relatório de Faturamento exportado — Maio/2026 (14 profissionais)",
+                IpAddress = "189.14.55.22",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = adminClinica, Timestamp = At(1, 11, 5),
+                Operation = "Create", Module = "Escalas", Entity = "Shift", EntityId = Guid.NewGuid().ToString(),
+                Details = "Escala publicada — UPA Vila Pereira (semana 11/05–17/05)",
+                BeforeValue = "Rascunho", AfterValue = "Publicada", IpAddress = "187.32.10.4",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(1, 10, 44),
+                Operation = "Config", Module = "Configurações", Entity = "Integration", EntityId = "azure-face-api",
+                Details = "Integração Azure Face API atualizada — teste OK (142ms)",
+                BeforeValue = "v1 endpoint", AfterValue = "v2 endpoint", IpAddress = "189.14.55.22",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(2, 20, 1),
+                Operation = "System", Module = "Notificações", Entity = "Alert", EntityId = "auto-alert-1",
+                Details = "Alerta automático — turno da noite sem cobertura (UPA Centro)",
+                IpAddress = "10.0.0.1",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(2, 17, 30),
+                Operation = "Delete", Module = "Usuários", Entity = "User", EntityId = Guid.NewGuid().ToString(),
+                Details = "Usuário desativado — inatividade > 90 dias",
+                BeforeValue = "Ativo", AfterValue = "Inativo", IpAddress = "189.14.55.22",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = admin, Timestamp = At(2, 14, 20),
+                Operation = "Update", Module = "Contratos", Entity = "Contract", EntityId = Guid.NewGuid().ToString(),
+                Details = "Contrato atualizado — Prefeitura de Guarulhos (meta de SLA)",
+                BeforeValue = "80%", AfterValue = "85%", IpAddress = "189.14.55.22",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = medico, Timestamp = At(3, 7, 2),
+                Operation = "System", Module = "Biometria", Entity = "FaceEnrollment", EntityId = medico.ToString(),
+                Details = "Reconhecimento facial — check-in (confiança 98,7%)",
+                AfterValue = "Check-in 07:02", IpAddress = "10.0.1.5",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = enfermeiro, Timestamp = At(3, 12, 15),
+                Operation = "Update", Module = "Justificativas", Entity = "Justification", EntityId = Guid.NewGuid().ToString(),
+                Details = "Justificativa aprovada — atestado médico válido",
+                BeforeValue = "Pendente", AfterValue = "Aprovada", IpAddress = "177.88.21.3",
+            },
+            new AuditLog
+            {
+                Id = Guid.NewGuid(), UserId = enfermeiro, Timestamp = At(5, 15, 10),
+                Operation = "Update", Module = "Substituições", Entity = "Substitution", EntityId = Guid.NewGuid().ToString(),
+                Details = "Substituto designado — Dr. Roberto cobre plantão de Dra. Camila",
+                BeforeValue = "Pendente", AfterValue = "Confirmada", IpAddress = "177.88.21.3",
+            }
+        );
+
+        await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Popula a Central de Alertas com registros de exemplo, cobrindo todos
+    /// os níveis (Critical/Warning/Info/Resolved). Idempotente por Code.
+    /// </summary>
+    private async Task SeedAlertsAsync()
+    {
+        if (await _context.Alerts.AnyAsync()) return;
+
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+
+        _context.Alerts.AddRange(
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-041",
+                Level = AlertLevel.Critical, Type = AlertType.UncoveredShift,
+                Title = "Turno da noite sem cobertura",
+                Description = "Nenhum médico está escalado para o turno <strong>19h–07h de amanhã</strong> na UPA Centro. Sem ação, o turno ficará completamente descoberto.",
+                ClinicId = ClinicBetaId,
+                PrimaryActionLabel = "Designar substituto",
+                SecondaryActionLabel = "Ver escalas",
+                IsResolved = false,
+                CreatedAt = now.AddHours(-1),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-040",
+                Level = AlertLevel.Critical, Type = AlertType.UnannouncedAbsence,
+                Title = "Ausência não comunicada — Dra. Renata Silva",
+                Description = "Dra. Renata Silva não realizou check-in no plantão da <strong>manhã de hoje (07h00)</strong> e não comunicou a ausência. Esta é a <strong>7ª ocorrência</strong> no mês.",
+                ClinicId = ClinicAlphaId,
+                RelatedUserId = MedicoRenataId,
+                PrimaryActionLabel = "Registrar substituição",
+                SecondaryActionLabel = "Notificar médico",
+                IsResolved = false,
+                CreatedAt = now.AddHours(-4),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-039",
+                Level = AlertLevel.Warning, Type = AlertType.Delay,
+                Title = "Atraso de 38 min — Dr. Marcelo Dias",
+                Description = "Dr. Marcelo Dias realizou check-in às <strong>07:38h</strong>, com <strong>38 minutos</strong> de atraso no turno da manhã (tolerância: 15 min). Terceira ocorrência consecutiva.",
+                ClinicId = ClinicBetaId,
+                RelatedUserId = MedicoMarceloId,
+                PrimaryActionLabel = "Registrar ocorrência",
+                SecondaryActionLabel = "Ver histórico",
+                IsResolved = false,
+                CreatedAt = now.AddHours(-3),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-038",
+                Level = AlertLevel.Warning, Type = AlertType.SlaBelow,
+                Title = "SLA abaixo da meta — Prefeitura de Guarulhos",
+                Description = "O cumprimento de SLA do contrato <strong>CT-2023-0142</strong> caiu para <strong>81,4%</strong>, abaixo da meta contratual de <strong>85%</strong>. Risco de penalidade contratual.",
+                ClinicId = null, // global
+                PrimaryActionLabel = "Ver relatório gerencial",
+                SecondaryActionLabel = "Contatar prefeitura",
+                IsResolved = false,
+                CreatedAt = now.AddHours(-5),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-037",
+                Level = AlertLevel.Warning, Type = AlertType.Delay,
+                Title = "Atraso de 22 min — Dr. Roberto Alves",
+                Description = "Dr. Roberto Alves realizou check-in às <strong>07:22h</strong> no turno da manhã. Tolerância padrão de 15 minutos excedida.",
+                ClinicId = ClinicAlphaId,
+                RelatedUserId = MedicoRobertoId,
+                PrimaryActionLabel = "Registrar ocorrência",
+                SecondaryActionLabel = "Ignorar",
+                IsResolved = false,
+                CreatedAt = now.AddHours(-6),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-036",
+                Level = AlertLevel.Info, Type = AlertType.ContractExpiring,
+                Title = "Contrato Guarulhos vence em 45 dias",
+                Description = "O contrato <strong>CT-2023-0142</strong> com a Prefeitura de Guarulhos vence em <strong>45 dias</strong>. Recomenda-se iniciar tratativas de renovação.",
+                ClinicId = null,
+                PrimaryActionLabel = "Ver contrato",
+                SecondaryActionLabel = "Marcar como ciente",
+                IsResolved = false,
+                CreatedAt = now.AddDays(-1),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-035",
+                Level = AlertLevel.Info, Type = AlertType.PendingConfirmation,
+                Title = "2 confirmações de plantão pendentes",
+                Description = "Dois médicos ainda não confirmaram presença nos turnos de <strong>14/05 e 15/05</strong>. Prazo de confirmação: amanhã.",
+                ClinicId = ClinicAlphaId,
+                PrimaryActionLabel = "Enviar lembrete",
+                SecondaryActionLabel = "Ver escalas",
+                IsResolved = false,
+                CreatedAt = now.AddHours(-8),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-034",
+                Level = AlertLevel.Resolved, Type = AlertType.UncoveredShift,
+                Title = "Substituto designado — turno resolvido",
+                Description = "Dr. Roberto Alves foi designado para cobrir o plantão da noite de <strong>09/05</strong> após ausência de Dra. Camila Ferraz. Turno garantido.",
+                ClinicId = ClinicAlphaId,
+                RelatedUserId = MedicoRobertoId,
+                SecondaryActionLabel = "Ver substituição",
+                IsResolved = true,
+                ResolvedAt = now.AddHours(-2),
+                ResolvedByUserId = AdminUserId,
+                CreatedAt = now.AddHours(-3),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-033",
+                Level = AlertLevel.Resolved, Type = AlertType.UnannouncedAbsence,
+                Title = "Justificativa aceita — Dra. Jessica Lima",
+                Description = "A justificativa de ausência de Dra. Jessica Lima referente ao dia <strong>07/05</strong> foi aprovada com atestado médico válido.",
+                ClinicId = ClinicAlphaId,
+                RelatedUserId = MedicoJessicaId,
+                SecondaryActionLabel = "Ver justificativa",
+                IsResolved = true,
+                ResolvedAt = now.AddDays(-1).AddHours(-4),
+                ResolvedByUserId = AdminUserId,
+                CreatedAt = now.AddDays(-1).AddHours(-6),
+            },
+            new Alert
+            {
+                Id = Guid.NewGuid(), Code = "ALT-2026-032",
+                Level = AlertLevel.Resolved, Type = AlertType.Delay,
+                Title = "Ocorrência registrada — Dra. Camila Ferraz",
+                Description = "O atraso de 45 min de Dra. Camila Ferraz em <strong>07/05</strong> foi formalmente registrado no histórico da profissional.",
+                ClinicId = ClinicBetaId,
+                RelatedUserId = MedicoCamilaId,
+                SecondaryActionLabel = "Ver histórico",
+                IsResolved = true,
+                ResolvedAt = now.AddDays(-1).AddHours(-2),
+                ResolvedByUserId = AdminUserId,
+                CreatedAt = now.AddDays(-1).AddHours(-5),
             }
         );
 

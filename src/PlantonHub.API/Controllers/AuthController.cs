@@ -177,11 +177,15 @@ public class AuthController : ControllerBase
     [Authorize(Policy = "AdminClinica")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ResetDeviceAdmin(Guid userId, [FromBody] ResetDeviceRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Reason))
             return BadRequest(new { message = "Motivo é obrigatório para auditoria." });
+
+        if (!await _tenantService.CanOperateOnUserAsync(userId))
+            return Forbid();
 
         var activeDevice = await _deviceRegistrationRepository.GetActiveByUserIdAsync(userId);
         if (activeDevice is null)
@@ -214,8 +218,12 @@ public class AuthController : ControllerBase
     [HttpGet("device-audit/{userId:guid}")]
     [Authorize(Policy = "AdminClinica")]
     [ProducesResponseType(typeof(IEnumerable<DeviceUnlinkAuditResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetDeviceAudit(Guid userId)
     {
+        if (!await _tenantService.CanOperateOnUserAsync(userId))
+            return Forbid();
+
         var history = await _deviceRegistrationRepository.GetUnlinkHistoryAsync(userId);
 
         var response = history.Select(a => new DeviceUnlinkAuditResponse
@@ -242,9 +250,13 @@ public class AuthController : ControllerBase
     [Authorize(Policy = "AdminClinica")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetupFaceLogin(Guid userId)
     {
+        if (!await _tenantService.CanOperateOnUserAsync(userId))
+            return Forbid();
+
         var user = await _userRepository.GetByIdAsync(userId);
         if (user is null)
             return NotFound(new { message = "Usuário não encontrado." });

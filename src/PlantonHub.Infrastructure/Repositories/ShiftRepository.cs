@@ -87,4 +87,17 @@ public class ShiftRepository : IShiftRepository
                 sa.Shift.StartTime < endTime &&
                 sa.Shift.EndTime > startTime);
     }
+
+    public async Task<IEnumerable<Shift>> GetInPeriodWithDetailsAsync(DateTime fromUtc, DateTime toUtc)
+    {
+        return await _context.Shifts
+            .Where(s => s.Date >= fromUtc && s.Date < toUtc)
+            .Include(s => s.ShiftAssignments)
+                .ThenInclude(a => a.User)
+            .Include(s => s.Attendances)
+            .Include(s => s.Clinic)
+                .ThenInclude(c => c.Contract)
+                    .ThenInclude(ct => ct!.PublicOrgan)
+            .ToListAsync();
+    }
 }

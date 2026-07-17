@@ -36,12 +36,13 @@ export class DatabaseStack extends cdk.Stack {
         secretName: "dutyhub/rds-credentials",
       }),
       allocatedStorage: 20,
-      maxAllocatedStorage: 20,
-      multiAz: false,
+      maxAllocatedStorage: 200,
+      multiAz: true,
       publiclyAccessible: false,
       storageEncrypted: true,
-      backupRetention: cdk.Duration.days(1),
-      deletionProtection: false, // Set true in production
+      backupRetention: cdk.Duration.days(30),
+      deletionProtection: true,
+      copyTagsToSnapshot: true,
       removalPolicy: cdk.RemovalPolicy.SNAPSHOT,
     });
 

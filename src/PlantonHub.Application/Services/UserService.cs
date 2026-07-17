@@ -222,36 +222,6 @@ public class UserService : IUserService
         return MapToResponse(user);
     }
 
-    public async Task<UserResponse> SelfRegisterAsync(SelfRegisterRequest request)
-    {
-        if (await _userRepository.EmailExistsAsync(request.Email))
-        {
-            throw new ConflictException("A user with this email already exists.");
-        }
-
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Name = request.Name,
-            Email = request.Email,
-            PasswordHash = _passwordHashService.HashPassword(request.Password),
-            ProfessionalType = request.ProfessionalType,
-            IsActive = true,
-            Cpf = request.Cpf,
-            Phone = request.Phone,
-            RegistrationNumber = request.RegistrationNumber,
-            Specialty = request.ProfessionalType == Domain.Enums.ProfessionalType.Enfermeiro ? null : request.Specialty,
-            DateOfBirth = request.DateOfBirth,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        await _userRepository.AddAsync(user);
-        await _cacheService.RemoveByPrefixAsync("users:");
-
-        return MapToResponse(user);
-    }
-
     private static UserResponse MapToResponse(User user)
     {
         return new UserResponse

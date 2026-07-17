@@ -239,4 +239,34 @@ public class TenantService : ITenantService
 
         return result;
     }
+
+    /// <summary>
+    /// AdminGlobal → always allowed.
+    /// AdminClinica → allowed only when the target user shares at least one clinic
+    /// with the caller. Uses the DB (via IUserRepository) as source of truth for
+    /// the target user's clinic memberships — the caller's clinics still come
+    /// from the JWT claim.
+    /// </summary>
+    public async Task<bool> CanOperateOnUserAsync(Guid targetUserId)
+    {
+        if (IsAdminGlobal()) return true;
+
+        var authorized = GetAuthorizedClinicIdsSet();
+        if (authorized.Count == 0) return false;
+
+        var httpContext = _httpContextAccessor.HttpContext;
+        var userRepo = httpContext?.RequestServices.GetService<IUserRepository>();
+        if (userRepo is null) return false;
+
+        var target = await userRepo.GetByIdAsync(targetUserId);
+        if (target is null) return false;
+
+        // Any overlap between caller's authorized clinics and target's clinic memberships
+        foreach (var ucr in target.UserClinicRoles)
+        {
+            if (authorized.Contains(ucr.ClinicId)) return true;
+        }
+
+        return false;
+    }
 }

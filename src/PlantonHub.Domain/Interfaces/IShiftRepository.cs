@@ -18,4 +18,11 @@ public interface IShiftRepository
     /// given shift's date + time range (cross-clinic conflict detection).
     /// </summary>
     Task<bool> HasTimeOverlapForUserAsync(Guid userId, Guid excludeShiftId, DateTime date, TimeSpan startTime, TimeSpan endTime);
+
+    /// <summary>
+    /// Retorna todos os shifts em um intervalo (fromUtc inclusive, toUtc exclusive)
+    /// com assignments (User), clinic (Contract/PublicOrgan) e attendances carregados.
+    /// Base para o Relatório Gerencial (SLA por contrato/UPA no período).
+    /// </summary>
+    Task<IEnumerable<Shift>> GetInPeriodWithDetailsAsync(DateTime fromUtc, DateTime toUtc);
 }

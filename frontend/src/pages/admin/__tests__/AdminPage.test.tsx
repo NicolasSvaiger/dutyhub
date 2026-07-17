@@ -15,7 +15,20 @@ vi.mock('../../../api/adminApi', () => ({
   },
 }));
 
+// Mock the alertsApi (used by Central de Alertas card no home)
+vi.mock('../../../api/alertsApi', () => ({
+  alertsApi: {
+    getAll: vi.fn(),
+    getSummary: vi.fn(),
+    getById: vi.fn(),
+    create: vi.fn(),
+    resolve: vi.fn(),
+    resolveAll: vi.fn(),
+  },
+}));
+
 import { adminApi } from '../../../api/adminApi';
+import { alertsApi } from '../../../api/alertsApi';
 
 const mockSummary = {
   kpis: {
@@ -74,6 +87,12 @@ describe('<AdminPage />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (adminApi.getDashboardSummary as ReturnType<typeof vi.fn>).mockResolvedValue(mockSummary);
+    // Default: 5 alerts abertos (2 críticos + 3 atenção) — preserva compatibilidade com
+    // testes anteriores que esperam "5" no KPI de alertas pendentes.
+    (alertsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (alertsApi.getSummary as ReturnType<typeof vi.fn>).mockResolvedValue({
+      totalToday: 5, totalAll: 8, openCritical: 2, openWarning: 3, openInfo: 0, resolvedToday: 0,
+    });
   });
 
   it('renderiza o título "Visão Geral" e a data atual', () => {
@@ -115,18 +134,43 @@ describe('<AdminPage />', () => {
     });
   });
 
-  it('exibe alertas carregados do backend', async () => {
+  it('exibe card de Central de alertas com estado vazio quando não há alertas', async () => {
+    (alertsApi.getSummary as ReturnType<typeof vi.fn>).mockResolvedValue({
+      totalToday: 0, totalAll: 0, openCritical: 0, openWarning: 0, openInfo: 0, resolvedToday: 0,
+    });
     renderAdminPage();
     await waitFor(() => {
       expect(screen.getByText('Central de alertas')).toBeInTheDocument();
-      expect(screen.getAllByText('Em breve').length).toBeGreaterThanOrEqual(1);
-    });
+      // Sem alertas → mostra o placeholder "Nenhum alerta aberto"
+      expect(screen.getByText(/Nenhum alerta aberto/)).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 
-  it('exibe badge de alertas pendentes com contagem correta', async () => {
+  it('exibe badge com contagem de alertas abertos vinda do alertsApi', async () => {
+    (alertsApi.getSummary as ReturnType<typeof vi.fn>).mockResolvedValue({
+      totalToday: 5, totalAll: 8, openCritical: 2, openWarning: 3, openInfo: 1, resolvedToday: 0,
+    });
     renderAdminPage();
     await waitFor(() => {
-      expect(screen.getByText('5 pendentes')).toBeInTheDocument();
+      // openCritical + openWarning + openInfo = 6
+      expect(screen.getByText('6 abertos')).toBeInTheDocument();
+    }, { timeout: 5000 });
+  });
+
+  it('exibe lista com até 3 alertas abertos mais recentes', async () => {
+    const alerts = [
+      { id: 'a1', code: 'A1', level: 'Critical', levelLabel: 'Crítico', type: 'UncoveredShift', typeLabel: 'Turno descoberto',
+        title: 'Turno sem cobertura', description: 'test', clinicId: 'c1', clinicName: 'UPA Centro',
+        relatedUserId: null, relatedUserName: null,
+        primaryActionLabel: null, secondaryActionLabel: null,
+        isResolved: false, resolvedAt: null, resolvedByUserId: null, resolvedByUserName: null, resolutionNotes: null,
+        createdAt: new Date().toISOString() },
+    ];
+    (alertsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(alerts);
+    renderAdminPage();
+    await waitFor(() => {
+      expect(screen.getByText('Turno sem cobertura')).toBeInTheDocument();
+      expect(screen.getByText('Ver todos os alertas →')).toBeInTheDocument();
     });
   });
 
@@ -172,12 +216,14 @@ describe('<AdminPage />', () => {
 
   it('lida gracefully com erro na API', async () => {
     (adminApi.getDashboardSummary as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network error'));
+    (alertsApi.getAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network'));
+    (alertsApi.getSummary as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network'));
     renderAdminPage();
 
-    // Should render without crashing, showing zero values
-    await waitFor(() => {
-      expect(screen.getByText('0 pendentes')).toBeInTheDocument();
-    });
+    // Should render without crashing — card renderiza mesmo com erro (alertsSummary = null → 0 abertos)
+    // e nome do usuário continua exibido
+    expect(await screen.findByText('Central de alertas', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByText('Visão Geral')).toBeInTheDocument();
   });
 
   it('formata tempo dos alertas corretamente (Ontem)', async () => {

@@ -37,6 +37,8 @@ public class BiometricController : ControllerBase
     [Authorize(Policy = "AdminClinica")]
     [ProducesResponseType(typeof(FaceEnrollmentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Enroll(Guid userId, [FromBody] FaceEnrollmentRequest request)
     {
         if (request.Embedding.Length == 0)
@@ -47,6 +49,11 @@ public class BiometricController : ControllerBase
         if (request.Embedding.Length != 128)
         {
             return BadRequest(new { message = "Embedding must be 128-dimensional (FaceNet standard)." });
+        }
+
+        if (!await _tenantService.CanOperateOnUserAsync(userId))
+        {
+            return Forbid();
         }
 
         var enrollment = new FaceEnrollment
@@ -183,11 +190,17 @@ public class BiometricController : ControllerBase
     [Authorize(Policy = "AdminClinica")]
     [ProducesResponseType(typeof(FaceEnrollmentResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ReEnroll(Guid userId, [FromBody] FaceEnrollmentRequest request)
     {
         if (request.Embedding.Length != 128)
         {
             return BadRequest(new { message = "Embedding must be 128-dimensional." });
+        }
+
+        if (!await _tenantService.CanOperateOnUserAsync(userId))
+        {
+            return Forbid();
         }
 
         // Deactivate all previous enrollments
@@ -239,8 +252,14 @@ public class BiometricController : ControllerBase
     [HttpGet("enrollments/{userId:guid}")]
     [Authorize(Policy = "AdminClinica")]
     [ProducesResponseType(typeof(IEnumerable<FaceEnrollmentResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetEnrollments(Guid userId)
     {
+        if (!await _tenantService.CanOperateOnUserAsync(userId))
+        {
+            return Forbid();
+        }
+
         var enrollments = await _enrollmentRepository.GetAllByUserIdAsync(userId);
 
         var response = enrollments.Select(e => new FaceEnrollmentResponse

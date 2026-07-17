@@ -33,8 +33,13 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 // ----- Database -----
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Interceptor is resolved from the DbContext-scoped service provider so it
+// can read the current HttpContext to attribute mutations to the caller.
+builder.Services.AddScoped<AuditSaveChangesInterceptor>();
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    options
+        .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>()));
 
 // ----- Repositories -----
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -51,6 +56,7 @@ builder.Services.AddScoped<IDeviceRegistrationRepository, DeviceRegistrationRepo
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
 builder.Services.AddScoped<ISubstitutionRepository, SubstitutionRepository>();
 builder.Services.AddScoped<IJustificationRepository, JustificationRepository>();
+builder.Services.AddScoped<IAlertRepository, AlertRepository>();
 builder.Services.AddScoped<IAvailabilityRestrictionRepository, AvailabilityRestrictionRepository>();
 
 // ----- Application Services -----
@@ -70,10 +76,13 @@ builder.Services.AddScoped<IContractService>(sp => new ContractService(
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ISubstitutionService, SubstitutionService>();
 builder.Services.AddScoped<IJustificationService, JustificationService>();
+builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
+builder.Services.AddScoped<IManagementReportService, ManagementReportService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
-builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IOfflineSyncAuditService, PlantonHub.Infrastructure.Services.OfflineSyncAuditService>();
 
 // ----- Infrastructure Services -----
@@ -337,35 +346,35 @@ app.MapControllers();
 // 7. Health check endpoint (used by Docker/ECS health checks - no auth required)
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 
-// ----- Run Migrations (background, non-blocking) -----
-// Running MigrateAsync before app.Run() blocks all startup requests for 30s+.
-// Running in background lets the API serve health checks and requests immediately.
+// ----- Run Migrations (synchronous, blocking startup) -----
+// Migrations run BEFORE app.Run() so the API only starts serving requests
+// against a fully-migrated schema. The container will report unhealthy until
+// migrations complete — which is the correct semantics: health checks
+// (App Runner/ECS) know to wait for /health to succeed before routing traffic.
+//
 // Integration tests run migrations themselves via WebApplicationFactory, so we
-// skip the background task in Testing environment to avoid concurrent MigrateAsync
-// calls hitting the same DB (which fails with "column already exists" / duplicate key).
+// skip this block in the Testing environment to avoid concurrent MigrateAsync
+// calls hitting the same DB (which fails with "column already exists").
 if (!app.Environment.IsEnvironment("Testing"))
 {
-    _ = Task.Run(async () =>
+    using var scope = app.Services.CreateScope();
+    try
     {
-        await Task.Delay(500);
-        try
-        {
-            using var scope = app.Services.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            await dbContext.Database.MigrateAsync();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.MigrateAsync();
 
-            if (app.Environment.IsDevelopment())
-            {
-                var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
-                await seeder.SeedAsync();
-            }
-        }
-        catch (Exception ex)
+        if (app.Environment.IsDevelopment())
         {
-            var logger = app.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogCritical(ex, "Failed to run database migrations on startup");
+            var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedAsync();
         }
-    });
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogCritical(ex, "Failed to run database migrations on startup");
+        throw; // Fail fast — never start serving against an un-migrated schema.
+    }
 }
 
 app.Run();

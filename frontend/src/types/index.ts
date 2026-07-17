@@ -373,6 +373,118 @@ export interface RespondJustificationRequest {
   responseText: string;
 }
 
+// ===== Alerts =====
+
+export type AlertLevel = 'Critical' | 'Warning' | 'Info' | 'Resolved';
+export type AlertType =
+  | 'UncoveredShift'
+  | 'UnannouncedAbsence'
+  | 'Delay'
+  | 'SlaBelow'
+  | 'ContractExpiring'
+  | 'PendingConfirmation'
+  | 'Other';
+
+export interface Alert {
+  id: string;
+  code: string;
+  level: AlertLevel;
+  levelLabel: string;
+  type: AlertType;
+  typeLabel: string;
+  title: string;
+  description: string;
+  clinicId?: string | null;
+  clinicName?: string | null;
+  relatedUserId?: string | null;
+  relatedUserName?: string | null;
+  primaryActionLabel?: string | null;
+  secondaryActionLabel?: string | null;
+  isResolved: boolean;
+  resolvedAt?: string | null;
+  resolvedByUserId?: string | null;
+  resolvedByUserName?: string | null;
+  resolutionNotes?: string | null;
+  createdAt: string;
+}
+
+export interface AlertsSummary {
+  totalToday: number;
+  totalAll: number;
+  openCritical: number;
+  openWarning: number;
+  openInfo: number;
+  resolvedToday: number;
+}
+
+export interface CreateAlertRequest {
+  level: AlertLevel;
+  type: AlertType;
+  title: string;
+  description: string;
+  clinicId?: string | null;
+  relatedUserId?: string | null;
+  primaryActionLabel?: string | null;
+  secondaryActionLabel?: string | null;
+  code?: string | null;
+}
+
+export interface ResolveAlertRequest {
+  resolutionNotes?: string | null;
+}
+
+// ===== Billing =====
+
+export interface BillingContractSummary {
+  contractId: string;
+  contractNumber: string;
+  publicOrganId: string;
+  publicOrganName: string;
+  monthlyValue: number;
+  clinicCount: number;
+  shiftsPlanned: number;
+  shiftsFulfilled: number;
+  fulfillmentPercent: number;
+  discount: number;
+  netPayable: number;
+}
+
+export interface BillingClinicHours {
+  clinicId: string;
+  clinicName: string;
+  hours: number;
+}
+
+export interface BillingDoctorRow {
+  userId: string;
+  userName: string;
+  registrationNumber?: string | null;
+  clinicId: string;
+  clinicName: string;
+  shiftsPlanned: number;
+  shiftsFulfilled: number;
+  hoursWorked: number;
+  fulfillmentPercent: number;
+  grossAmount: number;
+  discount: number;
+  netAmount: number;
+}
+
+export interface BillingReport {
+  year: number;
+  month: number;
+  totalRevenue: number;
+  totalHours: number;
+  totalShiftsPlanned: number;
+  totalShiftsFulfilled: number;
+  totalDiscount: number;
+  netPayable: number;
+  fulfillmentPercent: number;
+  contracts: BillingContractSummary[];
+  clinicHours: BillingClinicHours[];
+  doctors: BillingDoctorRow[];
+}
+
 // ===== Shift DTOs =====
 
 export interface CreateShiftRequest {

@@ -103,17 +103,4 @@ public class UsersController : ControllerBase
         return user is null ? NotFound() : Ok(user);
     }
 
-    /// <summary>
-    /// Autocadastro de profissional (público — sem autenticação).
-    /// </summary>
-    [AllowAnonymous]
-    [HttpPost("self-register")]
-    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
-    {
-        var user = await _userService.SelfRegisterAsync(request);
-        return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
-    }
 }

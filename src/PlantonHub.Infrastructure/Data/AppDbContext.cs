@@ -19,7 +19,6 @@ public class AppDbContext : DbContext
     public DbSet<ShiftAssignment> ShiftAssignments => Set<ShiftAssignment>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<OfflineAttendanceEvent> OfflineAttendanceEvents => Set<OfflineAttendanceEvent>();
     public DbSet<OfflineSyncAuditLog> OfflineSyncAuditLogs => Set<OfflineSyncAuditLog>();
     public DbSet<FaceEnrollment> FaceEnrollments => Set<FaceEnrollment>();
@@ -29,6 +28,7 @@ public class AppDbContext : DbContext
     public DbSet<Substitution> Substitutions => Set<Substitution>();
     public DbSet<AvailabilityRestriction> AvailabilityRestrictions => Set<AvailabilityRestriction>();
     public DbSet<Justification> Justifications => Set<Justification>();
+    public DbSet<Alert> Alerts => Set<Alert>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -193,6 +193,25 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Filtros comuns: por período (Timestamp), por usuário, por módulo.
+            entity.HasIndex(e => e.Timestamp).HasDatabaseName("IX_AuditLog_Timestamp");
+            entity.HasIndex(e => e.UserId).HasDatabaseName("IX_AuditLog_UserId");
+            entity.HasIndex(e => e.Module).HasDatabaseName("IX_AuditLog_Module");
+
+            entity.Property(e => e.Operation).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.Entity).HasMaxLength(128).IsRequired();
+            entity.Property(e => e.EntityId).HasMaxLength(128).IsRequired();
+            entity.Property(e => e.Details).HasMaxLength(4000);
+            entity.Property(e => e.Module).HasMaxLength(64);
+            entity.Property(e => e.IpAddress).HasMaxLength(64);
+            entity.Property(e => e.BeforeValue).HasMaxLength(1000);
+            entity.Property(e => e.AfterValue).HasMaxLength(1000);
+        });
+
         modelBuilder.Entity<AvailabilityRestriction>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -210,6 +229,44 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Alert>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasIndex(e => e.Code)
+                .IsUnique()
+                .HasDatabaseName("IX_Alert_Code");
+
+            entity.HasIndex(e => e.ClinicId)
+                .HasDatabaseName("IX_Alert_ClinicId");
+
+            entity.HasIndex(e => new { e.IsResolved, e.CreatedAt })
+                .HasDatabaseName("IX_Alert_IsResolved_CreatedAt");
+
+            entity.Property(e => e.Code).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.Title).HasMaxLength(300).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.PrimaryActionLabel).HasMaxLength(120);
+            entity.Property(e => e.SecondaryActionLabel).HasMaxLength(120);
+            entity.Property(e => e.ResolutionNotes).HasMaxLength(2000);
+
+            entity.HasOne(e => e.Clinic)
+                .WithMany()
+                .HasForeignKey(e => e.ClinicId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Two FKs to User — Restrict to avoid multiple cascade paths.
+            entity.HasOne(e => e.RelatedUser)
+                .WithMany()
+                .HasForeignKey(e => e.RelatedUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ResolvedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.ResolvedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

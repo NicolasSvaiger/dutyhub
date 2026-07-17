@@ -11,14 +11,20 @@ import { AdminEscalas } from './AdminEscalas';
 import { AdminTempoReal } from './AdminTempoReal';
 import { AdminSubstituicoes } from './AdminSubstituicoes';
 import { AdminDisponibilidade } from './AdminDisponibilidade';
+import { AdminGerencial } from './AdminGerencial';
+import { AdminAuditoria } from './AdminAuditoria';
 import { AdminJustificativas } from './AdminJustificativas';
+import { AdminFaturamento } from './AdminFaturamento';
+import { AdminAlertas } from './AdminAlertas';
+import { alertsApi } from '../../api/alertsApi';
+import type { Alert, AlertsSummary } from '../../types';
 import { AdminUpas } from './AdminUpas';
 import { AdminOrgaos } from './AdminOrgaos';
 import { AdminGestores } from './AdminGestores';
 import { AdminUsuariosOS } from './AdminUsuariosOS';
 import { AdminConfiguracoes } from './AdminConfiguracoes';
 
-type AdminView = 'home' | 'tempo-real' | 'medicos' | 'escalas' | 'substituicoes' | 'disponibilidade' | 'justificativas' | 'upas' | 'orgaos' | 'gestores' | 'usuarios' | 'configuracoes';
+type AdminView = 'home' | 'tempo-real' | 'alertas' | 'medicos' | 'escalas' | 'substituicoes' | 'disponibilidade' | 'justificativas' | 'gerencial' | 'faturamento' | 'auditoria' | 'upas' | 'orgaos' | 'gestores' | 'usuarios' | 'configuracoes';
 
 export function AdminPage() {
   const [dark, setDark] = useState(false);
@@ -27,6 +33,8 @@ export function AdminPage() {
   const { user, logout } = useAuth();
   const [data, setData] = useState<AdminDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [alertsSummary, setAlertsSummary] = useState<AlertsSummary | null>(null);
+  const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
@@ -39,6 +47,21 @@ export function AdminPage() {
       .then(result => { if (!cancelled) setData(result); })
       .catch(() => { /* graceful — keeps loading state or shows zeros */ })
       .finally(() => { if (!cancelled) setLoading(false); });
+
+    // Central de Alertas: puxa summary + 3 mais recentes abertos para o card do home
+    Promise.all([
+      alertsApi.getSummary().catch(() => null),
+      alertsApi.getAll().catch(() => [] as Alert[]),
+    ]).then(([summary, list]) => {
+      if (cancelled) return;
+      setAlertsSummary(summary);
+      const openSorted = list
+        .filter(a => !a.isResolved)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3);
+      setRecentAlerts(openSorted);
+    });
+
     return () => { cancelled = true; };
   }, []);
 
@@ -90,9 +113,12 @@ export function AdminPage() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           Tempo Real
         </a>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'alertas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('alertas'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           Central de Alertas
+          {alertsSummary && alertsSummary.openCritical > 0 && (
+            <span className="nav-badge">{alertsSummary.openCritical}</span>
+          )}
         </a>
 
         <div className="nav-section-label">Cadastros</div>
@@ -136,11 +162,11 @@ export function AdminPage() {
         </a>
 
         <div className="nav-section-label">Relatórios</div>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'gerencial' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('gerencial'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Gerencial
         </a>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'faturamento' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('faturamento'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           Faturamento
         </a>
@@ -150,7 +176,7 @@ export function AdminPage() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>
           Configurações
         </a>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'auditoria' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('auditoria'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Auditoria
         </a>
@@ -225,7 +251,11 @@ export function AdminPage() {
             <div className="kpi-s indigo"><div className="kpi-lbl">Contratos ativos</div><div className="kpi-val">{loading ? '—' : kpis.activeContracts}</div><div className="kpi-sub">prefeituras atendidas</div></div>
             <div className="kpi-s teal"><div className="kpi-lbl">Médicos cadastrados</div><div className="kpi-val">{loading ? '—' : kpis.registeredDoctors}</div><div className="kpi-sub">com biometria ativa</div></div>
             <div className="kpi-s green"><div className="kpi-lbl">Plantões hoje</div><div className="kpi-val">{loading ? '—' : kpis.shiftsToday}</div><div className="kpi-sub">de {kpis.shiftsConfirmedToday} confirmados</div></div>
-            <div className="kpi-s yellow"><div className="kpi-lbl">Alertas pendentes</div><div className="kpi-val">{loading ? '—' : kpis.pendingAlerts}</div><div className="kpi-sub">requerem atenção</div></div>
+            <div className="kpi-s yellow" style={{ cursor: 'pointer' }} onClick={() => navigate('alertas')}>
+              <div className="kpi-lbl">Alertas pendentes</div>
+              <div className="kpi-val">{loading ? '—' : (alertsSummary ? alertsSummary.openCritical + alertsSummary.openWarning : kpis.pendingAlerts)}</div>
+              <div className="kpi-sub">requerem atenção</div>
+            </div>
           </div>
 
           <div className="home-grid">
@@ -267,23 +297,56 @@ export function AdminPage() {
                   <div className="action-name">Órgãos Públicos</div>
                   <div className="action-desc">Gerir contratos e acessos das prefeituras.</div>
                 </a>
-                <a className="action-card disabled" href="#">
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); navigate('faturamento'); }}>
                   <div className="action-icon red">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                   </div>
-                  <div className="action-name">Relatórios</div>
-                  <div className="action-desc">KPIs, faturamento e relatórios para a prefeitura.</div>
-                  <div className="action-soon">Em breve</div>
+                  <div className="action-name">Faturamento</div>
+                  <div className="action-desc">Relatório mensal por contrato, UPA e médico.</div>
                 </a>
               </div>
             </div>
 
             <div>
               <div className="section-title">Alertas e atividades</div>
-              <div className="alerts-card disabled-card">
-                <div className="alerts-header"><div className="alerts-title">Central de alertas</div><div className="alerts-badge">{kpis.pendingAlerts} pendente{kpis.pendingAlerts !== 1 ? 's' : ''}</div></div>
+              <div className="alerts-card">
+                <div className="alerts-header">
+                  <div className="alerts-title">Central de alertas</div>
+                  <div className="alerts-badge">
+                    {(() => {
+                      const total = alertsSummary ? (alertsSummary.openCritical + alertsSummary.openWarning + alertsSummary.openInfo) : 0;
+                      return `${total} aberto${total === 1 ? '' : 's'}`;
+                    })()}
+                  </div>
+                </div>
                 <div className="alert-list">
-                  <div className="alert-item"><div className="alert-body"><div className="alert-text" style={{ color: 'var(--muted)' }}>Em breve</div></div></div>
+                  {recentAlerts.length === 0 ? (
+                    <div className="alert-item">
+                      <div className="alert-body">
+                        <div className="alert-text" style={{ color: 'var(--muted)' }}>
+                          {loading ? 'Carregando...' : 'Nenhum alerta aberto no momento'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    recentAlerts.map(a => {
+                      const dotColor = a.level === 'Critical' ? 'var(--red)'
+                        : a.level === 'Warning' ? 'var(--yellow)'
+                        : '#3b82f6';
+                      return (
+                        <div key={a.id} className="alert-item" style={{ cursor: 'pointer' }} onClick={() => navigate('alertas')}>
+                          <div className="alert-dot" style={{ background: dotColor }} />
+                          <div className="alert-body">
+                            <div className="alert-text"><strong>{a.title}</strong></div>
+                            <div className="alert-meta">{a.clinicName || 'Global'} · {a.typeLabel}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <button className="alerts-view-all" onClick={() => navigate('alertas')}>
+                    Ver todos os alertas →
+                  </button>
                 </div>
               </div>
             </div>
@@ -292,11 +355,15 @@ export function AdminPage() {
           </>
         )}
         {activeView === 'tempo-real' && <AdminTempoReal onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'alertas' && <AdminAlertas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'medicos' && <AdminMedicos onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'escalas' && <AdminEscalas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'substituicoes' && <AdminSubstituicoes onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'disponibilidade' && <AdminDisponibilidade onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'gerencial' && <AdminGerencial onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'auditoria' && <AdminAuditoria onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'justificativas' && <AdminJustificativas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'faturamento' && <AdminFaturamento onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'upas' && <AdminUpas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'orgaos' && <AdminOrgaos onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
         {activeView === 'gestores' && <AdminGestores onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
@@ -456,7 +523,12 @@ const CSS = `
 #adm-root .alert-body { flex:1; }
 #adm-root .alert-text { font-size:.78rem; font-weight:700; color:var(--text); line-height:1.4; }
 #adm-root .alert-sub { font-size:.68rem; font-weight:600; color:var(--muted); margin-top:2px; }
+#adm-root .alert-meta { font-size:.65rem; font-weight:600; color:var(--muted); margin-top:3px; }
 #adm-root .alert-time { font-size:.65rem; font-weight:700; color:var(--muted); white-space:nowrap; }
+#adm-root .alerts-view-all { display:block; width:100%; padding:.7rem; margin-top:.4rem; text-align:center; background:none; border:none; border-top:1px solid var(--border); font-family:'Nunito',sans-serif; font-size:.75rem; font-weight:800; color:var(--indigo); cursor:pointer; transition:background .12s; }
+#adm-root .alerts-view-all:hover { background:var(--indigo-light); }
+#adm-root .nav-badge { position:absolute; right:1.2rem; top:50%; transform:translateY(-50%); background:var(--red); color:#fff; font-size:.58rem; font-weight:900; padding:.15rem .45rem; border-radius:20px; min-width:18px; text-align:center; line-height:1.4; }
+#adm-root .nav-item { position:relative; }
 
 /* SCROLLBAR */
 #adm-root ::-webkit-scrollbar { width:6px; height:6px; }

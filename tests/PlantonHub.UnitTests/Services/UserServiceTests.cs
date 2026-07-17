@@ -336,31 +336,4 @@ public class UserServiceTests
         result!.IsActive.Should().BeFalse();
     }
 
-    // ─── SelfRegisterAsync ──────────────────────────────────────────────────
-
-    [Fact]
-    public async Task SelfRegisterAsync_EmailAlreadyExists_ThrowsConflict()
-    {
-        _userRepo.Setup(r => r.EmailExistsAsync(It.IsAny<string>())).ReturnsAsync(true);
-
-        var act = () => CreateService().SelfRegisterAsync(new SelfRegisterRequest { Name = "X", Email = "dup@x.com", Password = "Aa123456!" });
-
-        await act.Should().ThrowAsync<ConflictException>();
-    }
-
-    [Fact]
-    public async Task SelfRegisterAsync_Enfermeiro_ClearsSpecialty()
-    {
-        _userRepo.Setup(r => r.EmailExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
-        _userRepo.Setup(r => r.AddAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
-        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
-        var result = await CreateService().SelfRegisterAsync(new SelfRegisterRequest
-        {
-            Name = "Enfermeira", Email = "enf@x.com", Password = "Aa123456!",
-            ProfessionalType = ProfessionalType.Enfermeiro, Specialty = "Cardiologia",
-        });
-
-        result.Specialty.Should().BeNull();
-    }
 }

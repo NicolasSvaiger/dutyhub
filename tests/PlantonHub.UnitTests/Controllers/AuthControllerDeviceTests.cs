@@ -114,9 +114,23 @@ public class AuthControllerDeviceTests
     }
 
     [Fact]
+    public async Task ResetDeviceAdmin_TargetUserOutsideTenantScope_ReturnsForbid()
+    {
+        var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(false);
+
+        var controller = CreateController();
+        var result = await controller.ResetDeviceAdmin(userId, new ResetDeviceRequest { Reason = "Roubado" });
+
+        result.Should().BeOfType<ForbidResult>();
+        _deviceRegistration.Verify(r => r.DeactivateAllForUserAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ResetDeviceAdmin_NoActiveDevice_ReturnsNotFound()
     {
         var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         _deviceRegistration.Setup(r => r.GetActiveByUserIdAsync(userId)).ReturnsAsync((DeviceRegistration?)null);
 
         var controller = CreateController();
@@ -130,6 +144,7 @@ public class AuthControllerDeviceTests
     {
         var userId = Guid.NewGuid();
         var adminId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         _tenant.Setup(t => t.GetCurrentUserId()).Returns(adminId);
         _deviceRegistration.Setup(r => r.GetActiveByUserIdAsync(userId))
             .ReturnsAsync(new DeviceRegistration
@@ -150,9 +165,23 @@ public class AuthControllerDeviceTests
     // --- Device Audit ---
 
     [Fact]
+    public async Task GetDeviceAudit_TargetUserOutsideTenantScope_ReturnsForbid()
+    {
+        var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(false);
+
+        var controller = CreateController();
+        var result = await controller.GetDeviceAudit(userId);
+
+        result.Should().BeOfType<ForbidResult>();
+        _deviceRegistration.Verify(r => r.GetUnlinkHistoryAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetDeviceAudit_ReturnsHistory()
     {
         var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         _deviceRegistration.Setup(r => r.GetUnlinkHistoryAsync(userId))
             .ReturnsAsync(new[]
             {
@@ -173,8 +202,22 @@ public class AuthControllerDeviceTests
     // --- Setup Face Login ---
 
     [Fact]
+    public async Task SetupFaceLogin_TargetUserOutsideTenantScope_ReturnsForbid()
+    {
+        var userId = Guid.NewGuid();
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(false);
+
+        var controller = CreateController();
+        var result = await controller.SetupFaceLogin(userId);
+
+        result.Should().BeOfType<ForbidResult>();
+        _userRepo.Verify(r => r.GetByIdAsync(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
     public async Task SetupFaceLogin_UserNotFound_ReturnsNotFound()
     {
+        _tenant.Setup(t => t.CanOperateOnUserAsync(It.IsAny<Guid>())).ReturnsAsync(true);
         _userRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>())).ReturnsAsync((User?)null);
 
         var controller = CreateController();
@@ -195,6 +238,7 @@ public class AuthControllerDeviceTests
                 new() { Id = Guid.NewGuid(), UserId = userId, ClinicId = Guid.NewGuid(), Role = RoleType.AdminGlobal }
             }
         };
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         _userRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(admin);
 
         var controller = CreateController();
@@ -215,6 +259,7 @@ public class AuthControllerDeviceTests
                 new() { Id = Guid.NewGuid(), UserId = userId, ClinicId = Guid.NewGuid(), Role = RoleType.Medico }
             }
         };
+        _tenant.Setup(t => t.CanOperateOnUserAsync(userId)).ReturnsAsync(true);
         _userRepo.Setup(r => r.GetByIdAsync(userId)).ReturnsAsync(user);
 
         var controller = CreateController();
