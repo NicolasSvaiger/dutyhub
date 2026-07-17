@@ -146,6 +146,51 @@ public class UserService : IUserService
         return MapToResponse(user);
     }
 
+    public async Task<UserResponse?> UpdateAsync(Guid userId, UpdateUserRequest request)
+    {
+        var roles = _tenantService.GetCurrentRoles();
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+        var isAdminClinica = roles.Contains(RoleType.AdminClinica.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        if (!isAdminGlobal && !isAdminClinica)
+        {
+            throw new ForbiddenException("Only AdminGlobal or AdminClinica can update users.");
+        }
+
+        // AdminClinica can only update users sharing at least one authorized clinic.
+        // AdminGlobal is not restricted. Same guard model as reset-device/setup-face-login.
+        if (!isAdminGlobal && !await _tenantService.CanOperateOnUserAsync(userId))
+        {
+            throw new ForbiddenException("AdminClinica can only edit users of their authorized clinics.");
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user is null) return null;
+
+        // Apply only the fields that were sent. Null means "leave alone" —
+        // this lets partial edits work without the client having to resend
+        // the full profile. Empty string is treated as clear (for optional
+        // scalar fields where an empty value is meaningful).
+        if (request.Name is not null) user.Name = request.Name;
+        if (request.ProfessionalType.HasValue) user.ProfessionalType = request.ProfessionalType;
+        if (request.Cpf is not null) user.Cpf = string.IsNullOrWhiteSpace(request.Cpf) ? null : request.Cpf;
+        if (request.Phone is not null) user.Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone;
+        if (request.RegistrationNumber is not null) user.RegistrationNumber = string.IsNullOrWhiteSpace(request.RegistrationNumber) ? null : request.RegistrationNumber;
+        if (request.Specialty is not null) user.Specialty = string.IsNullOrWhiteSpace(request.Specialty) ? null : request.Specialty;
+        if (request.EmploymentType is not null) user.EmploymentType = string.IsNullOrWhiteSpace(request.EmploymentType) ? null : request.EmploymentType;
+        if (request.DateOfBirth.HasValue) user.DateOfBirth = request.DateOfBirth;
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userRepository.UpdateAsync(user);
+
+        // Invalidate both the specific-user cache and the listing cache — a
+        // rename or role change must be visible in AdminMedicos immediately.
+        await _cacheService.RemoveAsync(CacheKeys.UserProfile(userId));
+        await _cacheService.RemoveByPrefixAsync("users:");
+
+        return MapToResponse(user);
+    }
+
     public async Task AssignClinicRoleAsync(Guid userId, AssignRoleRequest request)
     {
         var roles = _tenantService.GetCurrentRoles();

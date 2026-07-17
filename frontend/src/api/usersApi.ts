@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { User, CreateUserRequest, AssignRoleRequest, UserClinicRole } from '../types';
+import type { User, CreateUserRequest, UpdateUserRequest, AssignRoleRequest, UserClinicRole } from '../types';
 
 export const usersApi = {
   getAll: async (): Promise<User[]> => {
@@ -14,6 +14,11 @@ export const usersApi = {
 
   create: async (request: CreateUserRequest): Promise<User> => {
     const { data } = await axiosInstance.post<User>('/users', request);
+    return data;
+  },
+
+  update: async (userId: string, request: UpdateUserRequest): Promise<User> => {
+    const { data } = await axiosInstance.put<User>(`/users/${userId}`, request);
     return data;
   },
 

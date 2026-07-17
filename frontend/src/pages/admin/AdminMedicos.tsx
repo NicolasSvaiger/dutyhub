@@ -219,7 +219,25 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
     setSaving(true);
     try {
       if (editingId) {
-        // TODO: implement update when backend supports it
+        // Backend PUT /api/users/{id} — accepts partial payload. Only the
+        // fields the drawer surfaces are sent; email and password are
+        // immutable via this endpoint (Cognito reset is a separate flow).
+        const profType = formTipo === 'Médico' ? 1 : formTipo === 'Enfermeiro' ? 2 : undefined;
+        await usersApi.update(editingId, {
+          name: formNome.trim() || undefined,
+          professionalType: profType,
+          cpf: formCpf.replace(/\D/g, '') || undefined,
+          phone: formTel.replace(/\D/g, '') || undefined,
+          registrationNumber: formRegistro.trim() || undefined,
+          specialty: formTipo === 'Enfermeiro' ? undefined : (formEspecialidade.trim() || undefined),
+          employmentType: formVinculo || undefined,
+          dateOfBirth: formDob || undefined,
+        });
+
+        // Refresh user list so the table reflects the edit
+        const refreshed = await usersApi.getAll();
+        setUsers(Array.isArray(refreshed) ? refreshed : []);
+
         closeDrawer();
         showToast('Profissional atualizado com sucesso!');
       } else {

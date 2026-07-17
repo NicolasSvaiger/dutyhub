@@ -60,10 +60,20 @@ public class AuditService : IAuditService
 
     public async Task LogAsync(string operation, string entity, string entityId, string? details = null)
     {
+        await LogAsync(
+            _tenantService.GetCurrentUserId() ?? Guid.Empty,
+            operation,
+            entity,
+            entityId,
+            details);
+    }
+
+    public async Task LogAsync(Guid userId, string operation, string entity, string entityId, string? details = null)
+    {
         var log = new AuditLog
         {
             Id = Guid.NewGuid(),
-            UserId = _tenantService.GetCurrentUserId() ?? Guid.Empty,
+            UserId = userId,
             Timestamp = DateTime.UtcNow,
             Operation = operation,
             Entity = entity,

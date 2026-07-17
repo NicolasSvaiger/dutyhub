@@ -264,6 +264,19 @@ export interface CreateUserRequest {
   dateOfBirth?: string;
 }
 
+// Update payload for admin edits — no password (Cognito reset flow) and no
+// email (immutable identity). All fields optional: null means "leave alone".
+export interface UpdateUserRequest {
+  name?: string;
+  professionalType?: number;
+  cpf?: string;
+  phone?: string;
+  registrationNumber?: string;
+  specialty?: string;
+  employmentType?: string;
+  dateOfBirth?: string;
+}
+
 export interface AssignRoleRequest {
   clinicId: string;
   role: RoleType;

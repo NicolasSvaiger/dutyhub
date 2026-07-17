@@ -33,4 +33,12 @@ public interface IAuditService
     /// há mutações relevantes de negócio.
     /// </summary>
     Task LogAsync(string operation, string entity, string entityId, string? details = null);
+
+    /// <summary>
+    /// Grava uma entrada de auditoria com o usuário explícito, ignorando o
+    /// TenantService. Usado nos eventos de login (o usuário ainda não está
+    /// autenticado no HttpContext no momento da gravação) e em jobs que
+    /// não têm um caller humano.
+    /// </summary>
+    Task LogAsync(Guid userId, string operation, string entity, string entityId, string? details = null);
 }

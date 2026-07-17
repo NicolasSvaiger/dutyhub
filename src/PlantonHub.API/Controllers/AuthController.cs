@@ -22,6 +22,7 @@ public class AuthController : ControllerBase
     private readonly IDeviceRegistrationRepository _deviceRegistrationRepository;
     private readonly ICognitoAuthService _cognitoAuthService;
     private readonly IUserRepository _userRepository;
+    private readonly IAuditService _auditService;
 
     public AuthController(
         ITokenBlacklistService tokenBlacklistService,
@@ -30,7 +31,8 @@ public class AuthController : ControllerBase
         IFaceEnrollmentRepository faceEnrollmentRepository,
         IDeviceRegistrationRepository deviceRegistrationRepository,
         ICognitoAuthService cognitoAuthService,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IAuditService auditService)
     {
         _tokenBlacklistService = tokenBlacklistService;
         _tenantService = tenantService;
@@ -39,6 +41,7 @@ public class AuthController : ControllerBase
         _deviceRegistrationRepository = deviceRegistrationRepository;
         _cognitoAuthService = cognitoAuthService;
         _userRepository = userRepository;
+        _auditService = auditService;
     }
 
     /// <summary>
@@ -116,6 +119,16 @@ public class AuthController : ControllerBase
 
         // 6. Authenticate via Cognito (service-managed password)
         var cognitoResult = await _cognitoAuthService.AuthenticateAsync(request.Email);
+
+        // 7. Audit successful login. userId is passed explicitly because the
+        // request is still anonymous — TenantService can't resolve it from
+        // the HttpContext yet (no bearer token on this request).
+        await _auditService.LogAsync(
+            user.Id,
+            "Login",
+            "User",
+            user.Id.ToString(),
+            $"Face-login via device {request.DeviceId} ({request.Platform})");
 
         return Ok(new FaceLoginResponse
         {
@@ -345,7 +358,20 @@ public class AuthController : ControllerBase
         // 3. Blacklist the token
         await _tokenBlacklistService.BlacklistTokenAsync(jti, remainingTtl);
 
-        // 4. Return 204 No Content
+        // 4. Audit the logout. TenantService can resolve the current user
+        // because [Authorize] guarantees the token was accepted upstream.
+        var userId = _tenantService.GetCurrentUserId();
+        if (userId.HasValue)
+        {
+            await _auditService.LogAsync(
+                userId.Value,
+                "Logout",
+                "User",
+                userId.Value.ToString(),
+                $"Token revoked (jti={jti})");
+        }
+
+        // 5. Return 204 No Content
         return NoContent();
     }
 }
