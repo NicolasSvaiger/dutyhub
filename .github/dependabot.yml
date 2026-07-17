@@ -1,70 +1,14 @@
 version: 2
 
-# Semanal, agrupando por ecossistema para reduzir ruído. Um PR por
-# ecossistema/dia — evita "20 PRs abertos" ao mesmo tempo.
+# Semanal, agressivamente agrupado para evitar avalanche de PRs.
+# Regra prática: `ignore` para bumps de major que exigem trabalho manual
+# (upgrade de framework, breaking changes conhecidos). Esses só sobem quando
+# o time abrir uma sprint dedicada.
 updates:
+  # ─────────────────────────────────────────────────────────────
   # Backend .NET
+  # ─────────────────────────────────────────────────────────────
   - package-ecosystem: nuget
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
-      timezone: America/Sao_Paulo
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - backend
-    groups:
-      microsoft-aspnetcore:
-        patterns:
-          - "Microsoft.AspNetCore.*"
-          - "Microsoft.Extensions.*"
-      entity-framework:
-        patterns:
-          - "Microsoft.EntityFrameworkCore*"
-          - "Npgsql*"
-      serilog:
-        patterns:
-          - "Serilog*"
-      testing:
-        patterns:
-          - "xunit*"
-          - "Moq"
-          - "FluentAssertions"
-          - "FsCheck*"
-          - "coverlet*"
-          - "Testcontainers*"
-
-  # Frontend
-  - package-ecosystem: npm
-    directory: /frontend
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
-      timezone: America/Sao_Paulo
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - frontend
-    groups:
-      react:
-        patterns:
-          - "react"
-          - "react-dom"
-          - "@types/react*"
-      vitest:
-        patterns:
-          - "vitest"
-          - "@vitest/*"
-          - "@testing-library/*"
-      types:
-        patterns:
-          - "@types/*"
-
-  # GitHub Actions
-  - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
@@ -74,9 +18,165 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - dependencies
-      - ci
+      - backend
+    # Um PR único por família — bumps de patch/minor viram commits em bloco.
+    groups:
+      aspnetcore-and-ef:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.Extensions.*"
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql*"
+      serilog:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "Serilog*"
+      aws:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "AWSSDK*"
+          - "AWS.*"
+      testing:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "xunit*"
+          - "Moq"
+          - "FluentAssertions"
+          - "FsCheck*"
+          - "coverlet*"
+          - "Testcontainers*"
+    # Ignora majors que exigem sprint dedicada — .NET 8 → 9/10 é
+    # decisão de projeto, não deve virar PR automático.
+    ignore:
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql*"
+        update-types: ["version-update:semver-major"]
 
-  # Docker base images (raiz e frontend)
+  # ─────────────────────────────────────────────────────────────
+  # Frontend
+  # ─────────────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - frontend
+    groups:
+      react-and-router:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-router*"
+          - "@types/react*"
+          - "react-day-picker"
+      vitest-and-testing:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@testing-library/*"
+          - "@playwright/*"
+          - "fast-check"
+          - "jsdom"
+      i18n:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "i18next*"
+          - "react-i18next"
+      types-and-tooling:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "@types/*"
+          - "@vitejs/*"
+          - "vite"
+          - "oxlint"
+    # Majors nunca automatizados — TypeScript, React, Vite majors são
+    # breaking changes reais que exigem revisão manual.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-router*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-i18next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vite"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitejs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
+  # ─────────────────────────────────────────────────────────────
+  # GitHub Actions
+  # ─────────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 1
+    labels:
+      - dependencies
+      - ci
+    # Um PR mensal com TUDO agrupado — actions são estáveis, bumps são
+    # essencialmente inofensivos, não queremos 1 PR por action.
+    groups:
+      all-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+
+  # ─────────────────────────────────────────────────────────────
+  # Docker base images
+  # ─────────────────────────────────────────────────────────────
+  # Backend Dockerfile (raiz): FROM dotnet/sdk:8.0 + dotnet/aspnet:8.0
+  # Fixar em major 8 — upgrade para .NET 9/10 é decisão de sprint.
   - package-ecosystem: docker
     directory: /
     schedule:
@@ -84,11 +184,26 @@ updates:
       day: monday
       time: "09:00"
       timezone: America/Sao_Paulo
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
     labels:
       - dependencies
       - docker
+    groups:
+      dotnet-images:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "*"
+    ignore:
+      # .NET 8 é o major escolhido pelo projeto — nunca subir automaticamente.
+      - dependency-name: "mcr.microsoft.com/dotnet/sdk"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "mcr.microsoft.com/dotnet/aspnet"
+        update-types: ["version-update:semver-major"]
 
+  # Frontend Dockerfile: FROM node:20-alpine + nginx:alpine
   - package-ecosystem: docker
     directory: /frontend
     schedule:
@@ -96,7 +211,20 @@ updates:
       day: monday
       time: "09:00"
       timezone: America/Sao_Paulo
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 1
     labels:
       - dependencies
       - docker
+    groups:
+      frontend-images:
+        applies-to: version-updates
+        update-types:
+          - patch
+          - minor
+        patterns:
+          - "*"
+    ignore:
+      # Node 20 é a versão do projeto (matches CI setup-node@v4). Não subir
+      # automaticamente para 22/24 sem validar CI.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]

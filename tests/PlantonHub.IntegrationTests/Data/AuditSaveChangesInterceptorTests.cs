@@ -43,14 +43,12 @@ public class AuditSaveChangesInterceptorTests : IAsyncLifetime
     {
         await _postgres.StartAsync();
 
-        // HttpContext simulado com um "sub" válido — mesma resolução usada em produção.
         _httpContext = new Mock<IHttpContextAccessor>();
-        var ctx = new DefaultHttpContext();
-        ctx.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
-            new Claim("sub", CallerUserId.ToString()),
-        }, "TestAuth"));
-        _httpContext.Setup(a => a.HttpContext).Returns(ctx);
+
+        // Start with a null HttpContext so the caller user seed doesn't get
+        // audited by itself (which would create a circular FK problem — the
+        // audit row would reference a user that isn't yet committed).
+        _httpContext.Setup(a => a.HttpContext).Returns((HttpContext?)null);
 
         var interceptor = new AuditSaveChangesInterceptor(_httpContext.Object);
 
@@ -61,6 +59,31 @@ public class AuditSaveChangesInterceptorTests : IAsyncLifetime
 
         _context = new AppDbContext(options);
         await _context.Database.MigrateAsync();
+
+        // Seed the caller user — every AuditLog row will reference this via
+        // FK_AuditLogs_Users_UserId. The null HttpContext above means this
+        // seed itself doesn't produce an audit entry.
+        _context.Users.Add(new User
+        {
+            Id = CallerUserId,
+            Email = "caller@test.com",
+            Name = "Caller",
+            PasswordHash = "hash",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Now switch to the real HttpContext with the caller sub — subsequent
+        // saves will produce audit rows attributed to CallerUserId.
+        var ctx = new DefaultHttpContext();
+        ctx.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("sub", CallerUserId.ToString()),
+        }, "TestAuth"));
+        _httpContext.Setup(a => a.HttpContext).Returns(ctx);
     }
 
     public async Task DisposeAsync()
