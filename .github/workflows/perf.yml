@@ -8,14 +8,24 @@ name: Performance / Load smoke
 on:
   workflow_dispatch:
     inputs:
+      scenario:
+        description: 'k6 scenario file under tests/k6/scenarios/'
+        required: true
+        default: 'smoke.js'
+        type: choice
+        options:
+          - smoke.js
+          - load.js
+          - stress.js
+          - checkin-cycle.js
       base_url:
         description: 'Override BASE_URL (leave blank to test the compose stack)'
         required: false
         default: ''
 
 jobs:
-  load-smoke:
-    name: k6 load smoke
+  k6:
+    name: k6 ${{ inputs.scenario }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,31 +75,36 @@ jobs:
           docker compose logs api
           exit 1
 
-      - name: Run k6 load smoke
+      - name: Run k6 scenario
         env:
-          BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || 'http://localhost:5000' }}
+          # tests/k6/config.js expects BASE_URL to end with /api (matches
+          # frontend axios baseURL) — enforce it here regardless of input.
+          BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || 'http://localhost:5000/api' }}
           COGNITO_REGION: ${{ secrets.VITE_COGNITO_REGION }}
           COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
           # Same seeded professional the E2E tests use.
-          USER_EMAIL: medico@plantonhub.com
-          USER_PASSWORD: Teste@123
+          TEST_EMAIL: medico@plantonhub.com
+          TEST_PASSWORD: Teste@123
         run: |
-          mkdir -p perf/results
-          k6 run --summary-export=perf/results/summary.json perf/load-smoke.js
+          mkdir -p tests/k6/results
+          k6 run \
+            --summary-export=tests/k6/results/summary.json \
+            tests/k6/scenarios/${{ inputs.scenario }}
 
       - name: Publish summary
         if: always()
         run: |
-          echo "## k6 load smoke results" >> $GITHUB_STEP_SUMMARY
+          echo "## k6 ${{ inputs.scenario }} — results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -f perf/results/summary.json ]; then
+          if [ -f tests/k6/results/summary.json ]; then
             # Pull out the numbers stakeholders care about — success rate,
-            # p95 per group. The full JSON goes up as an artifact for anyone
-            # who wants to dig deeper.
-            REQ_TOTAL=$(jq '.metrics.http_reqs.count' perf/results/summary.json)
-            REQ_FAILED=$(jq '.metrics.http_req_failed.value * .metrics.http_reqs.count | floor' perf/results/summary.json)
-            REQ_SUCCESS_PCT=$(jq '(1 - .metrics.http_req_failed.value) * 100 | . * 100 | floor / 100' perf/results/summary.json)
-            P95_ALL=$(jq '.metrics.http_req_duration["p(95)"] | . * 100 | floor / 100' perf/results/summary.json)
+            # p95. The full JSON goes up as an artifact for anyone who wants
+            # to dig deeper.
+            REQ_TOTAL=$(jq '.metrics.http_reqs.count' tests/k6/results/summary.json)
+            REQ_FAILED=$(jq '.metrics.http_req_failed.value * .metrics.http_reqs.count | floor' tests/k6/results/summary.json)
+            REQ_SUCCESS_PCT=$(jq '(1 - .metrics.http_req_failed.value) * 10000 | floor / 100' tests/k6/results/summary.json)
+            P95_ALL=$(jq '.metrics.http_req_duration["p(95)"] | . * 100 | floor / 100' tests/k6/results/summary.json)
+            P99_ALL=$(jq '.metrics.http_req_duration["p(99)"] | . * 100 | floor / 100' tests/k6/results/summary.json)
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -97,6 +112,7 @@ jobs:
             echo "| Failed | $REQ_FAILED |" >> $GITHUB_STEP_SUMMARY
             echo "| Success rate | ${REQ_SUCCESS_PCT}% |" >> $GITHUB_STEP_SUMMARY
             echo "| p95 (all) | ${P95_ALL}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| p99 (all) | ${P99_ALL}ms |" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ summary.json not generated — k6 may have crashed before writing output." >> $GITHUB_STEP_SUMMARY
           fi
@@ -105,8 +121,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-results
-          path: perf/results/
+          name: k6-results-${{ inputs.scenario }}
+          path: tests/k6/results/
           retention-days: 14
 
       - name: Stop stack

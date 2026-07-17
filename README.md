@@ -1,186 +1,223 @@
-# PlantonHub
+# DutyHub / PlantonHub
 
-Sistema de gestão de plantões médicos (MVP) que permite a profissionais de saúde gerenciarem escalas, registrarem presença (check-in/check-out com geolocalização) e manterem histórico de atividades. O sistema é multi-tenant por clínica, com controle de acesso baseado em papéis (RBAC) e autenticação JWT.
+Sistema de gestão de plantões médicos: profissionais registram presença
+(check-in/check-out com geolocalização, biometria facial e sync offline),
+administradores gerenciam escalas, contratos e faturamento. Multi-tenant
+por clínica, RBAC, autenticação via AWS Cognito.
 
 ## Arquitetura
 
-O projeto segue **Clean Architecture** com 4 camadas:
+**Clean Architecture** com 4 camadas:
 
 | Camada | Responsabilidade |
-|--------|-----------------|
-| **Domain** | Entidades, enums e interfaces de repositório |
-| **Application** | Serviços, DTOs, validadores e interfaces de aplicação |
-| **Infrastructure** | EF Core, repositórios concretos, JWT, hash de senha |
-| **API** | Controllers, middlewares, configuração e Program.cs |
+|--------|------------------|
+| **Domain** | Entidades, enums, interfaces de repositório |
+| **Application** | Serviços, DTOs, validadores, interfaces |
+| **Infrastructure** | EF Core, repositórios, cache Redis, Cognito, seed |
+| **API** | Controllers, middlewares, config, Program.cs |
 
-**Stack tecnológica:** .NET 8 + React (TypeScript) + Flutter (mobile) + PostgreSQL + AWS (Cognito, App Runner, RDS, S3/CloudFront)
+**Stack:** .NET 8 + React (TypeScript) + Flutter (mobile) + PostgreSQL 16 +
+Redis 7 + AWS (Cognito, App Runner, RDS, ElastiCache, S3/CloudFront).
 
-## Estrutura de Diretórios
+## Estrutura
 
 ```
-PlantonHub/
+DutyHub/
 ├── src/
-│   ├── PlantonHub.Domain/           # Entidades, enums, interfaces de repositório
-│   ├── PlantonHub.Application/      # Serviços, DTOs, validadores
-│   ├── PlantonHub.Infrastructure/   # EF Core, repositórios, JWT, seed
-│   └── PlantonHub.API/              # Controllers, middlewares, Program.cs
-├── frontend/                        # React SPA (Vite + TypeScript)
-│   └── src/
-│       ├── api/                     # Axios instance e chamadas à API
-│       ├── contexts/                # AuthContext, ClinicContext
-│       ├── pages/                   # Páginas da aplicação
-│       ├── components/              # Componentes reutilizáveis
-│       ├── hooks/                   # Custom hooks
-│       └── types/                   # Tipos TypeScript
+│   ├── PlantonHub.Domain/              # Entidades, enums, interfaces
+│   ├── PlantonHub.Application/         # Services, DTOs, validators
+│   ├── PlantonHub.Infrastructure/      # EF Core, repos, cache, Cognito
+│   └── PlantonHub.API/                 # Controllers, middlewares, Program.cs
+├── frontend/                           # React SPA (Vite + TS) — ver frontend/README.md
+├── infrastructure/                     # CDK stacks (network, database, api, dns, cognito, ...)
 ├── tests/
-│   ├── PlantonHub.UnitTests/        # Testes unitários (xUnit)
-│   ├── PlantonHub.PropertyTests/    # Testes de propriedade (FsCheck)
-│   └── PlantonHub.IntegrationTests/ # Testes de integração
+│   ├── PlantonHub.UnitTests/           # xUnit + Moq (440 testes)
+│   ├── PlantonHub.PropertyTests/       # FsCheck (65 testes)
+│   ├── PlantonHub.IntegrationTests/    # Testcontainers + Cognito real
+│   └── k6/                             # Load / stress tests — ver tests/k6/README.md
+├── docs/                               # Docs de integração (Flutter biometric API, reunião 24p7)
+├── .github/workflows/
+│   ├── ci.yml                          # Backend + frontend tests + build + deploy
+│   └── perf.yml                        # k6 load smoke (manual)
 ├── docker-compose.yml
-├── Dockerfile                       # API (.NET 8 multi-stage)
-└── frontend/Dockerfile              # Frontend (Node build + Nginx)
+├── Dockerfile                          # API .NET 8 multi-stage
+└── frontend/Dockerfile                 # Frontend Node build + Nginx
 ```
 
 ## Pré-requisitos
 
-### Com Docker (recomendado)
+### Com Docker (recomendado para dev)
 
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Docker](https://docs.docker.com/get-docker/) + [Docker Compose](https://docs.docker.com/compose/install/)
+- Credenciais AWS Cognito (variáveis de ambiente ou secrets) — o Cognito real
+  é usado até em dev, não há mock local.
 
-### Sem Docker (desenvolvimento local)
+### Sem Docker
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - [Node.js 20+](https://nodejs.org/)
-- [PostgreSQL 16](https://www.postgresql.org/download/)
+- [PostgreSQL 16](https://www.postgresql.org/download/) + [Redis 7](https://redis.io/download)
 
-## Executar com Docker
+## Executar
+
+### Docker Compose
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
-
-Após a inicialização, acesse:
 
 | Serviço | URL |
 |---------|-----|
 | Frontend | http://localhost:3000 |
 | API | http://localhost:5000 |
 | Swagger | http://localhost:5000/swagger |
+| Postgres | localhost:5432 |
+| Redis | localhost:6379 |
 
-> As migrations e o seed de dados são executados automaticamente ao iniciar a API.
+Migrations e seed rodam automaticamente no startup da API. A stack sobe
+com health checks — `docker compose up --wait` bloqueia até tudo ficar
+saudável.
 
-## Executar Localmente
+### Modo dev separado
 
-### 1. Iniciar o PostgreSQL
-
-Certifique-se de que o PostgreSQL está rodando na porta 5432 com as credenciais padrão:
-
-- **Database:** plantonhub
-- **Usuário:** postgres
-- **Senha:** postgres
-
-### 2. Aplicar migrations
+Backend:
 
 ```bash
-dotnet ef database update --project src/PlantonHub.Infrastructure --startup-project src/PlantonHub.API
-```
+# 1. Postgres + Redis via Docker
+docker compose up -d db redis
 
-### 3. Executar a API
+# 2. Migrations
+dotnet ef database update \
+  --project src/PlantonHub.Infrastructure \
+  --startup-project src/PlantonHub.API
 
-```bash
+# 3. API
 dotnet run --project src/PlantonHub.API
 ```
 
-A API estará disponível em `http://localhost:5000` com Swagger em `http://localhost:5000/swagger`.
+Frontend: ver [`frontend/README.md`](frontend/README.md).
 
-### 4. Executar o frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-O frontend estará disponível em `http://localhost:5173` (Vite dev server).
-
-## Migrations
-
-### Adicionar uma nova migration
+## Migrations EF Core
 
 ```bash
-dotnet ef migrations add <NomeDaMigration> --project src/PlantonHub.Infrastructure --startup-project src/PlantonHub.API
+# Nova migration
+dotnet ef migrations add <Nome> \
+  --project src/PlantonHub.Infrastructure \
+  --startup-project src/PlantonHub.API
+
+# Aplicar
+dotnet ef database update \
+  --project src/PlantonHub.Infrastructure \
+  --startup-project src/PlantonHub.API
+
+# Reverter última
+dotnet ef migrations remove \
+  --project src/PlantonHub.Infrastructure \
+  --startup-project src/PlantonHub.API
 ```
 
-### Atualizar o banco de dados
+## Dados de acesso (Cognito)
 
-```bash
-dotnet ef database update --project src/PlantonHub.Infrastructure --startup-project src/PlantonHub.API
-```
+Autenticação via AWS Cognito. Usuários seedados no User Pool:
 
-### Reverter última migration
+| Email | Senha | Perfil | Clínicas |
+|-------|-------|--------|----------|
+| admin@plantonhub.com | Admin@123 | AdminGlobal | Todas |
+| adminclinica@plantonhub.com | Teste@123 | AdminClinica | Clínica Alpha |
+| medico@plantonhub.com | Teste@123 | Medico | Alpha + Beta |
+| enfermeiro@plantonhub.com | Teste@123 | Enfermeiro | Clínica Alpha |
 
-```bash
-dotnet ef migrations remove --project src/PlantonHub.Infrastructure --startup-project src/PlantonHub.API
-```
+O backend recebe o ID Token como Bearer. Claims customizados (`roles`,
+`clinicIds`) são injetados pela Lambda pre-token-generation.
 
-## Dados de Acesso (Cognito)
-
-A autenticacao e feita via AWS Cognito. Os usuarios de teste abaixo estao no User Pool:
-
-| Email | Perfil | Clinicas |
-|-------|--------|----------|
-| admin@plantonhub.com | AdminGlobal | Todas |
-| adminclinica@plantonhub.com | AdminClinica | Clinica Alpha |
-| medico@plantonhub.com | Medico | Clinica Alpha |
-| enfermeiro@plantonhub.com | Enfermeiro | Clinica Alpha |
-
-> Login via Cognito SDK (frontend/mobile). O backend recebe o ID Token como Bearer.  
-> Claims customizados (`roles`, `clinicIds`) sao injetados pela Lambda pre-token-generation.
-
-**Clínicas criadas pelo seed:**
-
-- **Clínica Alpha** — clínica principal com usuários associados
-- **Clínica Beta** — clínica secundária para testes de multi-tenancy
+**Clínicas seedadas:** Clínica Alpha (principal), Clínica Beta (para
+multi-tenancy).
 
 ## Testes
 
-Executar todos os testes da solution:
+Baseline atual: **440 unit + 65 property + ~45 integration + 522 vitest
++ 17 Playwright E2E**.
+
+### Backend
 
 ```bash
-dotnet test PlantonHub.sln
-```
-
-Executar apenas testes unitários:
-
-```bash
+# Unit (Moq, roda local sem infra)
 dotnet test tests/PlantonHub.UnitTests
+
+# Property (FsCheck)
+dotnet test tests/PlantonHub.PropertyTests
+
+# Integration (Testcontainers + Cognito real — roda só no CI ou com AWS creds locais)
+dotnet test tests/PlantonHub.IntegrationTests
 ```
 
-Executar apenas testes de propriedade:
+### Frontend
+
+Unit + component (Vitest):
 
 ```bash
-dotnet test tests/PlantonHub.PropertyTests
+cd frontend
+npx vitest --run
 ```
 
-## Offline First — Check-in/Check-out
+E2E (Playwright — requer Docker + Cognito real):
 
-O PlantonHub suporta operações de check-in e check-out mesmo quando o dispositivo está sem internet. O fluxo é baseado na estratégia **offline-first**: a ação do usuário é registrada localmente e sincronizada com o servidor assim que a conectividade for restaurada.
+```bash
+docker compose up -d --wait --build
+cd frontend
+npx playwright test
+```
 
-### Fluxo Geral
+### Performance (k6)
+
+Load smokes contra os hot paths do profissional. Rodam manualmente via
+GitHub Actions ou local. Ver [`tests/k6/README.md`](tests/k6/README.md).
+
+Trigger no CI: **Actions → Performance / Load smoke → Run workflow**.
+Escolha o cenário (`smoke.js`, `load.js`, `stress.js`,
+`checkin-cycle.js`) e opcionalmente aponte para staging via `base_url`.
+
+## CI/CD
+
+`.github/workflows/ci.yml` roda em push/PR para `main`:
+
+- Backend unit tests → 440 testes
+- Backend property tests → 65 testes
+- Backend integration tests (Testcontainers + Cognito — pula em PRs do
+  Dependabot, que não veem secrets)
+- Frontend unit tests (Vitest) → 522 testes
+- Frontend E2E (Playwright — pula em Dependabot)
+- Build & push das imagens para ECR (só na `main`)
+- Deploy no App Runner (só na `main`)
+- Trivy container scan (só na `main`, soft-fail com SARIF no Code Scanning)
+- Deploy frontend para S3 + invalidate CloudFront
+
+`.github/workflows/perf.yml` é manual — dispatch com escolha de cenário.
+
+`.github/dependabot.yml` agrupa updates por família (aspnetcore-and-ef,
+serilog, aws, testing no backend; react-and-router, vitest-and-testing,
+i18n, types-and-tooling no frontend). Majors de framework críticos
+(EF Core, ASP.NET, Npgsql, AWSSDK, React, Vite, TypeScript, Vitest)
+ficam no `ignore` — upgrade só via sprint dedicada.
+
+## Offline First — check-in / check-out
+
+O médico consegue registrar check-in/check-out mesmo sem internet. O
+fluxo é offline-first: ação salva local, sync quando conectividade volta.
+
+### Fluxo
 
 ```
-1. Usuário faz check-in/check-out no dispositivo
-2. Frontend detecta que está offline (navigator.onLine === false ou falha de rede)
-3. Evento é salvo no localStorage com status "Pending"
-4. Quando a internet retorna (evento "online"), o hook useOfflineSync envia todos os eventos pendentes via POST /api/attendance/sync
-5. Backend processa cada evento e retorna o resultado individual
+1. Usuário toca check-in/check-out
+2. Frontend detecta offline (navigator.onLine === false ou erro de rede)
+3. Evento salvo em localStorage com status "Pending"
+4. Ao voltar online (evento window.online), useOfflineSync envia todos
+   os pendentes via POST /api/attendance/sync
+5. Backend processa cada evento e retorna status individual
 6. Eventos sincronizados são removidos da fila local
 ```
 
-### Campos do Evento Offline
-
-Cada evento armazenado localmente contém:
+### Campos do evento offline
 
 | Campo | Descrição |
 |-------|-----------|
@@ -192,9 +229,7 @@ Cada evento armazenado localmente contém:
 | `syncStatus` | Pending, Synced ou Failed |
 | `retryCount` | Número de tentativas de sincronização |
 
-### Status de Sincronização
-
-Após o sync, cada evento recebe um dos seguintes status:
+### Status após sync
 
 | Status | Significado |
 |--------|-------------|
@@ -203,145 +238,117 @@ Após o sync, cada evento recebe um dos seguintes status:
 | `OfflineSyncedLate` | Sincronizado com atraso significativo |
 | `RequiresReview` | Aceito mas com alertas — requer revisão manual |
 | `Rejected` | Rejeitado por falha de validação |
-| `DuplicateIgnored` | Evento duplicado já processado anteriormente |
+| `DuplicateIgnored` | Evento duplicado já processado |
 
-### Quando um evento recebe `RequiresReview`
+### Quando um evento vira `RequiresReview`
 
-O sistema marca um evento para revisão manual quando detecta condições suspeitas (flags antifraude):
+Detecta flags antifraude:
 
-- **Evento muito antigo** — o `localDateTime` indica que se passaram muitas horas desde a ação original
-- **Clock skew excessivo** — grande diferença entre o horário do dispositivo e o horário do servidor (ver seção abaixo)
-- **Localização fora do raio** — coordenadas GPS fora do raio permitido da clínica
-- **DeviceId incomum** — dispositivo diferente do habitualmente utilizado pelo usuário
-- **Biometria não validada** — o dispositivo não confirmou biometria local
-- **AppVersion desatualizada** — versão do app abaixo do mínimo aceitável
-- **Múltiplos reenvios** — tentativas repetidas do mesmo evento (possível replay attack)
+- Evento muito antigo (`localDateTime` distante do server time)
+- Clock skew excessivo entre device e servidor
+- Localização GPS fora do raio permitido da clínica
+- DeviceId incomum para o usuário
+- Biometria não validada localmente
+- `AppVersion` desatualizada
+- Múltiplos reenvios do mesmo `localEventId` (possível replay attack)
 
-Um administrador pode revisar estes eventos no painel de auditoria.
+Um administrador revisa esses eventos em Admin OS → Auditoria.
 
-### Clock Skew — Horário Local vs. Horário do Servidor
+### Redis no fluxo offline
 
-O sistema registra dois timestamps para cada operação:
+Redis **não** é fonte da verdade — PostgreSQL mantém esse papel. Redis
+atua em três pontos e todos falham-abertos:
 
-- **`LocalDateTime`** — horário do dispositivo no momento do check-in/check-out
-- **`ServerDateTime`** — horário do servidor no momento em que recebeu o evento
+| Uso | Fallback se Redis cair |
+|-----|------------------------|
+| Lock distribuído (evita race no sync de mesmo user/plantão) | Operação prossegue sem lock (dedupe cai para índice único no DB) |
+| Idempotência temporária (TTL curto para reenvios rápidos) | Verificação cai para índice único (`localEventId + userId + deviceId`) |
+| Rate limit por user/device | Rate limit não é aplicado, operação prossegue |
 
-A diferença entre esses dois valores é o **clock skew**. Quando a diferença é muito grande, o evento é marcado como `RequiresReview` porque pode indicar:
+### Testar modo offline
 
-- Relógio do dispositivo desconfigurado (intencional ou acidental)
-- Evento registrado offline há muito tempo e sincronizado com atraso
-- Tentativa de fraude (alterar o horário do dispositivo para registrar presença retroativamente)
+Chrome/Edge DevTools:
 
-```
-Exemplo:
-  LocalDateTime:  2024-03-15 08:00:00 (dispositivo)
-  ServerDateTime: 2024-03-15 14:30:00 (servidor)
-  Diferença:      6h30 → marcado como RequiresReview
-```
+1. `F12` → Network → checkbox "Offline"
+2. Fazer check-in — enfileira local
+3. Desmarcar "Offline" — sync automático dispara
 
-### Como o Redis Participa do Fluxo Offline
-
-O Redis **não** é a fonte da verdade — o PostgreSQL mantém esse papel. O Redis atua em três pontos específicos durante a sincronização:
-
-| Uso | Descrição | Comportamento se Redis indisponível |
-|-----|-----------|-------------------------------------|
-| **Lock distribuído** | Evita race conditions quando dois dispositivos sincronizam o mesmo usuário/plantão simultaneamente | Operação prossegue sem lock (possível duplicata tratada pela idempotência do banco) |
-| **Idempotência temporária** | Cache de curta duração (TTL) para detectar reenvios imediatos do mesmo `localEventId` | Verificação de idempotência cai para o índice único do PostgreSQL |
-| **Rate limit** | Limita a quantidade de syncs por usuário/dispositivo em um intervalo de tempo | Rate limit não é aplicado, operação prossegue |
-
-O design **fail-open** garante que o fluxo de sincronização nunca é bloqueado pela indisponibilidade do Redis.
-
-### Como Testar Modo Offline
-
-#### Via DevTools do Navegador (Chrome/Edge)
-
-1. Abra DevTools (`F12` ou `Ctrl+Shift+I`)
-2. Vá até a aba **Network**
-3. Marque a checkbox **Offline** (ou selecione "Offline" no dropdown de throttling)
-4. Realize um check-in — o evento será enfileirado localmente
-5. Desmarque "Offline" — o sync acontece automaticamente
-
-#### Via Network Throttling
-
-1. No DevTools → Network, selecione um perfil como **Slow 3G** ou **Offline**
-2. Útil para simular conexões instáveis onde requests podem falhar por timeout
-
-#### Verificando Eventos Pendentes
-
-- Um banner visual aparece quando o dispositivo está offline
-- Um indicador mostra a quantidade de operações pendentes
-- A lista de eventos pendentes é acessível na interface do usuário
-- O botão "Sincronizar" permite forçar o envio manualmente
-
-#### Via Código (para testes automatizados)
+Via código (útil em testes automáticos):
 
 ```javascript
-// Simular offline
 window.dispatchEvent(new Event('offline'));
-
-// Simular volta ao online (dispara sync automático)
-window.dispatchEvent(new Event('online'));
+// ... realizar ação ...
+window.dispatchEvent(new Event('online')); // dispara sync
 ```
 
-## Tecnologias
+## Biometria facial
 
-| Categoria | Tecnologia |
-|-----------|------------|
-| Backend | .NET 8, ASP.NET Core Web API |
-| ORM | Entity Framework Core |
-| Banco de Dados | PostgreSQL 16 |
-| Cache Distribuído | Redis 7 (Alpine) |
-| Autenticação | AWS Cognito (JWT ID Token + pre-token Lambda) |
-| Validação | FluentValidation |
-| Frontend | React 18, TypeScript, Vite |
-| Mobile | Flutter (em desenvolvimento) |
-| HTTP Client | Axios |
-| Roteamento | React Router |
-| Testes | xUnit, FsCheck, Moq, FluentAssertions, fast-check |
-| Containerização | Docker, Docker Compose |
-| Documentação API | Swagger / OpenAPI |
-| Infra (AWS) | App Runner, RDS PostgreSQL, ElastiCache Redis, Cognito, Secrets Manager, CloudFront + S3 |
-| Biometria | FaceNet/MobileFaceNet (embeddings 128-dim, cosine similarity) |
-
-## Biometria Facial (Sprint 3)
-
-O sistema utiliza verificacao facial para garantir que o profissional que faz check-in e realmente quem diz ser. O processamento de imagem ocorre no dispositivo (Flutter), e o backend armazena e compara os embeddings.
+Verificação facial no check-in usa embeddings 128-dim
+(FaceNet/MobileFaceNet). Processamento de imagem ocorre no device
+(Flutter/web); o backend armazena e compara via cosine similarity.
 
 ### Fluxo
 
 ```
-App Flutter → captura selfie → gera embedding (MobileFaceNet 128-dim)
-           → POST /api/biometric/verify → backend compara via cosine similarity
-           → se match (>= 0.6): permite check-in
+Device → captura selfie → gera embedding (128-dim)
+      → POST /api/biometric/verify → backend compara com o enrolled
+      → se match (cosine >= 0.6): permite check-in
 ```
 
-### Endpoints de Biometria
+### Endpoints
 
 | Método | Endpoint | Descrição | Acesso |
 |--------|----------|-----------|--------|
-| GET | `/api/biometric/status` | Verifica se usuario tem enrollment | Profissional |
-| POST | `/api/biometric/enroll/me` | Self-enrollment da face | Profissional |
+| GET | `/api/biometric/status` | Verifica se tem enrollment | Profissional |
+| POST | `/api/biometric/enroll/me` | Self-enrollment | Profissional |
 | DELETE | `/api/biometric/enroll/me` | Deletar enrollment (LGPD) | Profissional |
-| POST | `/api/biometric/verify` | Verificar face no check-in | Profissional |
+| POST | `/api/biometric/verify` | Verificar no check-in | Profissional |
 | POST | `/api/biometric/enroll/{userId}` | Admin cadastra face | AdminClinica |
-| POST | `/api/biometric/re-enroll/{userId}` | Recadastrar face | AdminClinica |
-| GET | `/api/biometric/enrollments/{userId}` | Listar enrollments (auditoria) | AdminClinica |
+| POST | `/api/biometric/re-enroll/{userId}` | Recadastrar | AdminClinica |
+| GET | `/api/biometric/enrollments/{userId}` | Auditoria de enrollments | AdminClinica |
 
-### Documentação para Dev Flutter
+Guia completo para o app Flutter: [`docs/flutter-biometric-api.md`](docs/flutter-biometric-api.md).
 
-Consulte [`docs/flutter-biometric-api.md`](docs/flutter-biometric-api.md) para o guia completo de integração.
+## Auditoria
+
+Duas fontes:
+
+- **`AuditSaveChangesInterceptor`** — interceptor do EF Core que grava em
+  `AuditLogs` toda operação CUD em entidades whitelisted (User, Clinic,
+  Shift, Contract, PublicOrgan, Substitution, Justification, Alert,
+  FaceEnrollment, DeviceRegistration, ClinicShiftTemplate,
+  UserClinicRole, SystemSettings). Skipa `PasswordHash` e `Embedding`
+  para não vazar dados sensíveis.
+- **`IAuditService.LogAsync`** — chamadas explícitas em eventos não-CUD:
+  login (via face-login), logout (via blacklist do JWT). O `LogAsync`
+  aceita `userId` explícito para casos em que o `HttpContext` ainda não
+  tem o token (login flow).
+
+Admin OS → Auditoria consome esses dados via
+`GET /api/audit` (AdminGlobal only, paginação + filtros).
 
 ## Infraestrutura AWS
 
-| Serviço | Uso |
-|---------|-----|
-| **App Runner** | Hospeda a API .NET 8 |
-| **RDS PostgreSQL** | Banco de dados principal |
-| **ElastiCache Redis** | Cache + locks distribuidos + rate limiting |
-| **Cognito** | Autenticação (User Pool + pre-token Lambda) |
-| **Secrets Manager** | Connection strings (DB, Redis) |
-| **S3 + CloudFront** | Frontend React (SPA estático) |
+Stacks CDK em `infrastructure/lib/`:
 
-**Domínios:**
+| Stack | Serviço | Uso |
+|-------|---------|-----|
+| `network-stack` | VPC, subnets, SGs | Rede base |
+| `database-stack` | RDS PostgreSQL | Banco principal (backup 30d, multi-AZ, deletionProtection) |
+| `api-stack` | App Runner | API .NET 8 |
+| `cognito-stack` | Cognito User Pool + App Client + pre-token Lambda | Auth |
+| `ecr-stack` | ECR | Imagens Docker |
+| `frontend-stack` | S3 + CloudFront | SPA estático |
+| `dns-stack` | Route 53 | DNS |
+| `secrets-stack` | Secrets Manager | Connection strings |
+
+**Domínios de produção:**
 - API: `api.laulab.com.br`
 - Frontend: via CloudFront distribution
+
+## Documentação adicional
+
+- [`frontend/README.md`](frontend/README.md) — SPA, roteamento, testes vitest/Playwright
+- [`tests/k6/README.md`](tests/k6/README.md) — Load testing com k6
+- [`docs/flutter-biometric-api.md`](docs/flutter-biometric-api.md) — API de biometria para Flutter
+- [`docs/reuniao-integracao-24p7.md`](docs/reuniao-integracao-24p7.md) — Alinhamento de integração do app 24p7
