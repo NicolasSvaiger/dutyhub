@@ -41,14 +41,25 @@ public class TenantMiddleware
     {
         if (context.User.Identity?.IsAuthenticated == true)
         {
-            // Step 1: start with clinic ids from the JWT claims.
-            var authorizedClinicIds = ResolveAuthorizedClinicIds(context);
+            // Two lists kept intentionally distinct:
+            //   claimClinicIds        — what the JWT explicitly authorized.
+            //                           Basis for the Sprint 4 tenant-bypass
+            //                           check (returns 403).
+            //   authorizedClinicIds   — effective set (JWT ∪ DB memberships).
+            //                           Basis for downstream service filtering.
+            //
+            // Keeping them separate lets us preserve two contracts that
+            // otherwise contradict each other:
+            //   * TenantBypassTests expect 403 when the header contradicts
+            //     the JWT (Sprint 4 security fix).
+            //   * DoctorFlowIntegrationTests expect silent 200/empty when
+            //     the JWT is thin and the header is unrelated to the user's
+            //     DB memberships (original TenantService contract).
+            var claimClinicIds = ResolveAuthorizedClinicIds(context);
+            var authorizedClinicIds = claimClinicIds;
 
-            // Step 2: resolve local User.Id (async, only DB round-trip here)
-            // and, if the JWT had no clinicIds, fall back to DB memberships.
-            // Must happen BEFORE the X-Clinic-Id validation so users whose
-            // clinicIds live only in the DB (older accounts, tests) are not
-            // wrongly rejected.
+            // Resolve local User.Id via the middleware (async here, sync at
+            // the TenantService call sites downstream).
             var sub = context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
                    ?? context.User.FindFirst("sub")?.Value;
             var email = context.User.FindFirst("email")?.Value
@@ -57,32 +68,32 @@ public class TenantMiddleware
             if (!string.IsNullOrEmpty(sub))
             {
                 var (resolvedUserId, resolvedClinicIds) = await ResolveIdentityAsync(
-                    context, sub, email, authorizedClinicIds);
+                    context, sub, email, claimClinicIds);
 
                 if (resolvedUserId.HasValue)
                 {
                     context.Items["CurrentUserId"] = resolvedUserId.Value;
                 }
 
-                // Merge DB-resolved memberships when the JWT had no clinicIds.
-                if (authorizedClinicIds.Count == 0 && resolvedClinicIds.Count > 0)
+                // Effective list picks up DB memberships only when the JWT
+                // itself carried nothing — claimClinicIds is never widened.
+                if (claimClinicIds.Count == 0 && resolvedClinicIds.Count > 0)
                 {
                     authorizedClinicIds = new List<Guid>(resolvedClinicIds);
                 }
             }
 
-            // Step 3: validate X-Clinic-Id header against the authoritative
-            // list. This must run AFTER the DB fallback so a legitimate
-            // request isn't blocked because the JWT was thin.
             var clinicIdHeader = context.Request.Headers["X-Clinic-Id"].FirstOrDefault();
             if (!string.IsNullOrEmpty(clinicIdHeader) && Guid.TryParse(clinicIdHeader, out var headerClinicId))
             {
-                if (authorizedClinicIds.Count > 0 && !authorizedClinicIds.Contains(headerClinicId))
+                // Path (a): the JWT brought explicit clinicIds and the header
+                // asks for something outside that set. Tenant bypass — 403.
+                if (claimClinicIds.Count > 0 && !claimClinicIds.Contains(headerClinicId))
                 {
                     _logger.LogWarning(
                         "Tenant bypass attempt: user tried to access clinic {ClinicId} via X-Clinic-Id header but is not authorized. Authorized: [{AuthorizedClinics}]",
                         headerClinicId,
-                        string.Join(", ", authorizedClinicIds));
+                        string.Join(", ", claimClinicIds));
 
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     context.Response.ContentType = "application/json";
@@ -91,15 +102,28 @@ public class TenantMiddleware
                     return;
                 }
 
-                context.Items["TenantClinicId"] = headerClinicId;
+                // Path (b): the JWT was thin. The DB-resolved set is used
+                // only to decide whether to expose TenantClinicId. When
+                // the header points to something the DB doesn't know about
+                // either, we silently drop it — downstream services yield
+                // empty results, which is the documented contract.
+                if (authorizedClinicIds.Contains(headerClinicId))
+                {
+                    context.Items["TenantClinicId"] = headerClinicId;
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Header X-Clinic-Id {ClinicId} not in user's memberships (JWT carried no clinicIds). Silently rejecting.",
+                        headerClinicId);
+                }
             }
             else if (authorizedClinicIds.Count > 0)
             {
-                // No header — use the first authorized clinic as the default.
+                // No header — default to the first authorized clinic.
                 context.Items["TenantClinicId"] = authorizedClinicIds[0];
             }
 
-            // Step 4: expose the resolved list to downstream services.
             context.Items["AuthorizedClinicIds"] = authorizedClinicIds;
         }
 
