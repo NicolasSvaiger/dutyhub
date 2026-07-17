@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +6,14 @@ using PlantonHub.Domain.Interfaces;
 
 namespace PlantonHub.Infrastructure.Services;
 
+/// <summary>
+/// Reads per-request tenant state from HttpContext.Items. The heavy lifting
+/// (mapping Cognito sub → local User.Id, and resolving DB memberships when
+/// the JWT is thin) happens once in <see cref="PlantonHub.API.Middleware.TenantMiddleware"/>
+/// and is stashed in HttpContext.Items. This class stays synchronous and
+/// side-effect free so callers can invoke it from any code path without
+/// dragging async up the stack.
+/// </summary>
 public class TenantService : ITenantService
 {
     private const string ClinicHeaderName = "X-Clinic-Id";
@@ -21,7 +28,7 @@ public class TenantService : ITenantService
     /// <summary>
     /// Returns the active clinic id for the current request.
     /// Resolution order:
-    ///   1. X-Clinic-Id request header (if present AND authorized in the token).
+    ///   1. X-Clinic-Id request header (if present AND authorized).
     ///   2. Legacy 'clinicId' claim from the JWT (default clinic).
     /// If the header is present but references a clinic the user is not
     /// authorized for, null is returned (caller must treat as unauthorized).
@@ -29,23 +36,17 @@ public class TenantService : ITenantService
     public Guid? GetCurrentClinicId()
     {
         var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext is null)
-        {
-            return null;
-        }
+        if (httpContext is null) return null;
 
         // 1. Try the request header first (multi-clinic scenario)
         if (httpContext.Request.Headers.TryGetValue(ClinicHeaderName, out var headerValue) &&
             Guid.TryParse(headerValue.ToString(), out var headerClinicId))
         {
-            // Validate against the authorized clinicIds claim
             var authorized = GetAuthorizedClinicIdsSet();
             if (authorized.Contains(headerClinicId))
             {
                 return headerClinicId;
             }
-
-            // Header value is not authorized for this user — deny by returning null.
             return null;
         }
 
@@ -64,47 +65,23 @@ public class TenantService : ITenantService
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext is null) return null;
 
-        // 1. Try 'sub' as direct GUID (legacy local JWT)
+        // Preferred: TenantMiddleware has already mapped Cognito sub → local
+        // User.Id and stashed it here. This is the common path for HTTP
+        // requests once the middleware has run.
+        if (httpContext.Items.TryGetValue("CurrentUserId", out var stored) && stored is Guid storedGuid)
+        {
+            return storedGuid;
+        }
+
+        // Fallback: direct GUID sub. Used in call sites where the middleware
+        // hasn't run (unit tests with a hand-rolled ClaimsPrincipal, internal
+        // pipelines). No DB lookup here — that would require sync-over-async
+        // and the middleware is the correct place for it.
         var sub = httpContext.User?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
                ?? httpContext.User?.FindFirst("sub")?.Value;
 
-        if (!string.IsNullOrEmpty(sub) && Guid.TryParse(sub, out var directId))
-        {
-            // Check if this GUID is a known user — if Cognito sub is a different UUID,
-            // it won't match. Fall through to email-based resolution.
-            if (_resolvedUserIds.TryGetValue(sub, out var cached) && cached.expiresAt > DateTime.UtcNow)
-                return cached.userId;
-
-            // Try resolving by looking up the user repository by email
-            var email = httpContext.User?.FindFirst("email")?.Value
-                     ?? httpContext.User?.FindFirst("username")?.Value;
-
-            if (!string.IsNullOrEmpty(email))
-            {
-                var userRepo = httpContext.RequestServices.GetService<IUserRepository>();
-                if (userRepo is not null)
-                {
-                    var user = userRepo.GetByEmailAsync(email).GetAwaiter().GetResult();
-                    if (user is not null)
-                    {
-                        _resolvedUserIds[sub] = (user.Id, DateTime.UtcNow.Add(_cacheTtl));
-                        return user.Id;
-                    }
-                }
-            }
-
-            // Fallback: trust the sub as user ID (backward compat)
-            _resolvedUserIds[sub] = (directId, DateTime.UtcNow.Add(_cacheTtl));
-            return directId;
-        }
-
-        return null;
+        return Guid.TryParse(sub, out var parsed) ? parsed : (Guid?)null;
     }
-
-    // Cache sub → userId with TTL to avoid unbounded growth.
-    // Entries expire after 10 minutes; stale entries are lazily evicted on access.
-    private static readonly ConcurrentDictionary<string, (Guid userId, DateTime expiresAt)> _resolvedUserIds = new();
-    private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(10);
 
     public IEnumerable<string> GetCurrentRoles()
     {
@@ -117,7 +94,6 @@ public class TenantService : ITenantService
         var rolesClaim = user.FindFirst("roles")?.Value;
         if (!string.IsNullOrEmpty(rolesClaim))
         {
-            // Support JSON array or CSV
             var raw = rolesClaim.Trim();
             if (raw.StartsWith('['))
             {
@@ -153,30 +129,40 @@ public class TenantService : ITenantService
     }
 
     /// <summary>
-    /// Returns the set of clinic ids the current user is authorized to operate on,
-    /// extracted from the 'clinicIds' claim (comma-separated GUIDs).
-    /// Falls back to the single legacy 'clinicId' claim when 'clinicIds' is missing.
+    /// Returns the set of clinic ids the current user is authorized to operate on.
+    /// Prefers the list resolved by TenantMiddleware (which merged JWT claims
+    /// with DB memberships), falling back to reading claims directly for call
+    /// sites where the middleware hasn't run.
     /// </summary>
     public IEnumerable<Guid> GetAuthorizedClinicIds() => GetAuthorizedClinicIdsSet();
 
     private HashSet<Guid> GetAuthorizedClinicIdsSet()
     {
-        var user = _httpContextAccessor.HttpContext?.User;
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext is null) return new HashSet<Guid>();
+
+        // Preferred: the middleware already resolved and stashed the final list.
+        if (httpContext.Items.TryGetValue("AuthorizedClinicIds", out var stored)
+            && stored is IEnumerable<Guid> storedIds)
+        {
+            return new HashSet<Guid>(storedIds);
+        }
+
+        // Fallback: read directly from claims. Same rules as the middleware,
+        // duplicated here so tests and non-HTTP flows still work. The DB-lookup
+        // fallback deliberately does NOT live here — that path exists only in
+        // the middleware to keep this service synchronous.
+        var user = httpContext.User;
         var result = new HashSet<Guid>();
 
-        if (user is null)
-        {
-            return result;
-        }
+        if (user is null) return result;
 
         var multi = user.FindFirst("clinicIds")?.Value;
         if (!string.IsNullOrEmpty(multi))
         {
-            // Support both JSON array format (from Cognito Lambda) and CSV (legacy)
             var raw = multi.Trim();
             if (raw.StartsWith('['))
             {
-                // JSON array: ["uuid1","uuid2"]
                 try
                 {
                     var parsed = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw);
@@ -188,15 +174,11 @@ public class TenantService : ITenantService
                         }
                     }
                 }
-                catch
-                {
-                    // Fallback to CSV parsing below
-                }
+                catch { /* fall through to CSV */ }
             }
 
             if (result.Count == 0)
             {
-                // CSV format: uuid1,uuid2
                 foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 {
                     if (Guid.TryParse(part, out var id)) result.Add(id);
@@ -204,37 +186,10 @@ public class TenantService : ITenantService
             }
         }
 
-        // Also include the legacy default clinicId claim
         var legacy = user.FindFirst("clinicId")?.Value;
         if (!string.IsNullOrEmpty(legacy) && Guid.TryParse(legacy, out var legacyId))
         {
             result.Add(legacyId);
-        }
-
-        // Fallback: if no clinicIds in token, resolve from DB via userId
-        if (result.Count == 0)
-        {
-            var userId = GetCurrentUserId();
-            if (userId.HasValue)
-            {
-                var httpContext = _httpContextAccessor.HttpContext;
-                var userRepo = httpContext?.RequestServices.GetService<IUserRepository>();
-                if (userRepo is not null)
-                {
-                    var email = httpContext!.User?.FindFirst("email")?.Value;
-                    if (!string.IsNullOrEmpty(email))
-                    {
-                        var dbUser = userRepo.GetByEmailAsync(email).GetAwaiter().GetResult();
-                        if (dbUser?.UserClinicRoles is not null)
-                        {
-                            foreach (var ucr in dbUser.UserClinicRoles)
-                            {
-                                result.Add(ucr.ClinicId);
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         return result;
@@ -245,7 +200,8 @@ public class TenantService : ITenantService
     /// AdminClinica → allowed only when the target user shares at least one clinic
     /// with the caller. Uses the DB (via IUserRepository) as source of truth for
     /// the target user's clinic memberships — the caller's clinics still come
-    /// from the JWT claim.
+    /// from the resolved list (JWT + middleware-resolved memberships).
+    /// This method is already async, so no sync-over-async here.
     /// </summary>
     public async Task<bool> CanOperateOnUserAsync(Guid targetUserId)
     {
@@ -261,7 +217,6 @@ public class TenantService : ITenantService
         var target = await userRepo.GetByIdAsync(targetUserId);
         if (target is null) return false;
 
-        // Any overlap between caller's authorized clinics and target's clinic memberships
         foreach (var ucr in target.UserClinicRoles)
         {
             if (authorized.Contains(ucr.ClinicId)) return true;
