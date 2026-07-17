@@ -146,6 +146,51 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.ToTable("AuditLogs");
                 });
 
+            modelBuilder.Entity("PlantonHub.Domain.Entities.AvailabilityRestriction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("BlockedShiftsMask")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("BlockedWeekdaysMask")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_AvailabilityRestriction_UserId");
+
+                    b.HasIndex("StartDate", "EndDate")
+                        .HasDatabaseName("IX_AvailabilityRestriction_DateRange");
+
+                    b.ToTable("AvailabilityRestrictions");
+                });
+
             modelBuilder.Entity("PlantonHub.Domain.Entities.Clinic", b =>
                 {
                     b.Property<Guid>("Id")
@@ -404,6 +449,77 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                         .HasDatabaseName("IX_FaceEnrollment_UserId_IsActive");
 
                     b.ToTable("FaceEnrollments");
+                });
+
+            modelBuilder.Entity("PlantonHub.Domain.Entities.Justification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AbsentUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("DeadlineDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ProtocolNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("RequestText")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int>("RequestType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid?>("RespondedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResponseText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("ShiftDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ShiftTurn")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AbsentUserId");
+
+                    b.HasIndex("ClinicId")
+                        .HasDatabaseName("IX_Justification_ClinicId");
+
+                    b.HasIndex("ProtocolNumber")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Justification_ProtocolNumber");
+
+                    b.HasIndex("RespondedByUserId");
+
+                    b.HasIndex("ShiftDate")
+                        .HasDatabaseName("IX_Justification_ShiftDate");
+
+                    b.ToTable("Justifications");
                 });
 
             modelBuilder.Entity("PlantonHub.Domain.Entities.OfflineAttendanceEvent", b =>
@@ -710,6 +826,66 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.ToTable("ShiftAssignments");
                 });
 
+            modelBuilder.Entity("PlantonHub.Domain.Entities.Substitution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AbsentUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("ReasonType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("ShiftDate")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<TimeSpan>("ShiftEndTime")
+                        .HasColumnType("interval");
+
+                    b.Property<string>("ShiftLabel")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<TimeSpan>("ShiftStartTime")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SubstituteUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AbsentUserId");
+
+                    b.HasIndex("ClinicId")
+                        .HasDatabaseName("IX_Substitution_ClinicId");
+
+                    b.HasIndex("ShiftDate")
+                        .HasDatabaseName("IX_Substitution_ShiftDate");
+
+                    b.HasIndex("SubstituteUserId");
+
+                    b.ToTable("Substitutions");
+                });
+
             modelBuilder.Entity("PlantonHub.Domain.Entities.SystemSettings", b =>
                 {
                     b.Property<Guid>("Id")
@@ -719,14 +895,81 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.Property<int>("AbsenceThresholdMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<string>("AzureEndpoint")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AzureRegion")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("BiometricAllowManualCheckin")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("BiometricConfidencePercent")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("BiometricLogFailedAttempt")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("BiometricMaxAttempts")
+                        .HasColumnType("integer");
+
                     b.Property<int>("CheckInBlockAfterMinutes")
                         .HasColumnType("integer");
 
                     b.Property<int>("CheckInToleranceMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("DaylightSavingAuto")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("DetailedAuditLog")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("EmailCc")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmailSender")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmailSenderName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("MfaRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("NotificationChannelsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<bool>("NotifyOnAbsence")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("OrgCnpj")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OrgEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OrgName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PasswordRotationDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SessionTimeoutMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SystemTimezone")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
@@ -860,6 +1103,17 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PlantonHub.Domain.Entities.AvailabilityRestriction", b =>
+                {
+                    b.HasOne("PlantonHub.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("PlantonHub.Domain.Entities.Clinic", b =>
                 {
                     b.HasOne("PlantonHub.Domain.Entities.Contract", "Contract")
@@ -923,6 +1177,32 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PlantonHub.Domain.Entities.Justification", b =>
+                {
+                    b.HasOne("PlantonHub.Domain.Entities.User", "AbsentUser")
+                        .WithMany()
+                        .HasForeignKey("AbsentUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PlantonHub.Domain.Entities.Clinic", "Clinic")
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PlantonHub.Domain.Entities.User", "RespondedByUser")
+                        .WithMany()
+                        .HasForeignKey("RespondedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AbsentUser");
+
+                    b.Navigation("Clinic");
+
+                    b.Navigation("RespondedByUser");
                 });
 
             modelBuilder.Entity("PlantonHub.Domain.Entities.OfflineAttendanceEvent", b =>
@@ -1028,6 +1308,32 @@ namespace PlantonHub.Infrastructure.Data.Migrations
                     b.Navigation("Shift");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PlantonHub.Domain.Entities.Substitution", b =>
+                {
+                    b.HasOne("PlantonHub.Domain.Entities.User", "AbsentUser")
+                        .WithMany()
+                        .HasForeignKey("AbsentUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PlantonHub.Domain.Entities.Clinic", "Clinic")
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PlantonHub.Domain.Entities.User", "SubstituteUser")
+                        .WithMany()
+                        .HasForeignKey("SubstituteUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AbsentUser");
+
+                    b.Navigation("Clinic");
+
+                    b.Navigation("SubstituteUser");
                 });
 
             modelBuilder.Entity("PlantonHub.Domain.Entities.UserClinicRole", b =>

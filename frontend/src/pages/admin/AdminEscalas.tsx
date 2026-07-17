@@ -24,7 +24,7 @@ interface Props {
   onOpenSidebar?: () => void;
 }
 
-export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme }: Props) {
+export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -277,9 +277,14 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme }: Props) {
     <>
       <style dangerouslySetInnerHTML={{ __html: ESCALAS_CSS }} />
       <div className="esc-topbar">
-        <div>
-          <div className="esc-topbar-title">Escalas de Plantão</div>
-          <div className="esc-topbar-sub">{dateStr}</div>
+        <div className="esc-topbar-left">
+          <button className="esc-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="esc-topbar-title">Escalas de Plantão</div>
+            <div className="esc-topbar-sub">{dateStr}</div>
+          </div>
         </div>
         <div className="esc-topbar-right">
           <button className="esc-btn-action esc-btn-gerar" onClick={generateAuto}>
@@ -580,6 +585,9 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme }: Props) {
 const ESCALAS_CSS = `
 /* Scoped to #adm-root */
 #adm-root .esc-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+#adm-root .esc-topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .esc-hamburger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; flex-shrink:0; }
+#adm-root .esc-hamburger:hover { background:var(--indigo-light); color:var(--indigo); }
 #adm-root .esc-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
 #adm-root .esc-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; text-transform:capitalize; }
 #adm-root .esc-topbar-right { display:flex; align-items:center; gap:.7rem; }
@@ -738,4 +746,51 @@ const ESCALAS_CSS = `
 #adm-root.dark .esc-modal-item.selected { background:rgba(99,102,241,.15); border-color:var(--indigo); }
 #adm-root.dark .esc-tipo-btn { border-color:rgba(255,255,255,.1); color:#94a3b8; }
 #adm-root.dark .esc-btn-cancel { border-color:rgba(255,255,255,.1); color:#94a3b8; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .esc-hamburger { display:flex; }
+  #adm-root .esc-topbar { padding:.85rem 1rem; }
+  #adm-root .esc-topbar-title { font-size:.88rem; line-height:1.2; }
+  #adm-root .esc-topbar-sub { font-size:.65rem; }
+  
+  #adm-root .esc-content { padding:1rem; }
+  
+  /* Header: empilhar título + botões */
+  #adm-root .esc-topbar-right { width:100%; flex-direction:column; gap:.6rem; margin-top:.5rem; }
+  #adm-root .esc-btn-gerar, #adm-root .esc-btn-publicar { width:100%; justify-content:center; padding:.7rem 1rem; font-size:.8rem; }
+  
+  /* Tabs: scroll horizontal */
+  #adm-root .esc-upa-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #adm-root .esc-upa-tab { white-space:nowrap; padding:.6rem 1rem; font-size:.78rem; }
+  
+  /* Week nav */
+  #adm-root .esc-week-nav { gap:.4rem; flex-wrap:wrap; }
+  #adm-root .esc-week-label { font-size:.75rem; }
+  #adm-root .esc-week-btn { padding:.45rem .7rem; font-size:.72rem; }
+  #adm-root .esc-btn-hoje { padding:.45rem .85rem; font-size:.72rem; }
+  
+  /* Grid: scroll horizontal */
+  #adm-root .esc-grade-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  #adm-root .esc-grade-table { font-size:.7rem; min-width:600px; }
+  #adm-root .esc-grade-table th { padding:.5rem .35rem; font-size:.62rem; }
+  #adm-root .esc-grade-table td { padding:.6rem .4rem; }
+  #adm-root .esc-grade-table .turno-label { font-size:.68rem; }
+  #adm-root .esc-grade-table .turno-sub { font-size:.58rem; }
+}
+
+@media (max-width: 480px) {
+  #adm-root .esc-topbar-title { font-size:.82rem; }
+  #adm-root .esc-topbar-sub { display:none; }
+  #adm-root .esc-btn-gerar, #adm-root .esc-btn-publicar { padding:.65rem .9rem; font-size:.75rem; }
+  #adm-root .esc-week-label { font-size:.7rem; }
+  #adm-root .esc-grid-table { min-width:500px; font-size:.68rem; }
+}
+  #adm-root .esc-topbar-title { font-size:.88rem; }
+  #adm-root .esc-upa-tab { font-size:.72rem; padding:.55rem .85rem; }
+  #adm-root .esc-week-label { font-size:.7rem; }
+  #adm-root .esc-grade-table { font-size:.65rem; }
+  #adm-root .esc-grade-table th { font-size:.58rem; padding:.45rem .3rem; }
+  #adm-root .esc-grade-table td { padding:.5rem .35rem; }
+}
 `;

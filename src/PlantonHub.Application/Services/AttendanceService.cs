@@ -14,6 +14,7 @@ public class AttendanceService : IAttendanceService
     private readonly ITenantService _tenantService;
     private readonly IFaceEnrollmentRepository _faceEnrollmentRepository;
     private readonly IBiometricProofService _biometricProofService;
+    private readonly ISettingsRepository _settingsRepository;
 
     public AttendanceService(
         IAttendanceRepository attendanceRepository,
@@ -21,7 +22,8 @@ public class AttendanceService : IAttendanceService
         IClinicRepository clinicRepository,
         ITenantService tenantService,
         IFaceEnrollmentRepository faceEnrollmentRepository,
-        IBiometricProofService biometricProofService)
+        IBiometricProofService biometricProofService,
+        ISettingsRepository settingsRepository)
     {
         _attendanceRepository = attendanceRepository;
         _shiftRepository = shiftRepository;
@@ -29,6 +31,7 @@ public class AttendanceService : IAttendanceService
         _tenantService = tenantService;
         _faceEnrollmentRepository = faceEnrollmentRepository;
         _biometricProofService = biometricProofService;
+        _settingsRepository = settingsRepository;
     }
 
     public async Task<AttendanceResponse> CheckInAsync(CheckInRequest request)
@@ -281,6 +284,186 @@ public class AttendanceService : IAttendanceService
             ActiveAttendance = activeInfo,
             AvailableShiftsToday = availableShifts,
         };
+    }
+
+    /// <summary>
+    /// Painel "Tempo Real": para cada UPA autorizada, cruza os turnos de hoje
+    /// com as escalas (ShiftAssignments) e os check-ins reais (Attendance) para
+    /// calcular o status de cada profissional e agregar estatísticas por UPA.
+    /// </summary>
+    public async Task<LiveStatusResponse> GetLiveStatusAsync()
+    {
+        var authorizedClinicIds = _tenantService.IsAdminGlobal()
+            ? (await _clinicRepository.GetAllAsync()).Select(c => c.Id).ToList()
+            : _tenantService.GetAuthorizedClinicIds().ToList();
+
+        if (authorizedClinicIds.Count == 0)
+        {
+            return new LiveStatusResponse();
+        }
+
+        var settings = await _settingsRepository.GetAsync();
+        var now = DateTime.UtcNow;
+        var todayStart = now.Date;
+        var todayEnd = todayStart.AddDays(1);
+
+        var response = new LiveStatusResponse();
+        var events = new List<LiveEventResponse>();
+
+        foreach (var clinicId in authorizedClinicIds)
+        {
+            var clinic = await _clinicRepository.GetByIdAsync(clinicId);
+            if (clinic is null) continue;
+
+            var shifts = (await _shiftRepository.GetByClinicIdAsync(clinicId))
+                .Where(s => s.Date.Date == todayStart)
+                .OrderBy(s => s.StartTime)
+                .ToList();
+
+            var attendancesToday = (await _attendanceRepository.GetByClinicAndDateRangeAsync(clinicId, todayStart, todayEnd))
+                .ToList();
+
+            var toleranceMinutes = clinic.CheckInToleranceMinutes ?? settings.CheckInToleranceMinutes;
+
+            var liveClinic = new LiveClinicResponse
+            {
+                ClinicId = clinic.Id,
+                ClinicName = clinic.Name,
+                ContractId = clinic.ContractId,
+                ContractNumber = clinic.Contract?.ContractNumber,
+                PublicOrganName = clinic.Contract?.PublicOrgan?.Name,
+            };
+
+            var totalSlots = 0;
+            var filledConfirmedSlots = 0;
+
+            foreach (var shift in shifts)
+            {
+                var shiftStartUtc = todayStart.Add(shift.StartTime);
+                var shiftEndUtc = shift.EndTime > shift.StartTime
+                    ? todayStart.Add(shift.EndTime)
+                    : todayStart.AddDays(1).Add(shift.EndTime); // overnight shift
+                var isActive = now >= shiftStartUtc && now < shiftEndUtc;
+
+                var liveShift = new LiveShiftResponse
+                {
+                    ShiftId = shift.Id,
+                    Title = shift.Title,
+                    StartTime = shift.StartTime,
+                    EndTime = shift.EndTime,
+                    IsActive = isActive,
+                };
+
+                foreach (var assignment in shift.ShiftAssignments)
+                {
+                    totalSlots++;
+                    var attendance = attendancesToday.FirstOrDefault(a => a.ShiftId == shift.Id && a.UserId == assignment.UserId);
+
+                    LiveAttendanceStatus status;
+                    DateTime? checkInTime = null;
+
+                    if (attendance is not null)
+                    {
+                        status = LiveAttendanceStatus.Presente;
+                        checkInTime = attendance.CheckInTime;
+                        filledConfirmedSlots++;
+                    }
+                    else if (now < shiftStartUtc)
+                    {
+                        status = LiveAttendanceStatus.Escalado;
+                    }
+                    else
+                    {
+                        var minutesSinceStart = (now - shiftStartUtc).TotalMinutes;
+                        if (minutesSinceStart > settings.AbsenceThresholdMinutes)
+                        {
+                            status = LiveAttendanceStatus.Ausente;
+                            liveClinic.AbsentCount++;
+                        }
+                        else if (minutesSinceStart > toleranceMinutes)
+                        {
+                            status = LiveAttendanceStatus.Atrasado;
+                            liveClinic.LateCount++;
+                        }
+                        else
+                        {
+                            status = LiveAttendanceStatus.Escalado;
+                        }
+                    }
+
+                    if (status == LiveAttendanceStatus.Presente) liveClinic.PresentCount++;
+
+                    liveShift.Professionals.Add(new LiveShiftProfessionalResponse
+                    {
+                        UserId = assignment.UserId,
+                        UserName = assignment.User?.Name ?? "Profissional",
+                        Status = status,
+                        CheckInTime = checkInTime,
+                    });
+                }
+
+                // Vagas abertas: RequiredStaff (via template, se existir) menos escalados.
+                var template = clinic.ShiftTemplates?.FirstOrDefault(t =>
+                    t.StartTime == shift.StartTime && t.EndTime == shift.EndTime);
+                var requiredStaff = template?.RequiredStaff ?? Math.Max(1, shift.ShiftAssignments.Count);
+                liveShift.OpenSlots = Math.Max(0, requiredStaff - shift.ShiftAssignments.Count);
+                if (liveShift.OpenSlots > 0)
+                {
+                    totalSlots += liveShift.OpenSlots;
+                    liveClinic.OpenSlotsCount += liveShift.OpenSlots;
+                }
+
+                liveClinic.Shifts.Add(liveShift);
+            }
+
+            liveClinic.SlaPercent = totalSlots > 0
+                ? (int)Math.Round(filledConfirmedSlots * 100.0 / totalSlots)
+                : 100;
+
+            liveClinic.Status = liveClinic.AbsentCount > 0 || liveClinic.OpenSlotsCount > 0
+                ? ClinicLiveStatus.Critico
+                : liveClinic.LateCount > 0
+                    ? ClinicLiveStatus.Atencao
+                    : ClinicLiveStatus.Ok;
+
+            // Último evento: attendance mais recente do dia nesta clínica.
+            var lastAttendance = attendancesToday.OrderByDescending(a => a.CheckOutTime ?? a.CheckInTime).FirstOrDefault();
+            if (lastAttendance is not null)
+            {
+                var isCheckOut = lastAttendance.CheckOutTime.HasValue;
+                var eventTime = isCheckOut ? lastAttendance.CheckOutTime!.Value : lastAttendance.CheckInTime;
+                var userName = shifts
+                    .SelectMany(s => s.ShiftAssignments)
+                    .FirstOrDefault(a => a.UserId == lastAttendance.UserId)?.User?.Name ?? "Profissional";
+
+                liveClinic.LastEventDescription = isCheckOut
+                    ? $"{userName} check-out {eventTime:HH:mm}"
+                    : $"{userName} check-in {eventTime:HH:mm}";
+                liveClinic.LastEventTime = eventTime;
+
+                events.Add(new LiveEventResponse
+                {
+                    Time = eventTime,
+                    Type = "ok",
+                    Description = liveClinic.LastEventDescription,
+                    ClinicName = clinic.Name,
+                });
+            }
+
+            response.Clinics.Add(liveClinic);
+            response.TotalPresent += liveClinic.PresentCount;
+            response.TotalLate += liveClinic.LateCount;
+            response.TotalAbsent += liveClinic.AbsentCount;
+            response.TotalOpenSlots += liveClinic.OpenSlotsCount;
+        }
+
+        response.RecentEvents = events.OrderByDescending(e => e.Time).Take(20).ToList();
+
+        var overallTotal = response.Clinics.Sum(c => c.Shifts.Sum(s => s.Professionals.Count) + c.OpenSlotsCount);
+        var overallFilled = response.Clinics.Sum(c => c.Shifts.Sum(s => s.Professionals.Count(p => p.Status == LiveAttendanceStatus.Presente)));
+        response.OverallSlaPercent = overallTotal > 0 ? (int)Math.Round(overallFilled * 100.0 / overallTotal) : 100;
+
+        return response;
     }
 
     private static AttendanceResponse MapToResponse(Attendance attendance)

@@ -64,7 +64,8 @@ public class CheckInRoundTripPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckInRequest
             {
@@ -152,7 +153,8 @@ public class CheckInRoundTripPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             // Act
             var history = service.GetMyHistoryAsync().Result.ToList();
@@ -239,7 +241,8 @@ public class DuplicateCheckInPreventionPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckInRequest
             {
@@ -313,7 +316,8 @@ public class DuplicateCheckInPreventionPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckInRequest
             {
@@ -419,7 +423,8 @@ public class CheckOutUpdatesRecordPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckOutRequest
             {
@@ -505,7 +510,8 @@ public class CheckOutUpdatesRecordPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckOutRequest
             {
@@ -576,7 +582,8 @@ public class CheckOutRequiresActiveCheckInPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckOutRequest
             {
@@ -650,7 +657,8 @@ public class CheckOutRequiresActiveCheckInPropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             var request = new CheckOutRequest
             {

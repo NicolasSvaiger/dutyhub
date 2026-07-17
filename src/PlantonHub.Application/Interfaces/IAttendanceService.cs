@@ -23,4 +23,12 @@ public interface IAttendanceService
     /// </summary>
     Task<AttendanceStatusResponse> GetStatusAsync();
     Task<AttendanceSummaryResponse> GetSummaryAsync(DateTime? from, DateTime? to);
+
+    /// <summary>
+    /// Painel "Tempo Real" para AdminClinica/AdminGlobal: cruza os turnos de hoje
+    /// (por UPA autorizada) com escalas e check-ins reais para calcular, por
+    /// profissional, se está presente/atrasado/ausente/escalado — e agrega isso
+    /// em estatísticas por UPA e um feed de eventos recentes.
+    /// </summary>
+    Task<LiveStatusResponse> GetLiveStatusAsync();
 }

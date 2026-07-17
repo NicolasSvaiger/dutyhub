@@ -96,7 +96,7 @@ interface Props {
   onOpenSidebar?: () => void;
 }
 
-export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme }: Props) {
+export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const { user: authUser } = useAuth();
   const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
 
@@ -228,9 +228,14 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme }: Props)
       <style dangerouslySetInnerHTML={{ __html: USUARIOS_CSS }} />
 
       <div className="uos-topbar">
-        <div>
-          <div className="uos-topbar-title">Usuários da OS</div>
-          <div className="uos-topbar-sub">Gerencie os colaboradores com acesso ao painel administrativo</div>
+        <div className="uos-topbar-left">
+          <button className="uos-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="uos-topbar-title">Usuários da OS</div>
+            <div className="uos-topbar-sub">Gerencie os colaboradores com acesso ao painel administrativo</div>
+          </div>
         </div>
         <button className="theme-toggle" onClick={onToggleTheme} title={dark ? 'Tema claro' : 'Tema escuro'}>
           {dark ? (
@@ -446,10 +451,13 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme }: Props)
 
 const USUARIOS_CSS = `
 #adm-root .uos-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; }
+#adm-root .uos-topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .uos-hamburger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; flex-shrink:0; }
+#adm-root .uos-hamburger:hover { background:#eef2ff; color:#6366f1; }
+
 #adm-root .uos-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
 #adm-root .uos-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; }
-
-#adm-root .uos-content { flex:1; padding:2rem; animation:uos-fadeUp .35s ease; }
+#adm-root .uos-content { flex:1; padding:2rem; animation:uos-fadeUp .35s ease; overflow-y:auto; }
 @keyframes uos-fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 
 #adm-root .uos-page-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:1.6rem; flex-wrap:wrap; gap:1rem; }
@@ -557,4 +565,48 @@ const USUARIOS_CSS = `
 #adm-root .uos-btn-salvar { display:flex; align-items:center; gap:.45rem; padding:.65rem 1.3rem; border:none; border-radius:12px; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; font-family:'Nunito',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; box-shadow:0 4px 14px rgba(99,102,241,.35); transition:transform .14s,box-shadow .14s; }
 #adm-root .uos-btn-salvar:hover:not(:disabled) { transform:translateY(-1px); box-shadow:0 6px 20px rgba(99,102,241,.45); }
 #adm-root .uos-btn-salvar:disabled { opacity:.5; cursor:not-allowed; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .uos-hamburger { display:flex; }
+  #adm-root .uos-topbar { padding:.85rem 1rem; }
+  #adm-root .uos-content { padding:1rem; }
+
+  /* KPIs: 2x2 */
+  #adm-root .uos-kpi-strip { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .uos-kpi { padding:.9rem 1rem; }
+  #adm-root .uos-kpi-lbl { font-size:.6rem; white-space:normal; word-break:break-word; }
+  #adm-root .uos-kpi-val { font-size:1.6rem; }
+  #adm-root .uos-kpi-sub { font-size:.62rem; }
+
+  /* Filtros: empilhados */
+  #adm-root .uos-filter-bar { flex-direction:column; gap:.6rem; }
+  #adm-root .uos-search-wrap { min-width:unset; flex:unset; width:100%; }
+  #adm-root .uos-search-input { width:100%; }
+  #adm-root .uos-cselect { min-width:unset; width:100%; }
+
+  /* Tabela: esconde colunas menos importantes */
+  #adm-root .uos-table thead th:nth-child(4),
+  #adm-root .uos-table thead th:nth-child(5),
+  #adm-root .uos-table tbody td:nth-child(4),
+  #adm-root .uos-table tbody td:nth-child(5) { display:none; }
+
+  /* Drawer: largura total */
+  #adm-root .uos-drawer { width:100vw; }
+  #adm-root .uos-form-row { grid-template-columns:1fr; }
+
+  #adm-root .uos-page-header { flex-direction:column; align-items:flex-start; gap:.75rem; }
+}
+
+@media (max-width: 480px) {
+  #adm-root .uos-kpi-strip { gap:.5rem; }
+  #adm-root .uos-kpi { padding:.75rem .85rem; }
+  #adm-root .uos-kpi-val { font-size:1.4rem; }
+
+  /* Na tabela, mostrar só colaborador e ações */
+  #adm-root .uos-table thead th:nth-child(2),
+  #adm-root .uos-table thead th:nth-child(3),
+  #adm-root .uos-table tbody td:nth-child(2),
+  #adm-root .uos-table tbody td:nth-child(3) { display:none; }
+}
 `;

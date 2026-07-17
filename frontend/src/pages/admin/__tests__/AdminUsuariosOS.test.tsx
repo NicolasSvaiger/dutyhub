@@ -13,6 +13,8 @@ vi.mock('../../../api/usersApi', () => ({
     getAll: vi.fn(),
     getAdmins: vi.fn(),
     toggleStatus: vi.fn(),
+    create: vi.fn(),
+    assignRole: vi.fn(),
   },
 }));
 
@@ -25,7 +27,7 @@ import { useAuth } from '../../../hooks/useAuth';
 
 const mockAdminGlobal = {
   userId: 'u-admin', email: 'admin@24p7.com', name: 'Admin Global',
-  roles: ['AdminGlobal'], clinicId: null, clinicIds: [],
+  roles: ['AdminGlobal'], clinicId: 'c1', clinicIds: ['c1'],
 };
 
 function setupAuth(role: 'AdminGlobal' | 'AdminClinica' = 'AdminGlobal') {
@@ -197,6 +199,147 @@ describe('<AdminUsuariosOS />', () => {
       expect(usersApi.toggleStatus).toHaveBeenCalledWith('u3');
     });
   });
+  // ─── Criação de usuário (drawer) ──────────────────────────────────────
+
+  it('abre o drawer ao clicar em Novo usuário', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Admin Global'));
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+    expect(screen.getByText('Salvar e enviar convite')).toBeInTheDocument();
+  });
+
+  it('botão salvar fica desabilitado até preencher nome, e-mail e perfil', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Admin Global'));
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+
+    const salvarBtn = screen.getByText('Salvar e enviar convite').closest('button')!;
+    expect(salvarBtn).toBeDisabled();
+
+    await user.type(screen.getByPlaceholderText('Ex: João da Silva'), 'Novo Colaborador');
+    await user.type(screen.getByPlaceholderText('joao@organizacao.com.br'), 'novo@os.com');
+    expect(salvarBtn).toBeDisabled(); // perfil ainda não selecionado
+
+    await user.click(screen.getByText('Perfil de acesso *').parentElement!.querySelector('.uos-cselect-btn')!);
+    await user.click(screen.getByText('Admin OS', { selector: '.uos-cselect-option' }));
+
+    expect(salvarBtn).toBeEnabled();
+  }, 15000);
+
+  it('cria usuário, atribui a role e insere na lista ao salvar', async () => {
+    const newUser = {
+      id: 'u-new',
+      email: 'novo@os.com',
+      name: 'Novo Colaborador',
+      isActive: true,
+      createdAt: '2026-07-12T10:00:00Z',
+      roles: [],
+    };
+    (usersApi.create as ReturnType<typeof vi.fn>).mockResolvedValue(newUser);
+    (usersApi.assignRole as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+    renderPage();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Admin Global'));
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+
+    await user.type(screen.getByPlaceholderText('Ex: João da Silva'), 'Novo Colaborador');
+    await user.type(screen.getByPlaceholderText('joao@organizacao.com.br'), 'novo@os.com');
+    await user.click(screen.getByText('Perfil de acesso *').parentElement!.querySelector('.uos-cselect-btn')!);
+    await user.click(screen.getByText('Admin OS', { selector: '.uos-cselect-option' }));
+
+    await user.click(screen.getByText('Salvar e enviar convite'));
+
+    await waitFor(() => {
+      expect(usersApi.create).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Novo Colaborador',
+        email: 'novo@os.com',
+      }));
+    });
+    await waitFor(() => {
+      expect(usersApi.assignRole).toHaveBeenCalledWith('u-new', expect.objectContaining({ role: 'AdminClinica' }));
+    });
+    // Novo usuário aparece na lista sem precisar recarregar
+    await waitFor(() => {
+      expect(screen.getByText('Novo Colaborador')).toBeInTheDocument();
+    });
+  }, 15000);
+
+  it('atribui role AdminGlobal quando perfil selecionado é Admin Master', async () => {
+    const newUser = {
+      id: 'u-master',
+      email: 'master@os.com',
+      name: 'Novo Master',
+      isActive: true,
+      createdAt: '2026-07-12T10:00:00Z',
+      roles: [],
+    };
+    (usersApi.create as ReturnType<typeof vi.fn>).mockResolvedValue(newUser);
+    (usersApi.assignRole as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+    renderPage(); // AdminGlobal logado — opção "Admin Master" disponível
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Admin Global'));
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+
+    await user.type(screen.getByPlaceholderText('Ex: João da Silva'), 'Novo Master');
+    await user.type(screen.getByPlaceholderText('joao@organizacao.com.br'), 'master@os.com');
+    await user.click(screen.getByText('Perfil de acesso *').parentElement!.querySelector('.uos-cselect-btn')!);
+    await user.click(screen.getByText('Admin Master (24p7)', { selector: '.uos-cselect-option' }));
+
+    await user.click(screen.getByText('Salvar e enviar convite'));
+
+    await waitFor(() => {
+      expect(usersApi.assignRole).toHaveBeenCalledWith('u-master', expect.objectContaining({ role: 'AdminGlobal' }));
+    });
+  }, 15000);
+
+  it('exibe erro e mantém drawer aberto quando a criação falha', async () => {
+    (usersApi.create as ReturnType<typeof vi.fn>).mockRejectedValue({
+      response: { data: { detail: 'E-mail já cadastrado' } },
+    });
+
+    renderPage();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Admin Global'));
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+
+    await user.type(screen.getByPlaceholderText('Ex: João da Silva'), 'Duplicado');
+    await user.type(screen.getByPlaceholderText('joao@organizacao.com.br'), 'dup@os.com');
+    await user.click(screen.getByText('Perfil de acesso *').parentElement!.querySelector('.uos-cselect-btn')!);
+    await user.click(screen.getByText('Admin OS', { selector: '.uos-cselect-option' }));
+
+    await user.click(screen.getByText('Salvar e enviar convite'));
+
+    await waitFor(() => {
+      expect(screen.getByText('E-mail já cadastrado')).toBeInTheDocument();
+    });
+    // Drawer permanece aberto para o usuário corrigir os dados
+    expect(screen.getByText('Salvar e enviar convite')).toBeInTheDocument();
+  }, 15000);
+
+  it('cancelar fecha o drawer e limpa o formulário', async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Admin Global'));
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+    await user.type(screen.getByPlaceholderText('Ex: João da Silva'), 'Temporário');
+    // Drawer aberto: overlay presente e drawer com classe "open"
+    expect(document.querySelector('.uos-overlay')).toBeInTheDocument();
+    expect(document.querySelector('.uos-drawer.open')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Cancelar'));
+
+    // Drawer fechado: overlay some e classe "open" é removida
+    expect(document.querySelector('.uos-overlay')).not.toBeInTheDocument();
+    expect(document.querySelector('.uos-drawer.open')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Novo usuário' }));
+    expect(screen.getByPlaceholderText('Ex: João da Silva')).toHaveValue('');
+  }, 15000);
+
   it('chama onToggleTheme ao clicar no botão de tema', async () => {
     const onToggle = vi.fn();
     setupAuth();

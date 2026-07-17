@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentAssertions;
 using Moq;
 using PlantonHub.Application.DTOs.Settings;
@@ -367,5 +368,416 @@ public class SettingsServiceTests
         });
 
         result.CheckInToleranceMinutes.Should().Be(30);
+    }
+
+    // ── GetAsync — extended fields (fusos, notificações, biometria, sistema) ──
+
+    [Fact]
+    public async Task GetAsync_ReturnsFusosFields()
+    {
+        var settings = DefaultSettings();
+        settings.SystemTimezone = "America/Manaus (UTC-4)";
+        settings.DaylightSavingAuto = false;
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(settings);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        var result = await CreateService().GetAsync();
+
+        result.SystemTimezone.Should().Be("America/Manaus (UTC-4)");
+        result.DaylightSavingAuto.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetAsync_DeserializesNotificationChannelsJson()
+    {
+        var settings = DefaultSettings();
+        settings.NotificationChannelsJson = "{\"Ausência detectada\":{\"email\":true,\"sms\":false,\"push\":true}}";
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(settings);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        var result = await CreateService().GetAsync();
+
+        result.NotificationChannels.Should().ContainKey("Ausência detectada");
+        result.NotificationChannels["Ausência detectada"].Email.Should().BeTrue();
+        result.NotificationChannels["Ausência detectada"].Sms.Should().BeFalse();
+        result.NotificationChannels["Ausência detectada"].Push.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetAsync_InvalidNotificationChannelsJson_FallsBackToEmptyDictionary()
+    {
+        var settings = DefaultSettings();
+        settings.NotificationChannelsJson = "{not-valid-json";
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(settings);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        var result = await CreateService().GetAsync();
+
+        result.NotificationChannels.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAsync_ReturnsBiometriaFields()
+    {
+        var settings = DefaultSettings();
+        settings.BiometricConfidencePercent = 85;
+        settings.BiometricMaxAttempts = 5;
+        settings.BiometricAllowManualCheckin = false;
+        settings.BiometricLogFailedAttempt = true;
+        settings.AzureEndpoint = "https://custom.cognitiveservices.azure.com";
+        settings.AzureRegion = "East US";
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(settings);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        var result = await CreateService().GetAsync();
+
+        result.BiometricConfidencePercent.Should().Be(85);
+        result.BiometricMaxAttempts.Should().Be(5);
+        result.BiometricAllowManualCheckin.Should().BeFalse();
+        result.BiometricLogFailedAttempt.Should().BeTrue();
+        result.AzureEndpoint.Should().Be("https://custom.cognitiveservices.azure.com");
+        result.AzureRegion.Should().Be("East US");
+    }
+
+    [Fact]
+    public async Task GetAsync_ReturnsSistemaFields()
+    {
+        var settings = DefaultSettings();
+        settings.OrgName = "Organização Teste";
+        settings.OrgCnpj = "11.222.333/0001-44";
+        settings.OrgEmail = "contato@teste.org";
+        settings.SessionTimeoutMinutes = 60;
+        settings.MfaRequired = false;
+        settings.PasswordRotationDays = 180;
+        settings.DetailedAuditLog = false;
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(settings);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        var result = await CreateService().GetAsync();
+
+        result.OrgName.Should().Be("Organização Teste");
+        result.OrgCnpj.Should().Be("11.222.333/0001-44");
+        result.OrgEmail.Should().Be("contato@teste.org");
+        result.SessionTimeoutMinutes.Should().Be(60);
+        result.MfaRequired.Should().BeFalse();
+        result.PasswordRotationDays.Should().Be(180);
+        result.DetailedAuditLog.Should().BeFalse();
+    }
+
+    // ── UpdateAsync — Fusos ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_SavesFusosFields()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            SystemTimezone = "America/Manaus (UTC-4)",
+            DaylightSavingAuto = false,
+        });
+
+        captured!.SystemTimezone.Should().Be("America/Manaus (UTC-4)");
+        captured.DaylightSavingAuto.Should().BeFalse();
+    }
+
+    // ── UpdateAsync — Notificações ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_SavesNotificationChannelsAsJson()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            NotificationChannels = new Dictionary<string, NotifChannelUpdate>
+            {
+                ["Ausência detectada"] = new() { Email = true, Sms = false, Push = true },
+            },
+            EmailSender = "alerta@24p7.com.br",
+            EmailSenderName = "Alertas 24p7",
+            EmailCc = "coord@24p7.com.br",
+        });
+
+        captured.Should().NotBeNull();
+        captured!.NotificationChannelsJson.Should().NotBeNullOrWhiteSpace();
+        captured.EmailSender.Should().Be("alerta@24p7.com.br");
+        captured.EmailSenderName.Should().Be("Alertas 24p7");
+        captured.EmailCc.Should().Be("coord@24p7.com.br");
+
+        // Round-trip: the persisted JSON must deserialize back to the same values
+        var roundTrip = JsonSerializer.Deserialize<Dictionary<string, NotifChannelDto>>(
+            captured.NotificationChannelsJson, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        roundTrip!["Ausência detectada"].Email.Should().BeTrue();
+        roundTrip["Ausência detectada"].Sms.Should().BeFalse();
+        roundTrip["Ausência detectada"].Push.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_EmptyNotificationChannels_KeepsExistingJson()
+    {
+        var existing = DefaultSettings();
+        existing.NotificationChannelsJson = "{\"Escala publicada\":{\"email\":true,\"sms\":false,\"push\":false}}";
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(existing);
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            NotificationChannels = new Dictionary<string, NotifChannelUpdate>(), // empty — should not overwrite
+        });
+
+        captured!.NotificationChannelsJson.Should().Be(existing.NotificationChannelsJson);
+    }
+
+    // ── UpdateAsync — Biometria (clamping) ─────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_ClampsBiometricConfidenceBelowMin()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            BiometricConfidencePercent = 10, // below min of 50
+        });
+
+        captured!.BiometricConfidencePercent.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ClampsBiometricConfidenceAboveMax()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            BiometricConfidencePercent = 999, // above max of 99
+        });
+
+        captured!.BiometricConfidencePercent.Should().Be(99);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ClampsBiometricMaxAttemptsBelowMin()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            BiometricMaxAttempts = 0, // below min of 1
+        });
+
+        captured!.BiometricMaxAttempts.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ClampsBiometricMaxAttemptsAboveMax()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            BiometricMaxAttempts = 99, // above max of 10
+        });
+
+        captured!.BiometricMaxAttempts.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SavesBiometriaToggleFields()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            BiometricAllowManualCheckin = false,
+            BiometricLogFailedAttempt = true,
+            AzureEndpoint = "https://custom.cognitiveservices.azure.com",
+            AzureRegion = "West Europe",
+        });
+
+        captured!.BiometricAllowManualCheckin.Should().BeFalse();
+        captured.BiometricLogFailedAttempt.Should().BeTrue();
+        captured.AzureEndpoint.Should().Be("https://custom.cognitiveservices.azure.com");
+        captured.AzureRegion.Should().Be("West Europe");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_BlankAzureEndpoint_KeepsExistingValue()
+    {
+        var existing = DefaultSettings();
+        existing.AzureEndpoint = "https://existing.cognitiveservices.azure.com";
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(existing);
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            AzureEndpoint = "   ", // blank — should not overwrite
+        });
+
+        captured!.AzureEndpoint.Should().Be("https://existing.cognitiveservices.azure.com");
+    }
+
+    // ── UpdateAsync — Sistema ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_SavesSistemaFields()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            OrgName = "Organização Teste",
+            OrgCnpj = "11.222.333/0001-44",
+            OrgEmail = "contato@teste.org",
+            SessionTimeoutMinutes = 60,
+            MfaRequired = false,
+            PasswordRotationDays = 180,
+            DetailedAuditLog = false,
+        });
+
+        captured!.OrgName.Should().Be("Organização Teste");
+        captured.OrgCnpj.Should().Be("11.222.333/0001-44");
+        captured.OrgEmail.Should().Be("contato@teste.org");
+        captured.SessionTimeoutMinutes.Should().Be(60);
+        captured.MfaRequired.Should().BeFalse();
+        captured.PasswordRotationDays.Should().Be(180);
+        captured.DetailedAuditLog.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_BlankOrgName_KeepsExistingValue()
+    {
+        var existing = DefaultSettings();
+        existing.OrgName = "Organização Existente";
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(existing);
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            OrgName = "   ", // blank — should not overwrite
+        });
+
+        captured!.OrgName.Should().Be("Organização Existente");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_SessionTimeoutZero_MeansNever_IsSavedAsZero()
+    {
+        SystemSettings? captured = null;
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _settingsRepo.Setup(r => r.GetAsync()).ReturnsAsync(DefaultSettings());
+        _settingsRepo.Setup(r => r.SaveAsync(It.IsAny<SystemSettings>()))
+            .Callback<SystemSettings>(s => captured = s)
+            .Returns(Task.CompletedTask);
+        _clinicRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(Enumerable.Empty<Clinic>());
+
+        await CreateService().UpdateAsync(new UpdateSettingsRequest
+        {
+            CheckInToleranceMinutes = 15,
+            AbsenceThresholdMinutes = 60,
+            CheckInBlockAfterMinutes = 120,
+            SessionTimeoutMinutes = 0, // "Nunca"
+            PasswordRotationDays = 0,  // "Nunca"
+        });
+
+        captured!.SessionTimeoutMinutes.Should().Be(0);
+        captured.PasswordRotationDays.Should().Be(0);
     }
 }

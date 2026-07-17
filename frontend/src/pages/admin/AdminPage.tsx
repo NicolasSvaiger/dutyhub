@@ -8,17 +8,22 @@ import { useAuth } from '../../hooks/useAuth';
 import { adminApi, type AdminDashboardSummary } from '../../api/adminApi';
 import { AdminMedicos } from './AdminMedicos';
 import { AdminEscalas } from './AdminEscalas';
+import { AdminTempoReal } from './AdminTempoReal';
+import { AdminSubstituicoes } from './AdminSubstituicoes';
+import { AdminDisponibilidade } from './AdminDisponibilidade';
+import { AdminJustificativas } from './AdminJustificativas';
 import { AdminUpas } from './AdminUpas';
 import { AdminOrgaos } from './AdminOrgaos';
 import { AdminGestores } from './AdminGestores';
 import { AdminUsuariosOS } from './AdminUsuariosOS';
 import { AdminConfiguracoes } from './AdminConfiguracoes';
 
-type AdminView = 'home' | 'medicos' | 'escalas' | 'upas' | 'orgaos' | 'gestores' | 'usuarios' | 'configuracoes';
+type AdminView = 'home' | 'tempo-real' | 'medicos' | 'escalas' | 'substituicoes' | 'disponibilidade' | 'justificativas' | 'upas' | 'orgaos' | 'gestores' | 'usuarios' | 'configuracoes';
 
 export function AdminPage() {
   const [dark, setDark] = useState(false);
   const [activeView, setActiveView] = useState<AdminView>('home');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout } = useAuth();
   const [data, setData] = useState<AdminDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,11 +50,19 @@ export function AdminPage() {
 
   const kpis = data?.kpis ?? { activeContracts: 0, registeredDoctors: 0, shiftsToday: 0, shiftsConfirmedToday: 0, pendingAlerts: 0 };
 
+  function navigate(view: AdminView) {
+    setActiveView(view);
+    setSidebarOpen(false); // close sidebar on mobile after navigation
+  }
+
   return (
     <div id="adm-root" className={dark ? 'dark' : ''}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      <aside className="sidebar">
+      {/* Mobile overlay */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <svg width="36" height="36" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
             <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="rgba(99,102,241,.6)"/><stop offset="100%" stopColor="rgba(45,191,184,.5)"/></linearGradient></defs>
@@ -69,11 +82,11 @@ export function AdminPage() {
         </div>
 
         <div className="nav-section-label">Principal</div>
-        <a className={`nav-item ${activeView === 'home' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('home'); }}>
+        <a className={`nav-item ${activeView === 'home' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('home'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
           Início
         </a>
-        <a className="nav-item" href="#">
+        <a className={`nav-item ${activeView === 'tempo-real' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('tempo-real'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           Tempo Real
         </a>
@@ -83,41 +96,41 @@ export function AdminPage() {
         </a>
 
         <div className="nav-section-label">Cadastros</div>
-        <a className={`nav-item ${activeView === 'usuarios' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('usuarios'); }}>
+        <a className={`nav-item ${activeView === 'usuarios' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('usuarios'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Usuários da OS
         </a>
-        <a className={`nav-item ${activeView === 'orgaos' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('orgaos'); }}>
+        <a className={`nav-item ${activeView === 'orgaos' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('orgaos'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
           Órgãos Públicos
         </a>
-        <a className={`nav-item ${activeView === 'gestores' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('gestores'); }}>
+        <a className={`nav-item ${activeView === 'gestores' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('gestores'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           Gestores do Órgão
         </a>
-        <a className={`nav-item ${activeView === 'upas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('upas'); }}>
+        <a className={`nav-item ${activeView === 'upas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('upas'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
           Unidades (UPAs)
         </a>
-        <a className={`nav-item ${activeView === 'medicos' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('medicos'); }}>
+        <a className={`nav-item ${activeView === 'medicos' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('medicos'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 11v4"/><path d="M9 14h6"/></svg>
           Médicos / Enfermeiros
         </a>
 
         <div className="nav-section-label">Operacional</div>
-        <a className={`nav-item ${activeView === 'escalas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('escalas'); }}>
+        <a className={`nav-item ${activeView === 'escalas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('escalas'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           Escalas
         </a>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'substituicoes' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('substituicoes'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
           Substituições
         </a>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'disponibilidade' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('disponibilidade'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Disponibilidade
         </a>
-        <a className="nav-item disabled" href="#">
+        <a className={`nav-item ${activeView === 'justificativas' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('justificativas'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Justificativas
         </a>
@@ -133,7 +146,7 @@ export function AdminPage() {
         </a>
 
         <div className="nav-section-label">Sistema</div>
-        <a className={`nav-item ${activeView === 'configuracoes' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); setActiveView('configuracoes'); }}>
+        <a className={`nav-item ${activeView === 'configuracoes' ? 'active' : ''}`} href="#" onClick={e => { e.preventDefault(); navigate('configuracoes'); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2m0 18v-2m7.07 2.93-1.41-1.41M4.93 19.07l1.41-1.41M22 12h-2M4 12H2"/></svg>
           Configurações
         </a>
@@ -160,9 +173,14 @@ export function AdminPage() {
         {activeView === 'home' && (
           <>
         <div className="topbar">
-          <div>
-            <div className="topbar-title">Visão Geral</div>
-            <div className="topbar-sub">{dateStr}</div>
+          <div className="topbar-left">
+            <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <div>
+              <div className="topbar-title">Visão Geral</div>
+              <div className="topbar-sub">{dateStr}</div>
+            </div>
           </div>
           <div className="topbar-right">
             <button className="theme-toggle" onClick={() => setDark(!dark)} title={dark ? 'Tema claro' : 'Tema escuro'}>
@@ -214,36 +232,35 @@ export function AdminPage() {
             <div>
               <div className="section-title">Acesso rápido</div>
               <div className="actions-grid">
-                <a className="action-card" href="#" onClick={e => { e.preventDefault(); setActiveView('medicos'); }}>
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); navigate('medicos'); }}>
                   <div className="action-icon indigo">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M12 11v4"/><path d="M9 14h6"/></svg>
                   </div>
                   <div className="action-name">Médicos</div>
                   <div className="action-desc">Cadastrar e gerenciar médicos e biometria facial.</div>
                 </a>
-                <a className="action-card" href="#" onClick={e => { e.preventDefault(); setActiveView('escalas'); }}>
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); navigate('escalas'); }}>
                   <div className="action-icon teal">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </div>
                   <div className="action-name">Escalas</div>
                   <div className="action-desc">Criar e editar escalas de plantão por UPA e turno.</div>
                 </a>
-                <a className="action-card" href="#" onClick={e => { e.preventDefault(); }}>
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); navigate('tempo-real'); }}>
                   <div className="action-icon green">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                   </div>
                   <div className="action-name">Tempo Real</div>
                   <div className="action-desc">Acompanhar check-ins e status das UPAs agora.</div>
                 </a>
-                <a className="action-card disabled" href="#">
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); navigate('substituicoes'); }}>
                   <div className="action-icon yellow">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
                   </div>
                   <div className="action-name">Substituições</div>
                   <div className="action-desc">Gerenciar trocas e reposições de plantões.</div>
-                  <div className="action-soon">Em breve</div>
                 </a>
-                <a className="action-card" href="#" onClick={e => { e.preventDefault(); setActiveView('orgaos'); }}>
+                <a className="action-card" href="#" onClick={e => { e.preventDefault(); navigate('orgaos'); }}>
                   <div className="action-icon purple">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
                   </div>
@@ -274,13 +291,17 @@ export function AdminPage() {
         </div>
           </>
         )}
-        {activeView === 'medicos' && <AdminMedicos onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
-        {activeView === 'escalas' && <AdminEscalas onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
-        {activeView === 'upas' && <AdminUpas onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
-        {activeView === 'orgaos' && <AdminOrgaos onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
-        {activeView === 'gestores' && <AdminGestores onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
-        {activeView === 'usuarios' && <AdminUsuariosOS onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
-        {activeView === 'configuracoes' && <AdminConfiguracoes onBack={() => setActiveView('home')} dark={dark} onToggleTheme={() => setDark(!dark)} />}
+        {activeView === 'tempo-real' && <AdminTempoReal onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'medicos' && <AdminMedicos onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'escalas' && <AdminEscalas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'substituicoes' && <AdminSubstituicoes onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'disponibilidade' && <AdminDisponibilidade onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'justificativas' && <AdminJustificativas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'upas' && <AdminUpas onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'orgaos' && <AdminOrgaos onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'gestores' && <AdminGestores onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'usuarios' && <AdminUsuariosOS onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
+        {activeView === 'configuracoes' && <AdminConfiguracoes onBack={() => navigate('home')} dark={dark} onToggleTheme={() => setDark(!dark)} onOpenSidebar={() => setSidebarOpen(true)} />}
       </main>
     </div>
   );
@@ -478,4 +499,64 @@ const CSS = `
 #adm-root.dark .theme-toggle { background:#1a1f36; border-color:rgba(255,255,255,.1); color:#e2e8f0; }
 #adm-root.dark .theme-toggle:hover { border-color:var(--indigo); color:var(--indigo); background:rgba(99,102,241,.15); }
 #adm-root.dark .topbar-badge { background:rgba(99,102,241,.15); border-color:rgba(99,102,241,.3); }
+
+/* ─── HAMBURGER / MOBILE SIDEBAR ─── */
+#adm-root .hamburger-btn { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; }
+#adm-root .hamburger-btn:hover { background:var(--indigo-light); color:var(--indigo); }
+#adm-root .topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:49; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .sidebar { transform:translateX(-100%); transition:transform .3s cubic-bezier(.4,0,.2,1); z-index:50; }
+  #adm-root .sidebar.open { transform:translateX(0); }
+  #adm-root .sidebar-overlay { display:block; }
+  #adm-root .hamburger-btn { display:flex; }
+  #adm-root .main { margin-left:0; }
+
+  /* FIX SCROLL */
+  #adm-root .main.scrollable { overflow-y:auto; }
+  #adm-root .content { overflow-y:auto; padding:1rem; }
+
+  #adm-root .topbar { padding:.85rem 1rem; }
+  #adm-root .topbar-badge span { display:none; }
+
+  #adm-root .welcome-hero { padding:1.4rem; border-radius:16px; }
+  #adm-root .welcome-name { font-size:1.4rem; }
+  #adm-root .welcome-tags { flex-wrap:wrap; gap:.4rem; }
+
+  /* KPI: 2 colunas */
+  #adm-root .kpi-strip { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .kpi-s { padding:.9rem 1rem; }
+  #adm-root .kpi-lbl { font-size:.6rem; white-space:normal; word-break:break-word; }
+  #adm-root .kpi-val { font-size:1.7rem; }
+  #adm-root .kpi-sub { font-size:.62rem; }
+
+  /* HOME GRID: empilhado */
+  #adm-root .home-grid { grid-template-columns:1fr; gap:1rem; }
+
+  /* ACESSO RÁPIDO: 2 colunas */
+  #adm-root .actions-grid { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .action-card { padding:1rem; }
+  #adm-root .action-icon { width:38px; height:38px; }
+  #adm-root .action-title { font-size:.8rem; }
+  #adm-root .action-desc { display:none; }
+
+  #adm-root .section-row { flex-direction:column; gap:.5rem; align-items:flex-start; }
+  #adm-root .alerts-list { gap:.6rem; }
+  #adm-root .alert-item { padding:.75rem .9rem; }
+}
+
+@media (max-width: 480px) {
+  #adm-root .kpi-strip { grid-template-columns:1fr 1fr; gap:.5rem; }
+  #adm-root .kpi-s { padding:.75rem .85rem; }
+  #adm-root .kpi-val { font-size:1.5rem; }
+  #adm-root .kpi-lbl { font-size:.58rem; }
+
+  #adm-root .actions-grid { grid-template-columns:1fr 1fr; gap:.5rem; }
+  #adm-root .welcome-hero { padding:1.2rem; }
+  #adm-root .welcome-name { font-size:1.2rem; }
+
+  #adm-root .topbar-badge { display:none; }
+}
 `;

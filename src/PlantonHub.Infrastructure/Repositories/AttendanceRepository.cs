@@ -42,6 +42,13 @@ public class AttendanceRepository : IAttendanceRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<Attendance>> GetByClinicAndDateRangeAsync(Guid clinicId, DateTime fromUtc, DateTime toUtc)
+    {
+        return await _context.Attendances
+            .Where(a => a.ClinicId == clinicId && a.CheckInTime >= fromUtc && a.CheckInTime < toUtc)
+            .ToListAsync();
+    }
+
     public async Task AddAsync(Attendance attendance)
     {
         _context.Attendances.Add(attendance);

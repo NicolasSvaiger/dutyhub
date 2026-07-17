@@ -129,7 +129,8 @@ public class HistoryOrderedByDescendingDatePropertyTests
                 new Mock<IClinicRepository>().Object,
                 tenantService.Object,
                 new Mock<IFaceEnrollmentRepository>().Object,
-                new Mock<IBiometricProofService>().Object);
+                new Mock<IBiometricProofService>().Object,
+                new Mock<ISettingsRepository>().Object);
 
             // Act
             var result = service.GetMyHistoryAsync().Result.ToList();

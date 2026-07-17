@@ -108,7 +108,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
-interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; }
+interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
 
 interface TurnoForm { id: string; name: string; start: string; end: string; staff: string; profType: 1 | 2; enabled: boolean; }
 
@@ -124,7 +124,7 @@ const DEFAULT_TURNOS_ENF: TurnoForm[] = [
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
+export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const { user: authUser } = useAuth();
   const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
 
@@ -352,9 +352,14 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
 
       {/* Topbar */}
       <div className="upa-topbar">
-        <div>
-          <div className="upa-topbar-title">Unidades de Pronto Atendimento (UPAs)</div>
-          <div className="upa-topbar-sub">Cadastro e configuração das unidades vinculadas aos contratos</div>
+        <div className="upa-topbar-left">
+          <button className="upa-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="upa-topbar-title">Unidades de Pronto Atendimento (UPAs)</div>
+            <div className="upa-topbar-sub">Cadastro e configuração das unidades vinculadas aos contratos</div>
+          </div>
         </div>
         <button className="theme-toggle" onClick={onToggleTheme} title={dark ? 'Tema claro' : 'Tema escuro'}>{ThemeIcon}</button>
       </div>
@@ -667,6 +672,9 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme }: Props) {
 
 const UPAS_CSS = `
 #adm-root .upa-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; position:sticky; top:0; z-index:40; display:flex; align-items:center; justify-content:space-between; }
+#adm-root .upa-topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .upa-hamburger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; flex-shrink:0; }
+#adm-root .upa-hamburger:hover { background:var(--indigo-light); color:var(--indigo); }
 #adm-root .upa-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
 #adm-root .upa-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; }
 #adm-root .upa-content { flex:1; padding:2rem; overflow-y:auto; animation:fadeUp .35s ease; }
@@ -809,6 +817,18 @@ const UPAS_CSS_DRAWER = `
 #adm-root.dark .upa-cselect-option { color:#e2e8f0; }
 #adm-root.dark .upa-cselect-option:hover { background:rgba(99,102,241,.15); color:#a5b4fc; }
 #adm-root.dark .upa-cselect-option.active { background:var(--indigo); color:#fff; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .upa-hamburger { display:flex; }
+  #adm-root .upa-topbar { padding:.85rem 1rem; }
+  #adm-root .upa-content { padding:1rem; }
+  #adm-root .upa-page-header { flex-direction:column; align-items:flex-start; gap:.75rem; }
+  #adm-root .upa-kpi-strip { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .upa-filter-bar { flex-direction:column; align-items:stretch; gap:.6rem; }
+  #adm-root .upa-cards-grid { grid-template-columns:1fr; }
+  #adm-root .upa-drawer { width:100vw; }
+}
 `;
 
 // Styles are merged in the component's style tag: UPAS_CSS + UPAS_CSS_DRAWER

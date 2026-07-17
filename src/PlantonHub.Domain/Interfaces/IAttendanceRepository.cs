@@ -13,6 +13,14 @@ public interface IAttendanceRepository
     /// (i.e., active check-ins that are still open).
     /// </summary>
     Task<IEnumerable<Attendance>> GetActiveByUserAndClinicAsync(Guid userId, Guid clinicId);
+
+    /// <summary>
+    /// Returns all attendance records (any user) for a clinic within a UTC date
+    /// range [from, to). Used by admin-facing aggregations (e.g., "Tempo Real")
+    /// that need to know who checked in today across the whole unit, not just
+    /// the logged-in professional.
+    /// </summary>
+    Task<IEnumerable<Attendance>> GetByClinicAndDateRangeAsync(Guid clinicId, DateTime fromUtc, DateTime toUtc);
     Task AddAsync(Attendance attendance);
     Task UpdateAsync(Attendance attendance);
     Task<bool> HasActiveCheckInAsync(Guid userId, Guid shiftId);

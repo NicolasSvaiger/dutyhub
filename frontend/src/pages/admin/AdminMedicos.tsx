@@ -73,9 +73,10 @@ interface Props {
   onBack: () => void;
   dark: boolean;
   onToggleTheme: () => void;
+  onOpenSidebar?: () => void;
 }
 
-export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme }: Props) {
+export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const [users, setUsers] = useState<User[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,9 +305,14 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme }: Props) {
     <>
       <style dangerouslySetInnerHTML={{ __html: MEDICOS_CSS }} />
       <div className="med-topbar">
-        <div>
-          <div className="med-topbar-title">Médicos e Enfermeiros</div>
-          <div className="med-topbar-sub">Cadastro completo com biometria facial para check-in/check-out</div>
+        <div className="med-topbar-left">
+          <button className="med-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="med-topbar-title">Médicos e Enfermeiros</div>
+            <div className="med-topbar-sub">Cadastro completo com biometria facial para check-in/check-out</div>
+          </div>
         </div>
         <button className="theme-toggle" onClick={onToggleTheme} title={dark ? 'Tema claro' : 'Tema escuro'}>
           {dark ? (
@@ -561,6 +567,9 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme }: Props) {
 const MEDICOS_CSS = `
 /* Scoped to #adm-root */
 #adm-root .med-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; position:sticky; top:0; z-index:40; display:flex; align-items:center; justify-content:space-between; }
+#adm-root .med-topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .med-hamburger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; flex-shrink:0; }
+#adm-root .med-hamburger:hover { background:var(--indigo-light); color:var(--indigo); }
 #adm-root .med-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
 #adm-root .med-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; }
 #adm-root .med-content { flex:1; padding:2rem; overflow-y:auto; animation:fadeUp .35s ease; }
@@ -741,4 +750,32 @@ const MEDICOS_CSS = `
 #adm-root.dark .med-cselect-option { color:#e2e8f0; }
 #adm-root.dark .med-cselect-option:hover { background:rgba(99,102,241,.15); color:#a5b4fc; }
 #adm-root.dark .med-cselect-option.active { background:var(--indigo); color:#fff; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .med-hamburger { display:flex; }
+  #adm-root .med-topbar { padding:.85rem 1rem; }
+  #adm-root .med-content { padding:1rem; }
+  #adm-root .med-page-header { flex-direction:column; align-items:flex-start; gap:.75rem; }
+  #adm-root .med-kpi-strip { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .med-filter-bar { flex-direction:column; align-items:stretch; gap:.6rem; }
+  #adm-root .med-search-wrap { min-width:unset; }
+  #adm-root .med-cselect { min-width:unset; width:100%; }
+  #adm-root .med-table { font-size:.78rem; }
+  #adm-root .med-table thead th { padding:.6rem .75rem; font-size:.58rem; }
+  #adm-root .med-table tbody td { padding:.7rem .75rem; }
+  #adm-root .med-drawer { width:100vw; }
+  #adm-root .med-form-row { grid-template-columns:1fr; }
+  #adm-root .med-kpi-val { font-size:1.5rem; }
+}
+@media (max-width: 480px) {
+  #adm-root .med-kpi-strip { grid-template-columns:1fr 1fr; gap:.5rem; }
+  #adm-root .med-kpi-card { padding:.75rem; }
+  #adm-root .med-table-card { border-radius:12px; }
+  /* hide less important columns */
+  #adm-root .med-table thead th:nth-child(4),
+  #adm-root .med-table thead th:nth-child(5),
+  #adm-root .med-table tbody td:nth-child(4),
+  #adm-root .med-table tbody td:nth-child(5) { display:none; }
+}
 `;

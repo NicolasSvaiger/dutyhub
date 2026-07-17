@@ -49,6 +49,9 @@ builder.Services.AddScoped<IContractRepository, ContractRepository>();
 builder.Services.AddScoped<IFaceEnrollmentRepository, FaceEnrollmentRepository>();
 builder.Services.AddScoped<IDeviceRegistrationRepository, DeviceRegistrationRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
+builder.Services.AddScoped<ISubstitutionRepository, SubstitutionRepository>();
+builder.Services.AddScoped<IJustificationRepository, JustificationRepository>();
+builder.Services.AddScoped<IAvailabilityRestrictionRepository, AvailabilityRestrictionRepository>();
 
 // ----- Application Services -----
 builder.Services.AddScoped<IClinicService, ClinicService>();
@@ -65,6 +68,9 @@ builder.Services.AddScoped<IContractService>(sp => new ContractService(
     sp.GetRequiredService<ITenantService>()
 ));
 builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<ISubstitutionService, SubstitutionService>();
+builder.Services.AddScoped<IJustificationService, JustificationService>();
+builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
 builder.Services.AddScoped<IAuditService, AuditService>();

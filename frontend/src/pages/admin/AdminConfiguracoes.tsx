@@ -56,7 +56,7 @@ const BR_TIMEZONES = [
   'America/Rio_Branco (UTC−5)',
 ];
 
-export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
+export function AdminConfiguracoes({ dark, onToggleTheme, onOpenSidebar }: Props) {
   const { user: authUser } = useAuth();
   const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
 
@@ -112,12 +112,11 @@ export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
       setClinics(list);
 
       if (settings) {
+        // Tolerâncias
         setTolGlobal(settings.checkInToleranceMinutes);
         setTolAusencia(settings.absenceThresholdMinutes);
         setTolBloqueio(settings.checkInBlockAfterMinutes);
         setNotifAusencia(settings.notifyOnAbsence);
-
-        // Per-clinic tolerances: merge API values into clinic list
         setTolClinicas(list.map(c => {
           const override = settings.clinicTolerances.find(ct => ct.clinicId === c.id);
           return {
@@ -126,11 +125,47 @@ export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
             minutes: override?.checkInToleranceMinutes ?? settings.checkInToleranceMinutes,
           };
         }));
+
+        // Fusos
+        if (settings.systemTimezone) setFusoGlobal(settings.systemTimezone);
+        setHorarioVerao(settings.daylightSavingAuto);
+        setFusosClinicas(Object.fromEntries(list.map(c => [c.id, settings.systemTimezone || BR_TIMEZONES[0]])));
+
+        // Notificações
+        if (settings.notificationChannels && Object.keys(settings.notificationChannels).length > 0) {
+          const loaded: NotifGroup = { ...DEFAULT_NOTIF };
+          for (const [evt, ch] of Object.entries(settings.notificationChannels)) {
+            if (loaded[evt]) loaded[evt] = { email: ch.email, sms: ch.sms, push: ch.push };
+          }
+          setNotif(loaded);
+        }
+        if (settings.emailSender) setEmailRemetente(settings.emailSender);
+        if (settings.emailSenderName) setNomeRemetente(settings.emailSenderName);
+        setEmailCC(settings.emailCc ?? '');
+
+        // Biometria
+        setConfMin(settings.biometricConfidencePercent ?? 90);
+        const attempts = settings.biometricMaxAttempts ?? 3;
+        setTentativas(`${attempts} tentativas`);
+        setCheckinManual(settings.biometricAllowManualCheckin ?? true);
+        setRegistrarFalha(settings.biometricLogFailedAttempt ?? false);
+        if (settings.azureEndpoint) setAzureEndpoint(settings.azureEndpoint);
+        if (settings.azureRegion) setAzureRegion(settings.azureRegion);
+
+        // Sistema
+        if (settings.orgName) setOrgNome(settings.orgName);
+        setOrgCnpj(settings.orgCnpj ?? '');
+        setOrgEmail(settings.orgEmail ?? '');
+        const timeoutMap: Record<number, string> = { 15: '15 minutos', 30: '30 minutos', 60: '1 hora', 240: '4 horas', 0: 'Nunca' };
+        setSessaoTimeout(timeoutMap[settings.sessionTimeoutMinutes ?? 30] ?? '30 minutos');
+        setMfaObrigatorio(settings.mfaRequired ?? true);
+        const rotMap: Record<number, string> = { 30: '30 dias', 90: '90 dias', 180: '180 dias', 0: 'Nunca' };
+        setForcaTrocaSenha(rotMap[settings.passwordRotationDays ?? 90] ?? '90 dias');
+        setAuditoria(settings.detailedAuditLog ?? true);
       } else {
         setTolClinicas(list.map(c => ({ clinicId: c.id, name: c.name, minutes: 15 })));
+        setFusosClinicas(Object.fromEntries(list.map(c => [c.id, BR_TIMEZONES[0]])));
       }
-
-      setFusosClinicas(Object.fromEntries(list.map(c => [c.id, BR_TIMEZONES[0]])));
     });
   }, []);
 
@@ -142,18 +177,58 @@ export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
   async function salvarTudo() {
     setSaving(true);
     try {
+      // Parse tentativas back to number
+      const maxAttempts = parseInt(tentativas) || 3;
+
+      // Parse timeout back to minutes
+      const timeoutMap: Record<string, number> = {
+        '15 minutos': 15, '30 minutos': 30, '1 hora': 60, '4 horas': 240, 'Nunca': 0,
+      };
+      const passwordRotMap: Record<string, number> = {
+        '30 dias': 30, '90 dias': 90, '180 dias': 180, 'Nunca': 0,
+      };
+
       await settingsApi.update({
+        // Tolerâncias
         checkInToleranceMinutes: tolGlobal,
         absenceThresholdMinutes: tolAusencia,
         checkInBlockAfterMinutes: tolBloqueio,
         notifyOnAbsence: notifAusencia,
         clinicTolerances: tolClinicas.map(tc => ({
           clinicId: tc.clinicId,
-          // Send null if the clinic uses the global default (i.e. same as global)
           checkInToleranceMinutes: tc.minutes !== tolGlobal ? tc.minutes : null,
         })),
+
+        // Fusos
+        systemTimezone: fusoGlobal,
+        daylightSavingAuto: horarioVerao,
+
+        // Notificações
+        notificationChannels: Object.fromEntries(
+          Object.entries(notif).map(([evt, ch]) => [evt, { email: ch.email, sms: ch.sms, push: ch.push }])
+        ),
+        emailSender: emailRemetente,
+        emailSenderName: nomeRemetente,
+        emailCc: emailCC,
+
+        // Biometria
+        biometricConfidencePercent: confMin,
+        biometricMaxAttempts: maxAttempts,
+        biometricAllowManualCheckin: checkinManual,
+        biometricLogFailedAttempt: registrarFalha,
+        azureEndpoint: azureEndpoint,
+        azureRegion: azureRegion,
+
+        // Sistema
+        orgName: orgNome,
+        orgCnpj: orgCnpj,
+        orgEmail: orgEmail,
+        sessionTimeoutMinutes: timeoutMap[sessaoTimeout] ?? 30,
+        mfaRequired: mfaObrigatorio,
+        passwordRotationDays: passwordRotMap[forcaTrocaSenha] ?? 90,
+        detailedAuditLog: auditoria,
       });
-      showToast('✅ Tolerâncias salvas com sucesso!');
+      showToast('✅ Configurações salvas com sucesso!');
     } catch {
       showToast('❌ Erro ao salvar configurações. Tente novamente.');
     } finally {
@@ -296,7 +371,7 @@ export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>}
         >
           <Row label="Fuso padrão do sistema" hint="Aplicado a todos os registros quando não há configuração por UPA">
-            <select className="cfg-select" value={fusoGlobal} disabled={!isAdminGlobal}
+            <select id="fuso-global" className="cfg-select" value={fusoGlobal} disabled={!isAdminGlobal}
               onChange={e => isAdminGlobal && setFusoGlobal(e.target.value)} style={{ width: 240 }}>
               {BR_TIMEZONES.map(tz => <option key={tz}>{tz}</option>)}
             </select>
@@ -567,9 +642,14 @@ export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
       <style dangerouslySetInnerHTML={{ __html: CFG_CSS }} />
 
       <div className="cfg-topbar">
-        <div>
-          <div className="cfg-topbar-title">Configurações do Sistema</div>
-          <div className="cfg-topbar-sub">Tolerâncias, fusos, notificações e integrações</div>
+        <div className="cfg-topbar-left">
+          <button className="cfg-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="cfg-topbar-title">Configurações do Sistema</div>
+            <div className="cfg-topbar-sub">Tolerâncias, fusos, notificações e integrações</div>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.7rem' }}>
           {!isAdminGlobal && (
@@ -622,6 +702,9 @@ export function AdminConfiguracoes({ dark, onToggleTheme }: Props) {
 
 const CFG_CSS = `
 #adm-root .cfg-topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;}
+#adm-root .cfg-topbar-left{display:flex;align-items:center;gap:.75rem;}
+#adm-root .cfg-hamburger{display:none;background:none;border:none;cursor:pointer;color:var(--text);padding:.4rem;border-radius:8px;transition:background .15s;flex-shrink:0;}
+#adm-root .cfg-hamburger:hover{background:var(--indigo-light);color:var(--indigo);}
 #adm-root .cfg-topbar-title{font-family:'Nunito',sans-serif;font-size:1.05rem;font-weight:900;color:var(--text);}
 #adm-root .cfg-topbar-sub{font-size:.7rem;font-weight:600;color:var(--muted);margin-top:1px;}
 #adm-root .cfg-btn-salvar{display:flex;align-items:center;gap:.45rem;padding:.6rem 1.3rem;border:none;border-radius:12px;background:linear-gradient(135deg,var(--indigo),var(--indigo-dark));color:#fff;font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(99,102,241,.35);transition:transform .14s;}
@@ -722,4 +805,104 @@ const CFG_CSS = `
 #adm-root.dark .cfg-fuso-item{background:#0f1119;}
 #adm-root.dark .cfg-notif-group{background:#0f1119;}
 #adm-root.dark .cfg-az-metric{background:#0f1119;}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .cfg-hamburger { display:flex; }
+  #adm-root .cfg-topbar { padding:.85rem 1rem; flex-direction:column; align-items:stretch; gap:.6rem; }
+  #adm-root .cfg-topbar > div:last-child { width:100%; justify-content:flex-start; }
+  #adm-root .cfg-topbar-title { font-size:.85rem; line-height:1.2; }
+  #adm-root .cfg-topbar-sub { font-size:.62rem; }
+  #adm-root .cfg-btn-salvar { width:100%; padding:.65rem .9rem; font-size:.78rem; justify-content:center; }
+  #adm-root .cfg-readonly-badge { margin-right:auto; }
+  
+  /* FORÇA layout vertical: esconde grid desktop e recria estrutura */
+  #adm-root .cfg-content { padding:0; overflow:visible; display:flex; flex-direction:column; flex:1; }
+  #adm-root .cfg-layout { display:flex; flex-direction:column; grid-template-columns:unset; gap:0; }
+  
+  /* Nav horizontal — sticky "empilhado" logo abaixo do cfg-topbar.
+     Dois elementos sticky top:0 em sequência no mesmo fluxo se empilham
+     automaticamente sem overlap (desde que nenhum ancestral corte overflow). */
+  #adm-root .cfg-sidenav { 
+    width:100% !important; 
+    min-height:unset !important;
+    height:auto !important;
+    position:sticky !important;
+    top:0 !important;
+    z-index:35 !important;
+    border-radius:0 !important;
+    border:none !important;
+    border-bottom:1px solid var(--border) !important; 
+    padding:.6rem .75rem !important; 
+    display:flex !important; 
+    flex-direction:row !important; 
+    flex-wrap:nowrap !important; 
+    gap:.5rem !important; 
+    overflow-x:auto !important; 
+    -webkit-overflow-scrolling:touch;
+    background:var(--surface) !important;
+    flex-shrink:0 !important;
+  }
+  #adm-root .cfg-sidenav-item { 
+    padding:.5rem .85rem !important; 
+    white-space:nowrap !important; 
+    border-left:none !important; 
+    border-radius:18px !important; 
+    font-size:.73rem !important; 
+    flex-shrink:0 !important;
+    width:auto !important;
+  }
+  #adm-root .cfg-sidenav-item.active { border-left:none; background:var(--indigo); color:#fff; }
+  #adm-root .cfg-sidenav-item svg { width:13px; height:13px; margin-right:.35rem; }
+  #adm-root .cfg-sidenav-divider { display:none; }
+  
+  /* Content full width abaixo — trava overflow horizontal como rede de segurança */
+  #adm-root .cfg-sections { padding:1rem; width:100%; overflow-x:hidden; box-sizing:border-box; }
+  #adm-root .cfg-card { padding:1.1rem; max-width:100%; }
+  #adm-root .cfg-card-title { font-size:.85rem; }
+  #adm-root .cfg-grid-2 { grid-template-columns:1fr; gap:.9rem; }
+  #adm-root .cfg-field { gap:.4rem; }
+  #adm-root .cfg-field label { font-size:.72rem; }
+  #adm-root .cfg-input, #adm-root .cfg-select { font-size:.8rem; padding:.6rem .8rem; }
+
+  /* Row: empilhar label/hint acima do controle (causa raiz do overflow) */
+  #adm-root .cfg-row { flex-direction:column; align-items:stretch; gap:.6rem; }
+
+  /* Qualquer input/select/controle com largura fixa em px vira 100% */
+  #adm-root .cfg-row input,
+  #adm-root .cfg-row select,
+  #adm-root .cfg-row .cfg-input,
+  #adm-root .cfg-row .cfg-select,
+  #adm-root .cfg-row .cfg-input-md,
+  #adm-root .cfg-row .cfg-key-row { width:100% !important; max-width:100% !important; }
+  #adm-root .cfg-key-input { width:100% !important; max-width:100% !important; flex:1; }
+  #adm-root .cfg-fuso-item select { width:100% !important; max-width:100% !important; }
+  #adm-root .cfg-fuso-item { flex-wrap:wrap; }
+
+  /* Sliders também precisam de largura total */
+  #adm-root .cfg-slider-wrap { width:100%; }
+  #adm-root .cfg-slider { width:100%; flex:1; }
+
+  /* Métricas Azure: 3 colunas apertadas → 1 coluna legível */
+  #adm-root .cfg-azure-metrics { grid-template-columns:1fr; gap:.5rem; }
+  #adm-root .cfg-az-metric { display:flex; align-items:center; justify-content:space-between; padding:.6rem .9rem; text-align:left; }
+  #adm-root .cfg-az-val { font-size:1.05rem; }
+  #adm-root .cfg-az-lbl { margin-top:0; font-size:.65rem; }
+
+  /* Card Azure: empilhar logo e status/botão */
+  #adm-root .cfg-azure-card { flex-direction:column; align-items:flex-start; padding:1rem; }
+  #adm-root .cfg-azure-card > div:last-child { width:100%; justify-content:space-between; }
+}
+
+@media (max-width: 480px) {
+  #adm-root .cfg-topbar-title { font-size:.8rem; }
+  #adm-root .cfg-topbar-sub { display:none; }
+  #adm-root .cfg-btn-salvar { font-size:.75rem; padding:.6rem .85rem; }
+  #adm-root .cfg-sidenav { padding:.5rem .6rem; gap:.4rem; }
+  #adm-root .cfg-sidenav-item { padding:.45rem .75rem; font-size:.7rem; }
+  #adm-root .cfg-sidenav-item svg { width:12px; height:12px; margin-right:.3rem; }
+  #adm-root .cfg-sections { padding:.9rem; }
+  #adm-root .cfg-card { padding:.95rem; }
+  #adm-root .cfg-card-title { font-size:.8rem; }
+}
 `;

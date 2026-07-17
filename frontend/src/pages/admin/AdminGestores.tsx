@@ -59,7 +59,7 @@ interface GestorView {
 
 interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
 
-export function AdminGestores({ onBack: _onBack, dark, onToggleTheme }: Props) {
+export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const { user: authUser } = useAuth();
   const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
   const canManage = isAdminGlobal || (authUser?.roles ?? []).includes('AdminClinica');
@@ -147,9 +147,14 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme }: Props) {
       <style dangerouslySetInnerHTML={{ __html: GESTORES_CSS }} />
 
       <div className="gest-topbar">
-        <div>
-          <div className="gest-topbar-title">Gestores do Órgão Público</div>
-          <div className="gest-topbar-sub">Usuários das prefeituras com acesso ao painel do Órgão Público</div>
+        <div className="gest-topbar-left">
+          <button className="gest-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="gest-topbar-title">Gestores do Órgão Público</div>
+            <div className="gest-topbar-sub">Usuários das prefeituras com acesso ao painel do Órgão Público</div>
+          </div>
         </div>
         <button className="theme-toggle" onClick={onToggleTheme} title={dark ? 'Tema claro' : 'Tema escuro'}>{ThemeIcon}</button>
       </div>
@@ -394,6 +399,9 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme }: Props) {
 
 const GESTORES_CSS = `
 #adm-root .gest-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; position:sticky; top:0; z-index:40; display:flex; align-items:center; justify-content:space-between; }
+#adm-root .gest-topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .gest-hamburger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; flex-shrink:0; }
+#adm-root .gest-hamburger:hover { background:var(--indigo-light); color:var(--indigo); }
 #adm-root .gest-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
 #adm-root .gest-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; }
 #adm-root .gest-content { flex:1; padding:2rem; overflow-y:auto; animation:fadeUp .35s ease; }
@@ -527,4 +535,39 @@ const GESTORES_CSS = `
 #adm-root.dark .gest-clinic-chip { background:#0f1119; color:#94a3b8; }
 #adm-root.dark .gest-pagination { border-top-color:rgba(255,255,255,.06); }
 #adm-root.dark .gest-access-ro { background:#0f1119; border-color:rgba(255,255,255,.1); }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .gest-hamburger { display:flex; }
+  #adm-root .gest-topbar { padding:.85rem 1rem; }
+  #adm-root .gest-content { padding:1rem; overflow-y:auto; }
+  #adm-root .gest-page-header { flex-direction:column; align-items:flex-start; gap:.75rem; }
+
+  /* KPIs 2x2 */
+  #adm-root .gest-kpi-strip { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .gest-kpi { padding:.9rem 1rem; }
+  #adm-root .gest-kpi-lbl { font-size:.6rem; white-space:normal; word-break:break-word; }
+  #adm-root .gest-kpi-val { font-size:1.6rem; }
+  #adm-root .gest-kpi-sub { font-size:.62rem; }
+
+  /* Filtros empilhados */
+  #adm-root .gest-filter-bar { flex-direction:column; align-items:stretch; gap:.6rem; }
+  #adm-root .gest-search-wrap { min-width:unset; }
+  #adm-root .gest-cselect { min-width:unset; width:100%; }
+
+  /* Tabela: esconde colunas menos importantes */
+  #adm-root .gest-table thead th:nth-child(3),
+  #adm-root .gest-table thead th:nth-child(4),
+  #adm-root .gest-table tbody td:nth-child(3),
+  #adm-root .gest-table tbody td:nth-child(4) { display:none; }
+
+  /* Drawer */
+  #adm-root .gest-drawer { width:100vw; }
+}
+
+@media (max-width: 480px) {
+  #adm-root .gest-kpi-strip { gap:.5rem; }
+  #adm-root .gest-kpi { padding:.75rem .85rem; }
+  #adm-root .gest-kpi-val { font-size:1.4rem; }
+}
 `;

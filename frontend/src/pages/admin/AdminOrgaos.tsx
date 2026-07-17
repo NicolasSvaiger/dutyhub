@@ -108,7 +108,7 @@ interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; 
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme }: Props) {
+export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const { user: authUser } = useAuth();
   const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
 
@@ -273,9 +273,14 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme }: Props) {
       <style dangerouslySetInnerHTML={{ __html: ORG_CSS }} />
 
       <div className="org-topbar">
-        <div>
-          <div className="org-topbar-title">Órgãos Públicos</div>
-          <div className="org-topbar-sub">Contratos e parcerias com prefeituras e secretarias</div>
+        <div className="org-topbar-left">
+          <button className="org-hamburger" onClick={() => onOpenSidebar?.()} aria-label="Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div>
+            <div className="org-topbar-title">Órgãos Públicos</div>
+            <div className="org-topbar-sub">Contratos e parcerias com prefeituras e secretarias</div>
+          </div>
         </div>
         <button className="theme-toggle" onClick={onToggleTheme} title={dark ? 'Tema claro' : 'Tema escuro'}>{ThemeIcon}</button>
       </div>
@@ -474,6 +479,9 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme }: Props) {
 
 const ORG_CSS = `
 #adm-root .org-topbar { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 2rem; position:sticky; top:0; z-index:40; display:flex; align-items:center; justify-content:space-between; }
+#adm-root .org-topbar-left { display:flex; align-items:center; gap:.75rem; }
+#adm-root .org-hamburger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:.4rem; border-radius:8px; transition:background .15s; flex-shrink:0; }
+#adm-root .org-hamburger:hover { background:var(--indigo-light); color:var(--indigo); }
 #adm-root .org-topbar-title { font-family:'Nunito',sans-serif; font-size:1.05rem; font-weight:900; color:var(--text); }
 #adm-root .org-topbar-sub { font-size:.7rem; font-weight:600; color:var(--muted); margin-top:1px; }
 #adm-root .org-content { flex:1; padding:2rem; overflow-y:auto; animation:fadeUp .35s ease; }
@@ -574,4 +582,26 @@ const ORG_CSS = `
 #adm-root.dark .org-cselect-dropdown { background:#1a1f36; border-color:rgba(255,255,255,.1); }
 #adm-root.dark .org-cselect-option { color:#e2e8f0; }
 #adm-root.dark .org-cselect-option:hover { background:rgba(99,102,241,.15); color:#a5b4fc; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  #adm-root .org-hamburger { display:flex; }
+  #adm-root .org-topbar { padding:.85rem 1rem; }
+  #adm-root .org-content { padding:1rem; overflow-y:auto; }
+  #adm-root .org-page-header { flex-direction:column; align-items:flex-start; gap:.75rem; }
+  #adm-root .org-kpi-strip { grid-template-columns:1fr 1fr; gap:.75rem; }
+  #adm-root .org-kpi { padding:.9rem 1rem; }
+  #adm-root .org-kpi-lbl { font-size:.6rem; white-space:normal; word-break:break-word; }
+  #adm-root .org-kpi-val { font-size:1.6rem; }
+  #adm-root .org-filter-bar { flex-direction:column; align-items:stretch; gap:.6rem; }
+  #adm-root .org-search-wrap { min-width:unset; }
+  #adm-root .org-cselect { min-width:unset; width:100%; }
+  #adm-root .org-cards-grid { grid-template-columns:1fr; }
+  #adm-root .org-drawer { width:100vw; }
+}
+@media (max-width: 480px) {
+  #adm-root .org-kpi-strip { gap:.5rem; }
+  #adm-root .org-kpi { padding:.75rem .85rem; }
+  #adm-root .org-kpi-val { font-size:1.4rem; }
+}
 `;

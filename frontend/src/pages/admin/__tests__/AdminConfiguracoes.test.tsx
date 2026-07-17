@@ -32,6 +32,7 @@ import { useAuth } from '../../../hooks/useAuth';
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const mockSettings = {
+  // Tolerâncias
   checkInToleranceMinutes: 15,
   absenceThresholdMinutes: 60,
   checkInBlockAfterMinutes: 120,
@@ -40,6 +41,42 @@ const mockSettings = {
     { clinicId: 'c1', clinicName: 'Clínica Alpha', checkInToleranceMinutes: null },
     { clinicId: 'c2', clinicName: 'Clínica Beta', checkInToleranceMinutes: 20 },
   ],
+
+  // Fusos — valores diferentes do default para provar que vêm do backend
+  systemTimezone: 'America/Manaus (UTC−4)',
+  daylightSavingAuto: false,
+
+  // Notificações
+  notificationChannels: {
+    'Ausência detectada': { email: true, sms: false, push: true },
+    'Atraso acima da tolerância': { email: true, sms: false, push: false },
+    'Turno sem cobertura': { email: true, sms: true, push: true },
+    'Substituição pendente há mais de 2h': { email: true, sms: true, push: false },
+    'Escala publicada': { email: true, sms: false, push: false },
+    'Confirmação de plantão pendente': { email: true, sms: true, push: false },
+    'SLA abaixo da meta contratual': { email: true, sms: false, push: false },
+    'Contrato vencendo em 60 dias': { email: true, sms: false, push: false },
+  },
+  emailSender: 'testes@24p7.com.br',
+  emailSenderName: 'Sistema 24p7 Teste',
+  emailCc: 'coord@24p7.com.br',
+
+  // Biometria
+  biometricConfidencePercent: 82,
+  biometricMaxAttempts: 3,
+  biometricAllowManualCheckin: true,
+  biometricLogFailedAttempt: false,
+  azureEndpoint: 'https://24p7-face.cognitiveservices.azure.com',
+  azureRegion: 'East US',
+
+  // Sistema
+  orgName: 'Organização Teste OS',
+  orgCnpj: '99.888.777/0001-11',
+  orgEmail: 'contato@teste.org.br',
+  sessionTimeoutMinutes: 60,
+  mfaRequired: true,
+  passwordRotationDays: 180,
+  detailedAuditLog: true,
 };
 
 const mockClinics = [
@@ -235,6 +272,107 @@ describe('<AdminConfiguracoes />', () => {
     });
   });
 
+  // ── Persistência das novas seções (Fusos, Notificações, Biometria, Sistema) ─
+
+  it('carrega o fuso horário vindo do backend', async () => {
+    renderCfg('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
+    await user.click(screen.getByText('Fusos horários'));
+    await waitFor(() => {
+      const select = document.querySelector('#fuso-global') as HTMLSelectElement;
+      expect(select?.value).toBe('America/Manaus (UTC−4)');
+    });
+  });
+
+  it('carrega dados da seção Biometria vindos do backend', async () => {
+    renderCfg('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
+    await user.click(screen.getByText('Biometria (Azure)'));
+    await waitFor(() => {
+      const confSlider = document.querySelector('#conf-min') as HTMLInputElement;
+      expect(confSlider.value).toBe('82');
+      expect(screen.getByDisplayValue('https://24p7-face.cognitiveservices.azure.com')).toBeInTheDocument();
+    });
+  });
+
+  it('carrega dados da seção Geral do sistema vindos do backend', async () => {
+    renderCfg('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
+    await user.click(screen.getByText('Geral do sistema'));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('Organização Teste OS')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('99.888.777/0001-11')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('contato@teste.org.br')).toBeInTheDocument();
+    });
+  });
+
+  it('carrega configurações de e-mail da seção Notificações vindas do backend', async () => {
+    renderCfg('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
+    await user.click(screen.getByText('Notificações'));
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('testes@24p7.com.br')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Sistema 24p7 Teste')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('coord@24p7.com.br')).toBeInTheDocument();
+    });
+  });
+
+  it('envia payload completo com as 5 seções ao salvar', async () => {
+    renderCfg('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /Salvar todas as configurações/ }));
+    await waitFor(() => {
+      const payload = (settingsApi.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      // Fusos
+      expect(payload.systemTimezone).toBe('America/Manaus (UTC−4)');
+      expect(payload.daylightSavingAuto).toBe(false);
+      // Notificações
+      expect(payload.emailSender).toBe('testes@24p7.com.br');
+      expect(payload.emailSenderName).toBe('Sistema 24p7 Teste');
+      expect(payload.emailCc).toBe('coord@24p7.com.br');
+      expect(payload.notificationChannels).toBeDefined();
+      expect(payload.notificationChannels['Ausência detectada']).toEqual({ email: true, sms: false, push: true });
+      // Biometria
+      expect(payload.biometricConfidencePercent).toBe(82);
+      expect(payload.biometricMaxAttempts).toBe(3);
+      expect(payload.biometricAllowManualCheckin).toBe(true);
+      expect(payload.biometricLogFailedAttempt).toBe(false);
+      expect(payload.azureEndpoint).toBe('https://24p7-face.cognitiveservices.azure.com');
+      expect(payload.azureRegion).toBe('East US');
+      // Sistema
+      expect(payload.orgName).toBe('Organização Teste OS');
+      expect(payload.orgCnpj).toBe('99.888.777/0001-11');
+      expect(payload.orgEmail).toBe('contato@teste.org.br');
+      expect(payload.sessionTimeoutMinutes).toBe(60);
+      expect(payload.mfaRequired).toBe(true);
+      expect(payload.passwordRotationDays).toBe(180);
+      expect(payload.detailedAuditLog).toBe(true);
+    });
+  });
+
+  it('converte o timeout de sessão de string para minutos ao salvar', async () => {
+    renderCfg('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
+    await user.click(screen.getByText('Geral do sistema'));
+    await waitFor(() => screen.getByDisplayValue('Organização Teste OS'));
+    // Backend retornou 60 (1 hora); troca para "Nunca" (0)
+    const selects = screen.getAllByRole('combobox');
+    const timeoutSelect = selects.find(s => (s as HTMLSelectElement).value === '1 hora') as HTMLSelectElement;
+    expect(timeoutSelect).toBeTruthy();
+    await user.selectOptions(timeoutSelect, 'Nunca');
+    await user.click(screen.getByRole('button', { name: /Salvar todas as configurações/ }));
+    await waitFor(() => {
+      const payload = (settingsApi.update as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(payload.sessionTimeoutMinutes).toBe(0);
+    });
+  });
+
   it('inclui clinicTolerances no payload de save', async () => {
     renderCfg('AdminGlobal');
     const user = userEvent.setup();
@@ -253,7 +391,7 @@ describe('<AdminConfiguracoes />', () => {
     await waitFor(() => expect(document.querySelector('#tol-global')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Salvar todas as configurações/ }));
     await waitFor(() => {
-      expect(screen.getByText(/Tolerâncias salvas com sucesso/)).toBeInTheDocument();
+      expect(screen.getByText(/Configurações salvas com sucesso/)).toBeInTheDocument();
     });
   });
 

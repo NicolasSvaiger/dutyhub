@@ -269,6 +269,110 @@ export interface AssignRoleRequest {
   role: RoleType;
 }
 
+// ===== Substitution =====
+
+export type SubstitutionReasonType =
+  | 'UnannouncedAbsence'
+  | 'AdvanceNotice'
+  | 'ShiftSwap'
+  | 'MedicalLeave'
+  | 'MedicalCertificate';
+
+export type SubstitutionStatus = 'Pending' | 'Confirmed' | 'Cancelled';
+
+export interface Substitution {
+  id: string;
+  clinicId: string;
+  clinicName: string;
+  shiftDate: string;
+  shiftLabel: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  reasonType: SubstitutionReasonType;
+  reasonLabel: string;
+  notes?: string | null;
+  absentUserId: string;
+  absentUserName: string;
+  absentUserRegistrationNumber?: string | null;
+  substituteUserId?: string | null;
+  substituteUserName?: string | null;
+  substituteUserRegistrationNumber?: string | null;
+  status: SubstitutionStatus;
+  statusLabel: string;
+  isUrgent: boolean;
+  confirmedAt?: string | null;
+  createdAt: string;
+}
+
+// ===== Substitution DTOs =====
+
+export interface CreateSubstitutionRequest {
+  clinicId: string;
+  shiftDate: string;
+  shiftLabel: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  reasonType: SubstitutionReasonType;
+  notes?: string | null;
+  absentUserId: string;
+  substituteUserId?: string | null;
+}
+
+export interface AssignSubstituteRequest {
+  substituteUserId: string;
+}
+
+// ===== Justification =====
+
+export type JustificationRequestType =
+  | 'FormalJustification'
+  | 'ShiftReplacement'
+  | 'RegisterWarning'
+  | 'ContractPenalty';
+
+export type JustificationStatus = 'Pending' | 'UnderAnalysis' | 'Approved' | 'Rejected';
+
+export interface Justification {
+  id: string;
+  protocolNumber: string;
+  clinicId: string;
+  clinicName: string;
+  absentUserId: string;
+  absentUserName: string;
+  absentUserRegistrationNumber?: string | null;
+  shiftDate: string;
+  shiftTurn: string;
+  requestType: JustificationRequestType;
+  requestTypeLabel: string;
+  requestText: string;
+  deadlineDate: string;
+  status: JustificationStatus;
+  statusLabel: string;
+  responseText?: string | null;
+  respondedAt?: string | null;
+  respondedByUserId?: string | null;
+  respondedByUserName?: string | null;
+  isDeadlineOverdue: boolean;
+  daysToDeadline?: number | null;
+  createdAt: string;
+}
+
+export interface CreateJustificationRequest {
+  clinicId: string;
+  absentUserId: string;
+  shiftDate: string;
+  shiftTurn: string;
+  requestType: JustificationRequestType;
+  requestText: string;
+  deadlineDate: string;
+  protocolNumber?: string | null;
+}
+
+export interface RespondJustificationRequest {
+  approve: boolean;
+  responseText: string;
+}
+
 // ===== Shift DTOs =====
 
 export interface CreateShiftRequest {

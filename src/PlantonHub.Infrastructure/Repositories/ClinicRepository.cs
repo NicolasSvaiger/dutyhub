@@ -19,6 +19,8 @@ public class ClinicRepository : IClinicRepository
     {
         return await _context.Clinics
             .Include(c => c.ShiftTemplates)
+            .Include(c => c.Contract)
+                .ThenInclude(ct => ct!.PublicOrgan)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
@@ -26,6 +28,8 @@ public class ClinicRepository : IClinicRepository
     {
         return await _context.Clinics
             .Include(c => c.ShiftTemplates)
+            .Include(c => c.Contract)
+                .ThenInclude(ct => ct!.PublicOrgan)
             .ToListAsync();
     }
 

@@ -135,4 +135,19 @@ public class AttendanceController : ControllerBase
         var summary = await _attendanceService.GetSummaryAsync(from, to);
         return Ok(summary);
     }
+
+    /// <summary>
+    /// Painel "Tempo Real" — status ao vivo de presença por UPA/turno hoje.
+    /// AdminGlobal vê todas as UPAs; AdminClinica vê apenas as suas autorizadas.
+    /// </summary>
+    [Authorize(Policy = "AdminClinica")]
+    [HttpGet("live-status")]
+    [ProducesResponseType(typeof(LiveStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetLiveStatus()
+    {
+        var status = await _attendanceService.GetLiveStatusAsync();
+        return Ok(status);
+    }
 }

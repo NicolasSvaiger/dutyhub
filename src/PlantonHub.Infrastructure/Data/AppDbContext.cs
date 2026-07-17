@@ -26,6 +26,9 @@ public class AppDbContext : DbContext
     public DbSet<DeviceRegistration> DeviceRegistrations => Set<DeviceRegistration>();
     public DbSet<DeviceUnlinkAudit> DeviceUnlinkAudits => Set<DeviceUnlinkAudit>();
     public DbSet<ClinicShiftTemplate> ClinicShiftTemplates => Set<ClinicShiftTemplate>();
+    public DbSet<Substitution> Substitutions => Set<Substitution>();
+    public DbSet<AvailabilityRestriction> AvailabilityRestrictions => Set<AvailabilityRestriction>();
+    public DbSet<Justification> Justifications => Set<Justification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -118,6 +121,93 @@ public class AppDbContext : DbContext
 
             entity.HasOne(e => e.User)
                 .WithMany(u => u.DeviceUnlinkAudits)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Substitution>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasIndex(e => e.ClinicId)
+                .HasDatabaseName("IX_Substitution_ClinicId");
+
+            entity.HasIndex(e => e.ShiftDate)
+                .HasDatabaseName("IX_Substitution_ShiftDate");
+
+            entity.Property(e => e.ShiftLabel).HasMaxLength(200);
+            entity.Property(e => e.Notes).HasMaxLength(2000);
+
+            entity.HasOne(e => e.Clinic)
+                .WithMany()
+                .HasForeignKey(e => e.ClinicId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Two distinct FKs to User — must both use Restrict to avoid
+            // multiple cascade paths to the same table (SQL Server/Postgres would reject it).
+            entity.HasOne(e => e.AbsentUser)
+                .WithMany()
+                .HasForeignKey(e => e.AbsentUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SubstituteUser)
+                .WithMany()
+                .HasForeignKey(e => e.SubstituteUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Justification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasIndex(e => e.ProtocolNumber)
+                .IsUnique()
+                .HasDatabaseName("IX_Justification_ProtocolNumber");
+
+            entity.HasIndex(e => e.ClinicId)
+                .HasDatabaseName("IX_Justification_ClinicId");
+
+            entity.HasIndex(e => e.ShiftDate)
+                .HasDatabaseName("IX_Justification_ShiftDate");
+
+            entity.Property(e => e.ProtocolNumber).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.ShiftTurn).HasMaxLength(64).IsRequired();
+            entity.Property(e => e.RequestText).HasMaxLength(4000).IsRequired();
+            entity.Property(e => e.ResponseText).HasMaxLength(4000);
+
+            entity.HasOne(e => e.Clinic)
+                .WithMany()
+                .HasForeignKey(e => e.ClinicId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Same reasoning as Substitution: two FKs to User require Restrict
+            // to avoid multiple cascade paths.
+            entity.HasOne(e => e.AbsentUser)
+                .WithMany()
+                .HasForeignKey(e => e.AbsentUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RespondedByUser)
+                .WithMany()
+                .HasForeignKey(e => e.RespondedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AvailabilityRestriction>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            // Queries mais comuns: buscar restrições de um usuário e/ou por período.
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_AvailabilityRestriction_UserId");
+
+            entity.HasIndex(e => new { e.StartDate, e.EndDate })
+                .HasDatabaseName("IX_AvailabilityRestriction_DateRange");
+
+            entity.Property(e => e.Notes).HasMaxLength(2000);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

@@ -24,9 +24,10 @@ public class AttendanceServiceTests
     private readonly Mock<IClinicRepository> _clinicRepo = new();
     private readonly Mock<ITenantService> _tenant = new();
     private readonly Mock<IFaceEnrollmentRepository> _faceRepo = new();
+    private readonly Mock<ISettingsRepository> _settingsRepo = new();
 
     private AttendanceService CreateService()
-        => new(_attRepo.Object, _shiftRepo.Object, _clinicRepo.Object, _tenant.Object, _faceRepo.Object, new Mock<IBiometricProofService>().Object);
+        => new(_attRepo.Object, _shiftRepo.Object, _clinicRepo.Object, _tenant.Object, _faceRepo.Object, new Mock<IBiometricProofService>().Object, _settingsRepo.Object);
 
     private static CheckInRequest ValidRequest(Guid shiftId) => new()
     {
