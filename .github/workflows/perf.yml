@@ -1,0 +1,114 @@
+name: Performance / Load smoke
+
+# Manual only. Intentionally not on push/PR — a 2-3 minute load test
+# per PR would burn CI minutes without catching much (Dependabot bumps
+# rarely regress perf and unit/integration tests already gate merges).
+# Trigger via Actions → Performance / Load smoke → Run workflow when
+# you want a fresh baseline or after touching a query path.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Override BASE_URL (leave blank to test the compose stack)'
+        required: false
+        default: ''
+
+jobs:
+  load-smoke:
+    name: k6 load smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      # Only bring up the local stack if the caller didn't override BASE_URL.
+      # This lets someone point the workflow at a staging env by supplying
+      # the input, without spending time building images they won't use.
+      - name: Configure env for local stack
+        if: inputs.base_url == ''
+        run: |
+          printf 'VITE_API_URL=/api\nVITE_COGNITO_USER_POOL_ID=%s\nVITE_COGNITO_CLIENT_ID=%s\nVITE_COGNITO_REGION=%s\n' \
+            "${{ secrets.VITE_COGNITO_USER_POOL_ID }}" \
+            "${{ secrets.VITE_COGNITO_CLIENT_ID }}" \
+            "${{ secrets.VITE_COGNITO_REGION }}" > frontend/.env.development
+          cp frontend/.env.development frontend/.env.production
+
+      - name: Start stack
+        if: inputs.base_url == ''
+        env:
+          COGNITO_REGION: ${{ secrets.VITE_COGNITO_REGION }}
+          COGNITO_USER_POOL_ID: ${{ secrets.VITE_COGNITO_USER_POOL_ID }}
+          COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+        run: docker compose up -d --wait --build
+
+      - name: Wait for API to be ready
+        if: inputs.base_url == ''
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5000/health/ready > /dev/null; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 2
+          done
+          echo "API failed to become ready"
+          docker compose logs api
+          exit 1
+
+      - name: Run k6 load smoke
+        env:
+          BASE_URL: ${{ inputs.base_url != '' && inputs.base_url || 'http://localhost:5000' }}
+          COGNITO_REGION: ${{ secrets.VITE_COGNITO_REGION }}
+          COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+          # Same seeded professional the E2E tests use.
+          USER_EMAIL: medico@plantonhub.com
+          USER_PASSWORD: Teste@123
+        run: |
+          mkdir -p perf/results
+          k6 run --summary-export=perf/results/summary.json perf/load-smoke.js
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "## k6 load smoke results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f perf/results/summary.json ]; then
+            # Pull out the numbers stakeholders care about — success rate,
+            # p95 per group. The full JSON goes up as an artifact for anyone
+            # who wants to dig deeper.
+            REQ_TOTAL=$(jq '.metrics.http_reqs.count' perf/results/summary.json)
+            REQ_FAILED=$(jq '.metrics.http_req_failed.value * .metrics.http_reqs.count | floor' perf/results/summary.json)
+            REQ_SUCCESS_PCT=$(jq '(1 - .metrics.http_req_failed.value) * 100 | . * 100 | floor / 100' perf/results/summary.json)
+            P95_ALL=$(jq '.metrics.http_req_duration["p(95)"] | . * 100 | floor / 100' perf/results/summary.json)
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Total requests | $REQ_TOTAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed | $REQ_FAILED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Success rate | ${REQ_SUCCESS_PCT}% |" >> $GITHUB_STEP_SUMMARY
+            echo "| p95 (all) | ${P95_ALL}ms |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ summary.json not generated — k6 may have crashed before writing output." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload k6 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: perf/results/
+          retention-days: 14
+
+      - name: Stop stack
+        if: always() && inputs.base_url == ''
+        run: docker compose down
