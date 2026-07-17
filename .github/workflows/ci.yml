@@ -47,7 +47,7 @@ jobs:
             --results-directory ./TestResults
 
       - name: Publish test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: Unit Tests Report
@@ -83,7 +83,7 @@ jobs:
         run: dotnet test tests/PlantonHub.PropertyTests --no-restore --verbosity normal --logger "trx;LogFileName=property-results.trx"
 
       - name: Publish test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: Property Tests Report
@@ -132,7 +132,7 @@ jobs:
         run: dotnet test tests/PlantonHub.IntegrationTests --no-restore --verbosity normal --logger "trx;LogFileName=integration-results.trx"
 
       - name: Publish test results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         if: always()
         with:
           name: Integration Tests Report
