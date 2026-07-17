@@ -104,7 +104,7 @@ function CustomSelect({ value, onChange, options }: {
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
-interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; }
+interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 

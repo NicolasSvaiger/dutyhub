@@ -21,6 +21,7 @@ interface Props {
   onBack: () => void;
   dark: boolean;
   onToggleTheme: () => void;
+  onOpenSidebar?: () => void;
 }
 
 export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme }: Props) {

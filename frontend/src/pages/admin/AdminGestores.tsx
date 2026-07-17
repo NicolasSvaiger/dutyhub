@@ -57,7 +57,7 @@ interface GestorView {
   isActive: boolean;
 }
 
-interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; }
+interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
 
 export function AdminGestores({ onBack: _onBack, dark, onToggleTheme }: Props) {
   const { user: authUser } = useAuth();

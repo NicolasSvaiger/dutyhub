@@ -27,7 +27,7 @@ interface ToleranciaClinica {
   minutes: number;
 }
 
-interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; }
+interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
 
 const NOTIF_EVENTS: { group: string; events: string[] }[] = [
   { group: 'Operacional', events: ['Ausência detectada', 'Atraso acima da tolerância', 'Turno sem cobertura', 'Substituição pendente há mais de 2h'] },

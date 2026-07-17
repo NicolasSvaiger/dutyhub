@@ -93,6 +93,7 @@ interface Props {
   onBack: () => void;
   dark: boolean;
   onToggleTheme: () => void;
+  onOpenSidebar?: () => void;
 }
 
 export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme }: Props) {
