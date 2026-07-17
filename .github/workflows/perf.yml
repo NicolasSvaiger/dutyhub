@@ -97,22 +97,28 @@ jobs:
           echo "## k6 ${{ inputs.scenario }} — results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -f tests/k6/results/summary.json ]; then
-            # Pull out the numbers stakeholders care about — success rate,
-            # p95. The full JSON goes up as an artifact for anyone who wants
-            # to dig deeper.
-            REQ_TOTAL=$(jq '.metrics.http_reqs.count' tests/k6/results/summary.json)
-            REQ_FAILED=$(jq '.metrics.http_req_failed.value * .metrics.http_reqs.count | floor' tests/k6/results/summary.json)
-            REQ_SUCCESS_PCT=$(jq '(1 - .metrics.http_req_failed.value) * 10000 | floor / 100' tests/k6/results/summary.json)
-            P95_ALL=$(jq '.metrics.http_req_duration["p(95)"] | . * 100 | floor / 100' tests/k6/results/summary.json)
-            P99_ALL=$(jq '.metrics.http_req_duration["p(99)"] | . * 100 | floor / 100' tests/k6/results/summary.json)
+            # Every metric is guarded with `// 0` because k6's summary-export
+            # only includes percentiles the run explicitly asked for
+            # (default is p(95) only — no p(99) unless a script sets
+            # summaryTrendStats). Missing keys become null; multiplying null
+            # by anything crashes jq, which is what killed the first run.
+            REQ_TOTAL=$(jq '.metrics.http_reqs.count // 0' tests/k6/results/summary.json)
+            REQ_FAILED=$(jq '((.metrics.http_req_failed.value // 0) * (.metrics.http_reqs.count // 0)) | floor' tests/k6/results/summary.json)
+            REQ_SUCCESS_PCT=$(jq '(1 - (.metrics.http_req_failed.value // 0)) * 10000 | floor / 100' tests/k6/results/summary.json)
+            P95_ALL=$(jq '(.metrics.http_req_duration["p(95)"] // 0) * 100 | floor / 100' tests/k6/results/summary.json)
+            AVG_ALL=$(jq '(.metrics.http_req_duration.avg // 0) * 100 | floor / 100' tests/k6/results/summary.json)
+            CHECKS_PASSED=$(jq '.metrics.checks.passes // 0' tests/k6/results/summary.json)
+            CHECKS_FAILED=$(jq '.metrics.checks.fails // 0' tests/k6/results/summary.json)
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
             echo "| Total requests | $REQ_TOTAL |" >> $GITHUB_STEP_SUMMARY
-            echo "| Failed | $REQ_FAILED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed requests | $REQ_FAILED |" >> $GITHUB_STEP_SUMMARY
             echo "| Success rate | ${REQ_SUCCESS_PCT}% |" >> $GITHUB_STEP_SUMMARY
-            echo "| p95 (all) | ${P95_ALL}ms |" >> $GITHUB_STEP_SUMMARY
-            echo "| p99 (all) | ${P99_ALL}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| avg latency | ${AVG_ALL}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| p95 latency | ${P95_ALL}ms |" >> $GITHUB_STEP_SUMMARY
+            echo "| Checks passed | $CHECKS_PASSED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Checks failed | $CHECKS_FAILED |" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ summary.json not generated — k6 may have crashed before writing output." >> $GITHUB_STEP_SUMMARY
           fi
