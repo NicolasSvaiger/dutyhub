@@ -47,6 +47,24 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Perfil completo do usuário autenticado. Diferente de /api/auth/session
+    /// (que retorna só o essencial — userId, email, name, roles, clinicIds),
+    /// esse endpoint devolve o UserResponse inteiro: CPF, telefone, registro
+    /// profissional (CRM/COREN), especialidade, tipo de vínculo, data de
+    /// nascimento e clinic roles. Consumido pela tela de perfil no app.
+    /// </summary>
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMe()
+    {
+        var user = await _userService.GetMeAsync();
+        return user is null ? NotFound() : Ok(user);
+    }
+
+    /// <summary>
     /// Obter perfil de um usuário por ID.
     /// </summary>
     [Authorize(Policy = "AdminClinica")]

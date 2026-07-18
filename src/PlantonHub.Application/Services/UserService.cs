@@ -104,6 +104,17 @@ public class UserService : IUserService
         return result;
     }
 
+    public async Task<UserResponse?> GetMeAsync()
+    {
+        var userId = _tenantService.GetCurrentUserId()
+            ?? throw new UnauthorizedException("User not authenticated.");
+
+        // Reusa a mesma chave/cache de GetByIdAsync — /users/me e /users/{id}
+        // com o próprio id retornam exatamente o mesmo payload, o backend
+        // não precisa duplicar a lógica.
+        return await GetByIdAsync(userId);
+    }
+
     public async Task<UserResponse> CreateAsync(CreateUserRequest request)
     {
         var roles = _tenantService.GetCurrentRoles();

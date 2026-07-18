@@ -7,6 +7,7 @@ public interface IUserService
     Task<IEnumerable<UserResponse>> GetAllAsync();
     Task<IEnumerable<UserResponse>> GetAdminUsersAsync();
     Task<UserResponse?> GetByIdAsync(Guid userId);
+    Task<UserResponse?> GetMeAsync();
     Task<UserResponse> CreateAsync(CreateUserRequest request);
     Task<UserResponse?> UpdateAsync(Guid userId, UpdateUserRequest request);
     Task AssignClinicRoleAsync(Guid userId, AssignRoleRequest request);
