@@ -100,13 +100,15 @@ test.describe('Portal Prefeitura — fluxos básicos', () => {
     await expect(page).toHaveURL(/\/prefeitura\/login|\/login/, { timeout: 10_000 });
   });
 
-  test('admin autenticado tenta /prefeitura e é redirecionado', async ({ page }) => {
+  test('admin autenticado tenta /prefeitura e vê Acesso negado', async ({ page }) => {
     await loginAsAdmin(page);
-    // Após login como AdminGlobal, tenta acessar /prefeitura direto —
-    // ProtectedRoute deve barrar (role != GestorPublico) e mandar pra rota
-    // apropriada (voltar pra /admin, /login ou /prefeitura/login).
+    // Após login como AdminGlobal, tenta acessar /prefeitura direto.
+    // ProtectedRoute (requiredRoles=['GestorPublico']) não redireciona —
+    // mantém a URL e troca o conteúdo pela tela "Acesso negado" (mesmo
+    // comportamento usado nas demais rotas protegidas por role: /clinics,
+    // /users, /doctor, /admin). Ver src/components/ProtectedRoute.tsx.
     await page.goto('/prefeitura');
-    await expect(page).not.toHaveURL(/\/prefeitura(?!\/(login|tv))/, { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /Acesso negado/i })).toBeVisible({ timeout: 10_000 });
   });
 
   test('botão "Modo TV" abre /prefeitura/tv em nova aba', async ({ page, context }) => {

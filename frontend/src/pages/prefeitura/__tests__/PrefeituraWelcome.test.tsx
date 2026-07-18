@@ -9,6 +9,7 @@ import { AuthContext, type AuthContextType, type AuthUser } from '../../../conte
 vi.mock('../../../api/prefeituraApi', () => ({
   prefeituraApi: {
     getDashboard: vi.fn(),
+    getRealtime: vi.fn(),
   },
 }));
 
@@ -56,7 +57,7 @@ function makeAuthValue(overrides: Partial<AuthContextType> = {}): AuthContextTyp
 function renderWelcome(authOverrides: Partial<AuthContextType> = {}) {
   return render(
     <AuthContext value={makeAuthValue(authOverrides)}>
-      <PrefeituraWelcome />
+      <PrefeituraWelcome onNavigate={vi.fn()} onOpenTvMode={vi.fn()} />
     </AuthContext>,
   );
 }
@@ -65,6 +66,10 @@ describe('<PrefeituraWelcome />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (prefeituraApi.getDashboard as ReturnType<typeof vi.fn>).mockResolvedValue(mockDashboard);
+    // getRealtime alimenta a faixa "Status das UPAs agora" — pendente
+    // indefinidamente por padrão (a maioria dos testes não depende dela);
+    // testes que precisam da faixa resolvida usam mockResolvedValue explícito.
+    (prefeituraApi.getRealtime as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {}));
   });
 
   it('chama getDashboard() no mount', async () => {

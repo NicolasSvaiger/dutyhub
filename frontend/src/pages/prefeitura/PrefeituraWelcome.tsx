@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
-import { prefeituraApi, type PrefeituraDashboardResponse } from '../../api/prefeituraApi';
+import { prefeituraApi, type PrefeituraDashboardResponse, type PrefeituraRealtimeResponse } from '../../api/prefeituraApi';
+import type { PrefeituraView } from '../../types';
 import styles from './PrefeituraWelcome.module.css';
 
+interface PrefeituraWelcomeProps {
+  /** Navega para outra sub-view do portal — usado pelos cards de "Acesso rápido". */
+  onNavigate: (view: PrefeituraView) => void;
+  /** Abre o Modo TV em nova aba — mesma ação do item de sidebar. */
+  onOpenTvMode: () => void;
+}
+
 /**
- * Sub-view "Início" do portal Prefeitura — chama getDashboard() no mount,
- * mostra hero card com gestor + KPIs do dia + últimos alertas.
- * Loading state (—) enquanto carrega; error state se a request falha.
+ * Sub-view "Início" do portal Prefeitura — chama getDashboard() + getRealtime()
+ * no mount, mostra hero card com gestor + status das UPAs + KPIs do dia +
+ * acesso rápido + últimos alertas. Loading state (—) enquanto carrega;
+ * error state se a request falha.
  */
-export function PrefeituraWelcome() {
+export function PrefeituraWelcome({ onNavigate, onOpenTvMode }: PrefeituraWelcomeProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [data, setData] = useState<PrefeituraDashboardResponse | null>(null);
+  const [realtime, setRealtime] = useState<PrefeituraRealtimeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +41,18 @@ export function PrefeituraWelcome() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    // Status das UPAs reaproveita o mesmo endpoint da view "Tempo Real" —
+    // erro aqui não bloqueia o resto da tela (fica com o card omitido).
+    prefeituraApi
+      .getRealtime()
+      .then((result) => {
+        if (!cancelled) setRealtime(result);
+      })
+      .catch(() => {
+        /* silencioso — a faixa de status simplesmente não aparece */
+      });
+
     return () => {
       cancelled = true;
     };
@@ -85,6 +107,90 @@ export function PrefeituraWelcome() {
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* ── Status das UPAs agora ── */}
+      {realtime && (
+        <section className={styles.statusStrip} aria-label={t('prefeitura.welcome.statusStripAria')}>
+          <div>
+            <div className={styles.statusStripTitle}>{t('prefeitura.welcome.statusStripTitle')}</div>
+            <div className={styles.statusStripSub}>{t('prefeitura.welcome.statusStripSub')}</div>
+          </div>
+          <div className={styles.statusItems}>
+            <div className={styles.statusItem}>
+              <div className={`${styles.statusNum} ${styles.green}`}>
+                {realtime.clinics.filter((c) => c.alertLevel === 'green').length}
+              </div>
+              <div className={styles.statusLbl}>{t('prefeitura.welcome.statusFull')}</div>
+            </div>
+            <div className={styles.statusItem}>
+              <div className={`${styles.statusNum} ${styles.orange}`}>
+                {realtime.clinics.filter((c) => c.alertLevel === 'yellow').length}
+              </div>
+              <div className={styles.statusLbl}>{t('prefeitura.welcome.statusPartial')}</div>
+            </div>
+            <div className={styles.statusItem}>
+              <div className={`${styles.statusNum} ${styles.red}`}>
+                {realtime.clinics.filter((c) => c.alertLevel === 'red').length}
+              </div>
+              <div className={styles.statusLbl}>{t('prefeitura.welcome.statusUncovered')}</div>
+            </div>
+            <div className={styles.statusItem}>
+              <div className={styles.statusNum}>{realtime.totalClinics}</div>
+              <div className={styles.statusLbl}>{t('prefeitura.welcome.statusTotal')}</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Acesso rápido ── */}
+      <section aria-label={t('prefeitura.welcome.quickAccessAria')}>
+        <div className={styles.sectionTitle}>{t('prefeitura.welcome.quickAccessTitle')}</div>
+        <div className={styles.actionsGrid}>
+          <button type="button" className={styles.actionCard} onClick={() => onNavigate('realtime')}>
+            <div className={`${styles.actionIcon} ${styles.teal}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+              </svg>
+            </div>
+            <div className={styles.actionName}>{t('prefeitura.welcome.actionRealtime')}</div>
+            <div className={styles.actionDesc}>{t('prefeitura.welcome.actionRealtimeDesc')}</div>
+          </button>
+          <button type="button" className={styles.actionCard} onClick={() => onNavigate('ausencias')}>
+            <div className={`${styles.actionIcon} ${styles.orangeIcon}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div className={styles.actionName}>{t('prefeitura.welcome.actionAusencias')}</div>
+            <div className={styles.actionDesc}>{t('prefeitura.welcome.actionAusenciasDesc')}</div>
+          </button>
+          <button type="button" className={styles.actionCard} onClick={() => onNavigate('frequencia')}>
+            <div className={`${styles.actionIcon} ${styles.purple}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="3" y1="15" x2="21" y2="15" />
+                <line x1="9" y1="9" x2="9" y2="21" />
+              </svg>
+            </div>
+            <div className={styles.actionName}>{t('prefeitura.welcome.actionFrequencia')}</div>
+            <div className={styles.actionDesc}>{t('prefeitura.welcome.actionFrequenciaDesc')}</div>
+          </button>
+          <button type="button" className={styles.actionCard} onClick={onOpenTvMode}>
+            <div className={`${styles.actionIcon} ${styles.blue}`}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </div>
+            <div className={styles.actionName}>{t('prefeitura.welcome.actionTv')}</div>
+            <div className={styles.actionDesc}>{t('prefeitura.welcome.actionTvDesc')}</div>
+          </button>
         </div>
       </section>
 

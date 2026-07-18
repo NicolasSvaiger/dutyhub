@@ -261,7 +261,7 @@ export function PrefeituraPage() {
         </div>
 
         <div className={styles.content}>
-          {activeView === 'home' && <PrefeituraWelcome />}
+          {activeView === 'home' && <PrefeituraWelcome onNavigate={navigate} onOpenTvMode={openTvMode} />}
           {activeView === 'kpis' && <PrefeituraKpis />}
           {activeView === 'escalas' && <PrefeituraEscalas />}
           {activeView === 'frequencia' && <PrefeituraFrequencia />}

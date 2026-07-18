@@ -91,6 +91,152 @@
   gap: 0.4rem;
 }
 
+/* ── Status das UPAs (faixa) ── */
+.statusStrip {
+  background: #fff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 18px;
+  padding: 1.1rem 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+[data-theme='dark'] .statusStrip {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.statusStripTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 900;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .statusStripTitle {
+  color: #f0f4f4;
+}
+.statusStripSub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a9090;
+  margin-top: 2px;
+}
+.statusItems {
+  display: flex;
+  gap: 1.4rem;
+  flex-wrap: wrap;
+}
+.statusItem {
+  text-align: center;
+}
+.statusNum {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .statusNum {
+  color: #f0f4f4;
+}
+.statusNum.green {
+  color: #2dbfb8;
+}
+.statusNum.orange {
+  color: #f5a623;
+}
+.statusNum.red {
+  color: #e05555;
+}
+.statusLbl {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7a9090;
+  margin-top: 3px;
+}
+
+/* ── Acesso rápido (grid de cards) ── */
+.sectionTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #1a2a2a;
+  margin-bottom: 0.9rem;
+}
+[data-theme='dark'] .sectionTitle {
+  color: #f0f4f4;
+}
+.actionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.actionCard {
+  background: #fff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 18px;
+  padding: 1.3rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+  text-align: left;
+  font-family: inherit;
+}
+.actionCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(45, 191, 184, 0.15);
+  border-color: #2dbfb8;
+}
+[data-theme='dark'] .actionCard {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.actionIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.actionIcon.teal {
+  background: #e8faf9;
+  color: #2dbfb8;
+}
+.actionIcon.orangeIcon {
+  background: #fff4e2;
+  color: #f5a623;
+}
+.actionIcon.purple {
+  background: #f0eeff;
+  color: #7c5cbf;
+}
+.actionIcon.blue {
+  background: #e8f4ff;
+  color: #3b8bde;
+}
+.actionName {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .actionName {
+  color: #f0f4f4;
+}
+.actionDesc {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a9090;
+  line-height: 1.4;
+}
+
 /* ── KPI strip (4 cards) ── */
 .kpiStrip {
   display: grid;
