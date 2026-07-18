@@ -18,6 +18,7 @@ on:
           - load.js
           - stress.js
           - checkin-cycle.js
+          - prefeitura-smoke.js
       base_url:
         description: 'Override BASE_URL (leave blank to test the compose stack)'
         required: false

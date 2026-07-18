@@ -103,6 +103,11 @@ Test files:
   navegação bottom-nav.
 - `e2e/admin-flows.spec.ts` — smoke das 5 telas admin críticas
   (Dashboard, Médicos, Escalas, UPAs, Tempo Real) + route guard.
+- `e2e/prefeitura-flows.spec.ts` — smoke das sub-views do Portal
+  Prefeitura (Início, Indicadores, Escalas, Frequência, Tempo Real,
+  Ausências) + route guards + botão Modo TV abre nova aba.
+- `e2e/prefeitura-tv.spec.ts` — fullscreen com brand+relógio,
+  polling refetch de `/prefeitura/realtime` a cada ~20s, route guard.
 
 Também executa no CI (`frontend-e2e-tests`). Localmente exige AWS
 credentials para chegar no Cognito.
@@ -124,10 +129,15 @@ exceto login e forgot-password:
 | `/users` | AdminGlobal | CRUD usuários |
 | `/doctor` | Profissional | Área do médico (bottom-nav) |
 | `/admin` | AdminGlobal/AdminClinica | Admin OS (sidebar state-based) |
+| `/prefeitura/login` | — | Login gestor público (Cognito, layout hero+form) |
+| `/prefeitura` | GestorPublico | Portal Prefeitura (sidebar state-based, 8 sub-views) |
+| `/prefeitura/tv` | GestorPublico | Modo TV fullscreen (polling 20s, relógio wall-clock) |
 
 `ProtectedRoute` redireciona para `/login` se sem token, e para
 `/dashboard` se autenticado sem a role exigida. `AdminLoginPage`
-redireciona autenticados admin direto para `/admin`.
+redireciona autenticados admin direto para `/admin`. `PrefeituraLoginPage`
+redireciona gestor pra `/prefeitura` (ou `/prefeitura/tv` quando o query
+param `?tv=1` está presente na URL).
 
 ## Offline-first (check-in / check-out)
 

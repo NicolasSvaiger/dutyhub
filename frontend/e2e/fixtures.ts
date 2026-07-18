@@ -22,6 +22,17 @@ export const ADMIN_CREDENTIALS = {
 } as const;
 
 /**
+ * Credenciais do gestor público (portal Prefeitura). Criado pelo
+ * DatabaseSeeder.SeedGestorPublicoAsync e vinculado à Prefeitura Municipal
+ * de Santo André via UserPublicOrganRole. Redirecionado pra /prefeitura
+ * após login pela PrefeituraLoginPage.
+ */
+export const PREFEITURA_CREDENTIALS = {
+  email: 'gestor@plantonhub.com',
+  password: 'Teste@123',
+} as const;
+
+/**
  * Ativa listeners de console/erro/rede — quando algo quebra o motivo
  * imprime no output do Playwright, o que ajuda a diagnosticar falhas
  * silenciosas do frontend em CI.
@@ -80,6 +91,26 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await page.getByRole('button', { name: /Acessar painel/i }).click();
   // AdminGlobal → cai em /admin (AdminLoginPage.useEffect redireciona por role)
   await page.waitForURL(/\/admin(?!\/login)/, { timeout: 15_000 });
+}
+
+/**
+ * Faz login como Gestor Público via /prefeitura/login. A PrefeituraLoginPage
+ * tem ids escopados (#prefeitura-email/#prefeitura-password) e botão "Acessar
+ * portal", diferente das outras telas de login. Redirecionamento é feito no
+ * useEffect da própria página pelo useAuth: gestor cai em /prefeitura, gestor
+ * com ?tv=1 na URL cai em /prefeitura/tv.
+ *
+ * @param opts.tv Se true, adiciona ?tv=1 no login pra ir direto ao Modo TV.
+ */
+export async function loginAsPrefeitura(page: Page, opts: { tv?: boolean } = {}): Promise<void> {
+  attachDebugListeners(page);
+  const url = opts.tv ? '/prefeitura/login?tv=1' : '/prefeitura/login';
+  await page.goto(url);
+  await page.locator('#prefeitura-email').fill(PREFEITURA_CREDENTIALS.email);
+  await page.locator('#prefeitura-password').fill(PREFEITURA_CREDENTIALS.password);
+  await page.getByRole('button', { name: /Acessar portal/i }).click();
+  const target = opts.tv ? /\/prefeitura\/tv/ : /\/prefeitura(?!\/login)/;
+  await page.waitForURL(target, { timeout: 15_000 });
 }
 
 /**

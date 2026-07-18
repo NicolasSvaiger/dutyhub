@@ -18,11 +18,62 @@ export const COGNITO_REGION = __ENV.COGNITO_REGION || 'us-east-1';
 /** App Client ID do Cognito User Pool. Obrigatório. */
 export const COGNITO_CLIENT_ID = __ENV.COGNITO_CLIENT_ID || '';
 
+/**
+ * Seleciona qual usuário de teste usar por padrão. Aceita:
+ *   - 'doctor'      → médico (default, TEST_USER)
+ *   - 'gestor'      → gestor público da Prefeitura (TEST_USER_PREFEITURA)
+ *   - 'admin'       → admin global (TEST_USER_ADMIN, quando necessário)
+ * Cenários específicos ainda podem ignorar isso e chamar login(creds) direto.
+ */
+export const TEST_USER_ROLE = (__ENV.TEST_USER_ROLE || 'doctor').toLowerCase();
+
 /** Credenciais do médico de teste seedado pelo DatabaseSeeder. */
-export const TEST_USER = {
+export const TEST_USER_DOCTOR = {
   email:    __ENV.TEST_EMAIL    || 'medico@plantonhub.com',
   password: __ENV.TEST_PASSWORD || 'Teste@123',
 };
+
+/**
+ * Credenciais do gestor público (Sprint 7A) seedado pelo
+ * DatabaseSeeder.SeedGestorPublicoAsync e vinculado à Prefeitura Municipal
+ * de Santo André via UserPublicOrganRole. Usado pelos cenários k6 do
+ * portal Prefeitura (dashboard, kpis, realtime, etc.).
+ */
+export const TEST_USER_PREFEITURA = {
+  email:    __ENV.TEST_EMAIL_PREFEITURA    || 'gestor@plantonhub.com',
+  password: __ENV.TEST_PASSWORD_PREFEITURA || 'Teste@123',
+};
+
+/**
+ * Credenciais do admin global. Não usado no k6 hoje mas fica exportado pra
+ * consistência com fixtures de E2E e testes futuros.
+ */
+export const TEST_USER_ADMIN = {
+  email:    __ENV.TEST_EMAIL_ADMIN    || 'admin@plantonhub.com',
+  password: __ENV.TEST_PASSWORD_ADMIN || 'Admin@123',
+};
+
+/**
+ * Usuário default selecionado pelo TEST_USER_ROLE. Cenários legados que
+ * importam `TEST_USER` continuam funcionando (o valor default é o médico).
+ */
+export const TEST_USER = pickTestUser(TEST_USER_ROLE);
+
+function pickTestUser(role) {
+  switch (role) {
+    case 'gestor':
+    case 'prefeitura':
+    case 'gestorpublico':
+      return TEST_USER_PREFEITURA;
+    case 'admin':
+    case 'adminglobal':
+      return TEST_USER_ADMIN;
+    case 'doctor':
+    case 'medico':
+    default:
+      return TEST_USER_DOCTOR;
+  }
+}
 
 /**
  * SLIs padrão que qualquer cenário pode reaproveitar.

@@ -6,16 +6,18 @@ Scripts de load testing usando [Grafana k6](https://k6.io) contra a API do Plant
 
 ```
 tests/k6/
-├── config.js                # BASE_URL, credenciais de teste, Cognito, thresholds
+├── config.js                # BASE_URL, credenciais (doctor/gestor/admin), Cognito, thresholds
 ├── lib/
 │   └── auth.js              # login via Cognito USER_PASSWORD_AUTH + headers
 ├── flows/
-│   └── doctor-read.js       # fluxo de leitura reutilizável (clínicas, plantões, histórico)
+│   ├── doctor-read.js       # fluxo de leitura do médico (clínicas, plantões, histórico)
+│   └── prefeitura-read.js   # fluxo de leitura do gestor (dashboard, kpis, frequency, realtime)
 └── scenarios/
-    ├── smoke.js             # sanidade rápida (1 VU, 30s) — rode antes de deploy
+    ├── smoke.js             # sanidade rápida do médico (1 VU, 30s)
     ├── load.js              # carga esperada (~30 VUs por ~3min)
     ├── stress.js            # sobe até 200 VUs para achar o breaking point
-    └── checkin-cycle.js     # ciclo completo check-in/check-out (escrita, 1 VU)
+    ├── checkin-cycle.js     # ciclo completo check-in/check-out (escrita, 1 VU)
+    └── prefeitura-smoke.js  # sanidade do portal Prefeitura (gestor, 1 VU, 30s)
 ```
 
 ## Autenticação
@@ -34,8 +36,8 @@ lido no `lib/auth.js` para popular o header `X-Clinic-Id`.
 
 Actions → **Performance / Load smoke** → **Run workflow**. Escolha o
 cenário no dropdown (`smoke.js`, `load.js`, `stress.js`,
-`checkin-cycle.js`) e opcionalmente aponte para outro `base_url`
-(staging, prod). O workflow:
+`checkin-cycle.js`, `prefeitura-smoke.js`) e opcionalmente aponte para
+outro `base_url` (staging, prod). O workflow:
 
 1. Sobe o stack local (`docker compose up --wait --build`) se `base_url`
    estiver vazio, ou testa contra o URL informado sem subir stack.
@@ -77,9 +79,17 @@ Variáveis de ambiente aceitas:
 BASE_URL=https://staging.plantonhub.com/api   # override da API
 COGNITO_REGION=us-east-1                      # região do User Pool
 COGNITO_CLIENT_ID=<obrigatório>               # App Client ID
-TEST_EMAIL=outro@exemplo.com                  # override do usuário de teste
+TEST_USER_ROLE=doctor|gestor|admin            # qual seed usar por default (doctor)
+TEST_EMAIL=outro@exemplo.com                  # override do médico
 TEST_PASSWORD=Senha123
+TEST_EMAIL_PREFEITURA=gestor@prefeitura.gov.br  # override do gestor
+TEST_PASSWORD_PREFEITURA=Senha123
 ```
+
+Cenários que precisam de gestor (`prefeitura-smoke.js`) chamam
+`login(TEST_USER_PREFEITURA)` explicitamente, então funcionam mesmo
+com `TEST_USER_ROLE=doctor`. O env var é útil para
+scripts customizados que importam apenas `TEST_USER`.
 
 ### Ajustar carga inline
 
@@ -169,6 +179,15 @@ produção.
 Roda 20 iterações do ciclo completo de check-in + check-out para o
 médico teste. Rode isoladamente porque a regra "um plantão ativo por
 usuário" impede paralelização real com o mesmo user.
+
+### `prefeitura-smoke.js`
+Sanidade do portal Prefeitura. 1 VU, 30s, autentica como gestor
+(`gestor@plantonhub.com`) e percorre o fluxo de leitura padrão
+(`prefeitura-read.js`): `GET /prefeitura/dashboard`, `/kpis`,
+`/frequency`, `/realtime`. Todos os endpoints são filtrados por
+`publicOrganId` (claim JWT ou fallback DB via `TenantMiddleware`) e
+usam cache Redis — o smoke também exercita o cache warm-up. Rode antes
+de deploy quando tocar em `PrefeituraService` ou `PrefeituraController`.
 
 ## Estendendo
 
