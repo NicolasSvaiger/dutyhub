@@ -1,0 +1,212 @@
+/*
+ * PrefeituraTvMode — layout fullscreen otimizado pra display em TV/telão.
+ * Fontes gigantes, contraste alto, refresh visível. Cores fortes por
+ * alertLevel. Dark theme por padrão pra reduzir cansaço visual em telão.
+ */
+
+.tvRoot {
+  position: fixed;
+  inset: 0;
+  background: #0d1b1b;
+  color: #f0f4f4;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 2vh 2vw;
+  gap: 1.6vh;
+  font-family: 'Nunito Sans', system-ui, sans-serif;
+}
+
+/* Cabeçalho */
+.tvHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0.4rem;
+}
+.tvBrand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.tvBrandName {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 2.8rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #2dbfb8 0%, #f5a623 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  line-height: 1;
+}
+.tvBrandTag {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #7ce6df;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tvClock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+.tvTime {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #f0f4f4;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.tvDate {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #7a9090;
+  text-transform: capitalize;
+}
+.tvUpdatedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  background: rgba(45, 191, 184, 0.14);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #7ce6df;
+  margin-top: 0.3rem;
+}
+.tvPulseDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2dbfb8;
+  animation: tvPulse 1.6s infinite;
+}
+@keyframes tvPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+/* Totalizadores */
+.tvTotals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.4vw;
+}
+.tvTotal {
+  background: rgba(45, 191, 184, 0.08);
+  border: 2px solid rgba(45, 191, 184, 0.2);
+  border-radius: 18px;
+  padding: 1.6vh 1.4vw;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.tvTotalLabel {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #7a9090;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tvTotalValue {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 5rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #7ce6df;
+}
+.tvTotalValue.bad { color: #f0a0a0; }
+
+/* Grid de clínicas */
+.tvClinics {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20vw, 1fr));
+  gap: 1.4vw;
+  overflow: hidden;
+  align-content: start;
+}
+.tvClinic {
+  background: rgba(45, 191, 184, 0.06);
+  border: 2px solid rgba(45, 191, 184, 0.2);
+  border-left-width: 8px;
+  border-radius: 18px;
+  padding: 1.4vh 1.2vw;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.tvClinic.green {
+  border-left-color: #2dbfb8;
+}
+.tvClinic.yellow {
+  border-left-color: #f5a623;
+}
+.tvClinic.red {
+  border-left-color: #e05555;
+  background: rgba(224, 85, 85, 0.08);
+}
+.tvClinicName {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #f0f4f4;
+}
+.tvClinicStats {
+  display: flex;
+  gap: 1.4vw;
+}
+.tvStat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.tvStatLabel {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #7a9090;
+  text-transform: uppercase;
+}
+.tvStatValue {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 900;
+  color: #f0f4f4;
+}
+.tvStatValue.present { color: #7ce6df; }
+.tvStatValue.absent { color: #f0a0a0; }
+
+.tvExit {
+  position: absolute;
+  top: 2vh;
+  right: 2vw;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #f0f4f4;
+  border-radius: 10px;
+  padding: 0.4rem 0.8rem;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: none;
+}
+.tvRoot:hover .tvExit {
+  display: block;
+}
+
+.tvLoading,
+.tvError {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #7a9090;
+}
+.tvError { color: #f0a0a0; }

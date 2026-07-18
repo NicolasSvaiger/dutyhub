@@ -6,6 +6,12 @@ import { BRAND } from '../../config/brand';
 import type { PrefeituraView } from '../../types';
 import { PrefeituraWelcome } from './PrefeituraWelcome';
 import { PrefeituraKpis } from './PrefeituraKpis';
+import { PrefeituraEscalas } from './PrefeituraEscalas';
+import { PrefeituraFrequencia } from './PrefeituraFrequencia';
+import { PrefeituraAtrasos } from './PrefeituraAtrasos';
+import { PrefeituraAusencias } from './PrefeituraAusencias';
+import { PrefeituraHistorico } from './PrefeituraHistorico';
+import { PrefeituraRealtime } from './PrefeituraRealtime';
 import styles from './PrefeituraPage.module.css';
 
 /**
@@ -257,31 +263,16 @@ export function PrefeituraPage() {
         <div className={styles.content}>
           {activeView === 'home' && <PrefeituraWelcome />}
           {activeView === 'kpis' && <PrefeituraKpis />}
-          {activeView === 'escalas' && <ComingSoon view="escalas" />}
-          {activeView === 'frequencia' && <ComingSoon view="frequencia" />}
-          {activeView === 'atrasos' && <ComingSoon view="atrasos" />}
-          {activeView === 'ausencias' && <ComingSoon view="ausencias" />}
-          {activeView === 'historico' && <ComingSoon view="historico" />}
-          {activeView === 'realtime' && <ComingSoon view="realtime" />}
+          {activeView === 'escalas' && <PrefeituraEscalas />}
+          {activeView === 'frequencia' && <PrefeituraFrequencia />}
+          {activeView === 'atrasos' && <PrefeituraAtrasos />}
+          {activeView === 'ausencias' && <PrefeituraAusencias />}
+          {activeView === 'historico' && <PrefeituraHistorico />}
+          {activeView === 'realtime' && <PrefeituraRealtime />}
         </div>
       </main>
     </div>
   );
 }
 
-/**
- * Placeholder pras views não implementadas ainda (7C.2 + 7C.3). Mantém a
- * navegação da sidebar funcionando; o usuário vê uma mensagem clara ao
- * invés de tela em branco.
- */
-function ComingSoon({ view }: { view: PrefeituraView }) {
-  const { t } = useTranslation();
-  return (
-    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--muted, #7a9090)' }}>
-      <h2 style={{ marginBottom: '0.5rem', fontFamily: 'Nunito, system-ui, sans-serif' }}>
-        {t(`prefeitura.nav.items.${view}`)}
-      </h2>
-      <p>{t('prefeitura.common.comingSoon')}</p>
-    </div>
-  );
-}
+

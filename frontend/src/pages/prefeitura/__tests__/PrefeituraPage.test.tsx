@@ -9,11 +9,17 @@ import { PrefeituraPage } from '../PrefeituraPage';
 import { AuthContext, type AuthContextType, type AuthUser } from '../../../contexts/AuthContext';
 import { ThemeProvider } from '../../../contexts/ThemeContext';
 
-// Mock the prefeituraApi module — Welcome + Kpis (sub-views) fazem fetch no mount.
+// Mock the prefeituraApi module — 6 sub-views fazem fetch no mount ou ao ativar.
 vi.mock('../../../api/prefeituraApi', () => ({
   prefeituraApi: {
     getDashboard: vi.fn(),
     getKpis: vi.fn(),
+    getShifts: vi.fn(),
+    getClinics: vi.fn(),
+    getFrequency: vi.fn(),
+    getAbsences: vi.fn(),
+    getHistory: vi.fn(),
+    getRealtime: vi.fn(),
   },
 }));
 
@@ -83,6 +89,18 @@ describe('<PrefeituraPage />', () => {
       substitutionRate: 8,
       byClinic: [],
     });
+    (prefeituraApi.getShifts as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prefeituraApi.getClinics as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prefeituraApi.getFrequency as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prefeituraApi.getAbsences as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValue({
+      items: [], page: 1, pageSize: 30, totalCount: 0, totalPages: 0,
+    });
+    (prefeituraApi.getRealtime as ReturnType<typeof vi.fn>).mockResolvedValue({
+      asOf: '2026-07-17T14:00:00Z',
+      totalClinics: 0, totalExpectedNow: 0, totalPresentNow: 0, totalAbsentNow: 0,
+      clinics: [],
+    });
     window.localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
   });
@@ -131,7 +149,7 @@ describe('<PrefeituraPage />', () => {
     expect(screen.getByRole('button', { name: /Aplicar/i })).toBeInTheDocument();
   });
 
-  it('clicar em "Escalas" mostra ComingSoon placeholder', async () => {
+  it('clicar em "Escalas" renderiza a sub-view Escalas (empty state)', async () => {
     renderPage();
     const user = userEvent.setup();
     await waitFor(() => {
@@ -141,7 +159,11 @@ describe('<PrefeituraPage />', () => {
     const escalasBtn = screen.getAllByRole('button', { name: /Escalas/i })[0];
     await user.click(escalasBtn);
 
-    expect(screen.getByText(/Em breve/i)).toBeInTheDocument();
+    // Escalas chama getShifts. Mock retorna [], então mostra empty state.
+    await waitFor(() => {
+      expect(prefeituraApi.getShifts).toHaveBeenCalled();
+    });
+    expect(screen.getByText(/Sem plantões no período/i)).toBeInTheDocument();
   });
 
   it('nav item ativo muda de "Início" para "Indicadores" ao clicar', async () => {
