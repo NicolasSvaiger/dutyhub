@@ -291,63 +291,53 @@ describe('AdminEscalas', () => {
     });
   });
 
-  it('opens modal when clicking "Vaga em aberto"', async () => {
+  // Helper: renderiza + espera vagas + clica na primeira + espera o modal
+  // aparecer com título. Extraído pra 4 testes seguirem o mesmo padrão
+  // resiliente. Ampliamos os timeouts locais para 3000ms — em CI Ubuntu
+  // o combo de dataload inicial + click + setState → re-render → modal
+  // aberto às vezes passa dos 1000ms default do waitFor, causando flake
+  // sem que o teste esteja mal escrito.
+  async function openFirstVagaModal() {
     (shiftsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     const user = userEvent.setup();
     renderEscalas();
-    await waitFor(() => screen.getAllByText('Vaga em aberto'));
-    const vagas = screen.getAllByText('Vaga em aberto');
-    await user.click(vagas[0]);
-    await waitFor(() => {
-      expect(screen.getByText(/Adicionar .* ao turno/)).toBeInTheDocument();
-    });
+    await waitFor(
+      () => expect(screen.getAllByText('Vaga em aberto').length).toBeGreaterThan(0),
+      { timeout: 3000 },
+    );
+    await user.click(screen.getAllByText('Vaga em aberto')[0]);
+    await waitFor(
+      () => expect(screen.getByText(/Adicionar .* ao turno/)).toBeInTheDocument(),
+      { timeout: 3000 },
+    );
+    const modal = screen.getByText(/Adicionar .* ao turno/).closest('.esc-modal-box') as HTMLElement | null;
+    if (!modal) throw new Error('Modal box not found');
+    return modal;
+  }
+
+  it('opens modal when clicking "Vaga em aberto"', async () => {
+    const modal = await openFirstVagaModal();
+    expect(modal).toBeTruthy();
   });
 
   it('modal shows only doctors in medical grid', async () => {
-    (shiftsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    const user = userEvent.setup();
-    renderEscalas();
-    await waitFor(() => screen.getAllByText('Vaga em aberto'));
-    const vagas = screen.getAllByText('Vaga em aberto');
-    await user.click(vagas[0]); // First vaga = medical grid
-    await waitFor(() => {
-      const modal = screen.getByText(/Adicionar .* ao turno/).closest('.esc-modal-box');
-      expect(modal).toBeTruthy();
-      if (modal) {
-        // Doctors should be visible
-        expect(within(modal).getByText('Dr. Carlos Silva')).toBeInTheDocument();
-        expect(within(modal).getByText('Dra. Ana Souza')).toBeInTheDocument();
-        // Enfermeiro should NOT appear in the medical modal
-        expect(within(modal).queryByText('Enf. Maria Oliveira')).not.toBeInTheDocument();
-      }
-    });
+    const modal = await openFirstVagaModal();
+    // Doctors should be visible
+    expect(within(modal).getByText('Dr. Carlos Silva')).toBeInTheDocument();
+    expect(within(modal).getByText('Dra. Ana Souza')).toBeInTheDocument();
+    // Enfermeiro should NOT appear in the medical modal
+    expect(within(modal).queryByText('Enf. Maria Oliveira')).not.toBeInTheDocument();
   });
 
   it('modal shows tipo buttons (fixo/rotativo)', async () => {
-    (shiftsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    const user = userEvent.setup();
-    renderEscalas();
-    await waitFor(() => screen.getAllByText('Vaga em aberto'));
-    await user.click(screen.getAllByText('Vaga em aberto')[0]);
-    await waitFor(() => {
-      const modal = screen.getByText(/Adicionar .* ao turno/).closest('.esc-modal-box');
-      expect(modal).toBeTruthy();
-      if (modal) {
-        expect(within(modal).getByText('Plantão fixo')).toBeInTheDocument();
-        expect(within(modal).getByText('Rotativo')).toBeInTheDocument();
-      }
-    });
+    const modal = await openFirstVagaModal();
+    expect(within(modal).getByText('Plantão fixo')).toBeInTheDocument();
+    expect(within(modal).getByText('Rotativo')).toBeInTheDocument();
   });
 
   it('confirm button disabled when no doctor selected', async () => {
-    (shiftsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
-    const user = userEvent.setup();
-    renderEscalas();
-    await waitFor(() => screen.getAllByText('Vaga em aberto'));
-    await user.click(screen.getAllByText('Vaga em aberto')[0]);
-    await waitFor(() => {
-      expect(screen.getByText('Adicionar')).toBeDisabled();
-    });
+    const modal = await openFirstVagaModal();
+    expect(within(modal).getByText('Adicionar')).toBeDisabled();
   });
 
   it('removes shift when clicking X button', async () => {
