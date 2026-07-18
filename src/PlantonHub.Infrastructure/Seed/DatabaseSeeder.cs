@@ -59,6 +59,81 @@ public class DatabaseSeeder
         _passwordHashService = passwordHashService;
     }
 
+    /// <summary>
+    /// Seed minimo one-shot para prod: cria APENAS o registro de gestor
+    /// publico (User + PublicOrgan fake sem CNPJ + UserPublicOrganRole) para
+    /// destravar o Portal Prefeitura sem trazer todo o restante do seed de
+    /// demonstracao (admin, medicos, clinicas, plantoes, alerts, etc).
+    ///
+    /// Uso pretendido: rodado uma unica vez em prod via flag
+    /// <c>RUN_GESTOR_SEED_ONCE=true</c> no Program.cs, depois a flag e
+    /// removida. Idempotente por Id fixo — pode ser rodado varias vezes
+    /// que so cria o que ainda nao existe.
+    ///
+    /// A PublicOrgan usada aqui e propositalmente marcada como "E2E" para
+    /// nao ser confundida com uma prefeitura real; se o seed full
+    /// (<see cref="SeedAsync"/>) rodar depois, a Santo Andre real coexiste
+    /// com essa fake, e o gestor continua vinculado a fake ate ser
+    /// re-vinculado manualmente via Admin OS.
+    /// </summary>
+    public async Task SeedGestorMinimalAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        // Id fixo distinto dos organs reais do seed full, pra evitar qualquer
+        // colisao acidental de CNPJ/dados quando o seed full rodar depois.
+        var e2eOrganId = Guid.Parse("dddddddd-e2e0-e2e0-e2e0-000000000001");
+
+        // 1) PublicOrgan fake (sem CNPJ — o campo e nullable — pra nao
+        //    colidir com CNPJs reais de prefeituras existentes).
+        if (!await _context.PublicOrgans.AnyAsync(p => p.Id == e2eOrganId))
+        {
+            _context.PublicOrgans.Add(new PublicOrgan
+            {
+                Id = e2eOrganId,
+                Name = "OS Teste - Portal Prefeitura (E2E)",
+                Acronym = "E2E-OS",
+                Cnpj = null,
+                Department = "Ambiente de teste automatizado",
+                IsActive = true,
+                CreatedAt = now,
+            });
+        }
+
+        // 2) User gestor (idempotente por Id fixo, mesmo Id que o seed full usa).
+        if (!await _context.Users.AnyAsync(u => u.Id == GestorPublicoUserId))
+        {
+            _context.Users.Add(new User
+            {
+                Id = GestorPublicoUserId,
+                Email = "gestor@plantonhub.com",
+                Name = "Gestor Prefeitura Teste",
+                PasswordHash = _passwordHashService.HashPassword("Teste@123"),
+                CreatedAt = now,
+                UpdatedAt = now,
+                IsActive = true,
+                // Nao define ProfessionalType — gestor nao e profissional de saude.
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        // 3) Vinculo UserPublicOrganRole (Id fixo, so cria se nao existe).
+        if (!await _context.UserPublicOrganRoles.AnyAsync(r => r.Id == GestorPublicoRoleId))
+        {
+            _context.UserPublicOrganRoles.Add(new UserPublicOrganRole
+            {
+                Id = GestorPublicoRoleId,
+                UserId = GestorPublicoUserId,
+                PublicOrganId = e2eOrganId,
+                Role = RoleType.GestorPublico,
+                AssignedAt = now,
+            });
+
+            await _context.SaveChangesAsync();
+        }
+    }
+
     public async Task SeedAsync()
     {
         // Idempotency check: skip if users already exist

@@ -554,6 +554,33 @@ if (!app.Environment.IsEnvironment("Testing"))
             var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
             await seeder.SeedAsync();
         }
+
+        // One-shot opt-in para bootstrapping do gestor publico em ambientes
+        // non-dev (staging/prod). Cria APENAS: 1 PublicOrgan fake sem CNPJ +
+        // 1 User gestor + 1 UserPublicOrganRole. Nao mexe em admin, medicos,
+        // clinicas nem contratos. Idempotente.
+        //
+        // Fluxo: setar RUN_GESTOR_SEED_ONCE=true no App Runner, disparar
+        // deployment, verificar log "Gestor minimo seeded", remover a env
+        // var, disparar deployment de novo pra estabilizar.
+        var runGestorSeed = string.Equals(
+            Environment.GetEnvironmentVariable("RUN_GESTOR_SEED_ONCE"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (runGestorSeed && !app.Environment.IsDevelopment())
+        {
+            var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+            seedLogger.LogWarning(
+                "RUN_GESTOR_SEED_ONCE=true detected in {Env} — running SeedGestorMinimalAsync.",
+                app.Environment.EnvironmentName);
+
+            var seeder = scope.ServiceProvider.GetRequiredService<DatabaseSeeder>();
+            await seeder.SeedGestorMinimalAsync();
+
+            seedLogger.LogWarning(
+                "Gestor minimo seeded. REMOVE RUN_GESTOR_SEED_ONCE from App Runner env vars now.");
+        }
     }
     catch (Exception ex)
     {
