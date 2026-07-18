@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Enums;
 using PlantonHub.Domain.Interfaces;
 using PlantonHub.Infrastructure.Data;
 
@@ -32,6 +33,21 @@ public class ContractRepository : IContractRepository
             .Where(c => c.Clinics.Any(cl => ids.Contains(cl.Id)))
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Guid>> GetActiveClinicIdsByOrganIdsAsync(
+        IEnumerable<Guid> organIds,
+        CancellationToken ct = default)
+    {
+        var ids = organIds as ICollection<Guid> ?? organIds.ToList();
+        if (ids.Count == 0) return Array.Empty<Guid>();
+
+        return await _context.Contracts
+            .AsNoTracking()
+            .Where(c => ids.Contains(c.PublicOrganId) && c.Status == ContractStatus.Active)
+            .SelectMany(c => c.Clinics.Select(cl => cl.Id))
+            .Distinct()
+            .ToListAsync(ct);
     }
 
     public async Task AddAsync(Contract contract)

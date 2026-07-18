@@ -113,19 +113,21 @@ public class TenantService : ITenantService
         // Match direto: o organ solicitado é o próprio do gestor.
         if (currentOrganId.Value == publicOrganId) return true;
 
-        // Hierarquia recursiva: o organ solicitado precisa ser descendente
-        // do organ do gestor. A busca de descendentes vive no
-        // IPublicOrganRepository — método adicionado na Sprint 7B junto com
-        // o PrefeituraService. Nesta sprint (7A) a assinatura existe mas o
-        // caminho recursivo é curto-circuitado para false; o rebate volta
-        // quando 7B for mergeado.
-        //
-        // Guarda semântica: mesmo sem descendentes ainda, endpoints que já
-        // usarem CanAccessPublicOrganAsync não vazam nada — apenas retornam
-        // 403 pra tudo fora do organ direto, o que é o comportamento mais
-        // restritivo (safe by default).
-        await Task.CompletedTask;
-        return false;
+        // Hierarquia recursiva: gestor da raiz vê os descendentes transitivos
+        // (design.md § D3). Resolvido via IPublicOrganRepository.GetDescendantIdsAsync
+        // — mesmo padrão de CanOperateOnUserAsync usando RequestServices, evita
+        // injeção obrigatória no construtor (o método sync GetCurrentClinicId
+        // não pode depender de repos).
+        // RequestServices pode ser null em unit tests montados sem
+        // ServiceProvider (Mock de HttpContext). Nesse caso o comportamento
+        // "safe by default" é negar acesso — o caller autêntico sempre roda
+        // no pipeline ASP.NET Core que injeta o provider automaticamente.
+        var httpContext = _httpContextAccessor.HttpContext;
+        var organRepo = httpContext?.RequestServices?.GetService<IPublicOrganRepository>();
+        if (organRepo is null) return false;
+
+        var descendants = await organRepo.GetDescendantIdsAsync(currentOrganId.Value);
+        return descendants.Contains(publicOrganId);
     }
 
     public IEnumerable<string> GetCurrentRoles()

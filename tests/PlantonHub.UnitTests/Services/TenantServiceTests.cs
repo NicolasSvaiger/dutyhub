@@ -2,7 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using PlantonHub.Domain.Interfaces;
 using PlantonHub.Infrastructure.Services;
 
 namespace PlantonHub.UnitTests.Services;
@@ -413,10 +415,12 @@ public class TenantServiceTests
     }
 
     [Fact]
-    public async Task CanAccessPublicOrganAsync_WhenDifferentOrgan_ShouldReturnFalseInSprint7A()
+    public async Task CanAccessPublicOrganAsync_WhenDifferentOrgan_AndNoRepo_ShouldReturnFalse()
     {
-        // Sprint 7A curto-circuita a hierarquia recursiva pra false — o
-        // caminho de descendentes só chega na 7B. Guarda semantic-safe.
+        // Sem RequestServices/IPublicOrganRepository (unit test com
+        // HttpContext montado à mão), o comportamento é "safe by default":
+        // negar acesso. O path recursivo real está coberto pelo teste
+        // WithDescendantOrgan_ShouldReturnTrue.
         var currentOrgan = Guid.NewGuid();
         var otherOrgan = Guid.NewGuid();
         var service = CreateServiceWithItemsAndClaims(currentOrgan,
@@ -425,6 +429,35 @@ public class TenantServiceTests
         var result = await service.CanAccessPublicOrganAsync(otherOrgan);
 
         result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CanAccessPublicOrganAsync_WithDescendantOrgan_ShouldReturnTrue()
+    {
+        // Path recursivo (Sprint 7B): IPublicOrganRepository.GetDescendantIdsAsync
+        // retorna { current, descendant }, então o gestor da raiz vê descendente.
+        var currentOrgan = Guid.NewGuid();
+        var descendantOrgan = Guid.NewGuid();
+
+        var organRepo = new Mock<IPublicOrganRepository>();
+        organRepo.Setup(r => r.GetDescendantIdsAsync(currentOrgan, It.IsAny<CancellationToken>()))
+                 .ReturnsAsync(new[] { currentOrgan, descendantOrgan });
+
+        var services = new ServiceCollection();
+        services.AddSingleton(organRepo.Object);
+
+        var identity = new ClaimsIdentity(new[] { new Claim("roles", "GestorPublico") }, "TestAuth");
+        var httpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
+        httpContext.Items["CurrentPublicOrganId"] = currentOrgan;
+        httpContext.RequestServices = services.BuildServiceProvider();
+
+        var accessor = new Mock<IHttpContextAccessor>();
+        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        var service = new TenantService(accessor.Object);
+
+        var result = await service.CanAccessPublicOrganAsync(descendantOrgan);
+
+        result.Should().BeTrue();
     }
 
     [Fact]

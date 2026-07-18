@@ -120,6 +120,7 @@ builder.Services.AddScoped<IBillingService, BillingService>();
 builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<IManagementReportService, ManagementReportService>();
+builder.Services.AddScoped<IPrefeituraService, PrefeituraService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
