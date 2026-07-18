@@ -66,4 +66,13 @@ public static class CognitoTestAuth
     /// </summary>
     public static Task<string> GetAdminTokenAsync()
         => GetAccessTokenAsync("admin@plantonhub.com", "Admin@123");
+
+    /// <summary>
+    /// Autentica o gestor público (Prefeitura) de teste
+    /// (gestor@plantonhub.com / Teste@123). O usuário precisa estar no grupo
+    /// <c>GestorPublico</c> do Cognito e ter <c>UserPublicOrganRole</c>
+    /// registrado no RDS. Sprint 7A criou o grupo via CDK e o seed.
+    /// </summary>
+    public static Task<string> GetGestorTokenAsync()
+        => GetAccessTokenAsync("gestor@plantonhub.com", "Teste@123");
 }
