@@ -10,6 +10,7 @@ using PlantonHub.API.Extensions;
 using PlantonHub.API.Filters;
 using PlantonHub.API.Middleware;
 using PlantonHub.Application.Interfaces;
+using PlantonHub.Application.Reports;
 using PlantonHub.Application.Services;
 using PlantonHub.Domain.Interfaces;
 using PlantonHub.Infrastructure.Cache;
@@ -121,6 +122,23 @@ builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<IManagementReportService, ManagementReportService>();
 builder.Services.AddScoped<IPrefeituraService, PrefeituraService>();
+
+// Portal Prefeitura → Exportação PDF/Excel (Sprint 7B.2).
+// 9 generators (5 PDF + 4 Excel) registrados como IReportGenerator;
+// ReportService seleciona o certo por (Type, Format). QuestPDF em modo
+// Community é MIT — obrigatório declarar a licença no startup.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.KpisPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.FrequencyPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.AtrasosPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.AusenciasPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.HistoryPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.FrequencyExcelGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.AtrasosExcelGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.AusenciasExcelGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.HistoryExcelGenerator>();
+builder.Services.AddScoped<IReportService, ReportService>();
+
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICognitoAuthService, CognitoAuthService>();
 builder.Services.AddScoped<IAntiFraudDetector, AntiFraudDetector>();
@@ -266,6 +284,30 @@ builder.Services.AddRateLimiter(options =>
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Prefeitura → Acionar OS: 5/min por gestor. Evita spam de alertas
+    // contra a OS. Design.md § "Acionar OS" (10.4).
+    options.AddPolicy("PrefeituraNotifyOs", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PerUserOrIp(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+    // Prefeitura → Export PDF/Excel: 10/min por gestor. Geração é
+    // CPU-bound; limita paralelismo. Design.md § "Exportação" (11.7).
+    options.AddPolicy("PrefeituraExport", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: PerUserOrIp(context),
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
                 Window = TimeSpan.FromMinutes(1),
                 QueueLimit = 0,
             }));

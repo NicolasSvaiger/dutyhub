@@ -54,4 +54,19 @@ public interface IPrefeituraService
 
     /// <summary>Snapshot ao vivo das UPAs (Realtime + TV mode).</summary>
     Task<PrefeituraRealtimeResponse> GetRealtimeAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// "Acionar OS": gestor sinaliza uma ausência crítica reusando o
+    /// <c>IAlertService.CreateAsync</c>. Não altera o Attendance nem o
+    /// Shift — só cria um <c>Alert</c> visível no Admin OS. Valida que o
+    /// (shiftId, userId) pertencem a uma clínica no escopo do gestor;
+    /// caso contrário retorna <see cref="Application.Exceptions.NotFoundException"/>
+    /// (mesmo tratamento do resto do portal — não vaza existência de
+    /// recursos fora do organ). Ver design.md § "Acionar OS".
+    /// </summary>
+    Task<Guid> NotifyOsAboutAbsenceAsync(
+        Guid shiftId,
+        Guid userId,
+        string? message,
+        CancellationToken ct = default);
 }

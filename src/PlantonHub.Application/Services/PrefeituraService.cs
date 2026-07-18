@@ -1,4 +1,5 @@
 using PlantonHub.Application.Constants;
+using PlantonHub.Application.DTOs.Alerts;
 using PlantonHub.Application.DTOs.Prefeitura;
 using PlantonHub.Application.Exceptions;
 using PlantonHub.Application.Interfaces;
@@ -28,6 +29,7 @@ public class PrefeituraService : IPrefeituraService
     private readonly IJustificationRepository _justificationRepo;
     private readonly IAlertRepository _alertRepo;
     private readonly ISettingsRepository _settingsRepo;
+    private readonly IAlertService _alertService;
 
     public PrefeituraService(
         ITenantService tenantService,
@@ -40,7 +42,8 @@ public class PrefeituraService : IPrefeituraService
         ISubstitutionRepository substitutionRepo,
         IJustificationRepository justificationRepo,
         IAlertRepository alertRepo,
-        ISettingsRepository settingsRepo)
+        ISettingsRepository settingsRepo,
+        IAlertService alertService)
     {
         _tenantService = tenantService;
         _cache = cache;
@@ -53,6 +56,7 @@ public class PrefeituraService : IPrefeituraService
         _justificationRepo = justificationRepo;
         _alertRepo = alertRepo;
         _settingsRepo = settingsRepo;
+        _alertService = alertService;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -784,5 +788,64 @@ public class PrefeituraService : IPrefeituraService
         response.TotalAbsentNow = response.Clinics.Sum(c => c.AbsentCount);
 
         return response;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Acionar OS — única mutação do portal. Reusa AlertService.
+    // ─────────────────────────────────────────────────────────────
+
+    public async Task<Guid> NotifyOsAboutAbsenceAsync(
+        Guid shiftId,
+        Guid userId,
+        string? message,
+        CancellationToken ct = default)
+    {
+        var scope = await ResolveScopeAsync(ct);
+
+        // 1) O shift precisa existir e estar em uma clínica do escopo do gestor.
+        //    NotFoundException (não 403) para não vazar existência de recursos
+        //    fora do organ. Mesmo padrão do design.md § "Error Handling".
+        var shift = await _shiftRepo.GetByIdAsync(shiftId);
+        if (shift is null || !scope.ClinicIds.Contains(shift.ClinicId))
+        {
+            throw new NotFoundException("Absence not found in scope");
+        }
+
+        // 2) Precisa haver um assignment pra esse (user, shift) — sinaliza que
+        //    o profissional foi escalado ali. Se não estava escalado, não é
+        //    uma ausência acionável (é dado inconsistente ou tentativa de spam).
+        var assignment = shift.ShiftAssignments.FirstOrDefault(a => a.UserId == userId);
+        if (assignment is null)
+        {
+            throw new NotFoundException("Absence not found in scope");
+        }
+
+        // 3) Delega ao AlertService — que valida tenant, gera Code auto,
+        //    persiste com CreatedAt, retorna AlertResponse já pronto.
+        var userName = assignment.User?.Name ?? "profissional";
+        var shiftLabel = $"{shift.Title} ({shift.StartTime:hh\\:mm}–{shift.EndTime:hh\\:mm})";
+
+        var descriptionParts = new List<string>
+        {
+            $"Ausência acionada pela Prefeitura: <strong>{userName}</strong> escalado para <strong>{shiftLabel}</strong> em {shift.Date:dd/MM/yyyy}.",
+        };
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            descriptionParts.Add($"Observação do gestor: {message.Trim()}");
+        }
+
+        var response = await _alertService.CreateAsync(new CreateAlertRequest
+        {
+            Level = AlertLevel.Critical,
+            Type = AlertType.UnannouncedAbsence,
+            Title = $"Ausência acionada pela Prefeitura — {userName}",
+            Description = string.Join(" ", descriptionParts),
+            ClinicId = shift.ClinicId,
+            RelatedUserId = userId,
+            PrimaryActionLabel = "Ver escalas",
+            SecondaryActionLabel = "Registrar substituição",
+        });
+
+        return response.Id;
     }
 }

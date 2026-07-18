@@ -3,14 +3,16 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using PlantonHub.Application.DTOs.Prefeitura;
 using PlantonHub.Application.Interfaces;
+using PlantonHub.Application.Reports;
 
 namespace PlantonHub.API.Controllers;
 
 /// <summary>
-/// Portal Prefeitura — 8 endpoints read-only. Todo request é filtrado pelo
-/// escopo do gestor logado (organ + descendentes → contratos ativos →
-/// clínicas cobertas). Sem organ resolvido → 403 NO_ORGAN_CONTEXT.
-/// Ver design.md § "Endpoints". Sprint 7B.2 adiciona notify-os + exports.
+/// Portal Prefeitura — endpoints filtrados pelo escopo do gestor logado
+/// (organ + descendentes → contratos ativos → clínicas). Sem organ
+/// resolvido → 403 NO_ORGAN_CONTEXT. Sprint 7B.1 entregou os 8 reads,
+/// Sprint 7B.2 adicionou notify-os + reports export.
+/// Ver design.md § "Endpoints".
 /// </summary>
 [ApiController]
 [Route("api/prefeitura")]
@@ -19,10 +21,12 @@ namespace PlantonHub.API.Controllers;
 public class PrefeituraController : ControllerBase
 {
     private readonly IPrefeituraService _service;
+    private readonly IReportService _reportService;
 
-    public PrefeituraController(IPrefeituraService service)
+    public PrefeituraController(IPrefeituraService service, IReportService reportService)
     {
         _service = service;
+        _reportService = reportService;
     }
 
     /// <summary>KPIs do dia + resumo operacional + últimos alertas.</summary>
@@ -160,6 +164,95 @@ public class PrefeituraController : ControllerBase
     {
         var response = await _service.GetRealtimeAsync(ct);
         return Ok(response);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Sprint 7B.2 — Acionar OS + Exportação PDF/Excel
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// "Acionar OS": gestor sinaliza uma ausência crítica. Cria um Alert
+    /// visível no Admin OS via <see cref="IAlertService"/>, sem alterar
+    /// dados operacionais. Rate limit dedicado (5/min por gestor) evita
+    /// spam contra a OS. Ver design.md § "Acionar OS".
+    /// </summary>
+    [HttpPost("absences/notify-os")]
+    [EnableRateLimiting("PrefeituraNotifyOs")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> NotifyOs([FromBody] NotifyOsRequest request, CancellationToken ct)
+    {
+        if (request is null) return BadRequest(new { message = "body obrigatório" });
+        if (request.ShiftId == Guid.Empty) return BadRequest(new { message = "shiftId obrigatório" });
+        if (request.UserId == Guid.Empty) return BadRequest(new { message = "userId obrigatório" });
+
+        var alertId = await _service.NotifyOsAboutAbsenceAsync(
+            request.ShiftId, request.UserId, request.Message, ct);
+
+        return Created($"/api/alerts/{alertId}", new
+        {
+            alertId,
+            createdAt = DateTime.UtcNow,
+        });
+    }
+
+    /// <summary>
+    /// Exportação de relatório em PDF ou Excel. Filtros iguais aos
+    /// endpoints de leitura correspondentes. Retorna <c>File(bytes)</c>
+    /// com Content-Disposition. Se o binário passar do limite (5MB),
+    /// retorna 413 com mensagem em pt-BR pedindo pra filtrar mais.
+    /// Rate limit dedicado 10/min por gestor.
+    /// Ver design.md § "Exportação PDF/Excel".
+    /// </summary>
+    [HttpGet("reports/{reportType}/export")]
+    [EnableRateLimiting("PrefeituraExport")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status413RequestEntityTooLarge)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ExportReport(
+        string reportType,
+        [FromQuery] string format,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? clinicId,
+        [FromQuery] string? filter,
+        [FromQuery] string? search,
+        CancellationToken ct = default)
+    {
+        if (!Enum.TryParse<ReportType>(reportType, ignoreCase: true, out var type))
+        {
+            return BadRequest(new { message = $"reportType inválido: {reportType}" });
+        }
+        if (!Enum.TryParse<ReportFormat>(format, ignoreCase: true, out var fmt))
+        {
+            return BadRequest(new { message = $"format inválido: {format}" });
+        }
+
+        var (fromResolved, toResolved) = ResolveDefaultPeriod(from, to, defaultDays: 30);
+        if (fromResolved > toResolved)
+        {
+            return BadRequest(new { message = "from > to" });
+        }
+
+        var report = await _reportService.GenerateAsync(new ReportRequest
+        {
+            Type = type,
+            Format = fmt,
+            From = fromResolved,
+            To = toResolved,
+            ClinicId = clinicId,
+            Filter = filter,
+            Search = search,
+        }, ct);
+
+        return File(report.Bytes, report.ContentType, report.FileName);
     }
 
     // ─────────────────────────────────────────────────────────────

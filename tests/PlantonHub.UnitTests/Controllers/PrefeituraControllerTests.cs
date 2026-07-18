@@ -4,20 +4,23 @@ using Moq;
 using PlantonHub.API.Controllers;
 using PlantonHub.Application.DTOs.Prefeitura;
 using PlantonHub.Application.Interfaces;
+using PlantonHub.Application.Reports;
 
 namespace PlantonHub.UnitTests.Controllers;
 
 /// <summary>
-/// Sprint 7B.1 — cobre <see cref="PrefeituraController"/> na parte que ele
-/// é responsável: validação de query params e mapping pra <see cref="IPrefeituraService"/>.
-/// Autorização (policy GestorPublico) e rate limit (Session) já são testadas
-/// via <c>AuthorizationExtensionsTests</c> e configuração DI — aqui foca na
+/// Sprint 7B.1 + 7B.2 — cobre <see cref="PrefeituraController"/> na parte
+/// que ele é responsável: validação de query params e mapping pra
+/// <see cref="IPrefeituraService"/> / <see cref="IReportService"/>.
+/// Autorização (policy GestorPublico) e rate limit já são testadas via
+/// <c>AuthorizationExtensionsTests</c> e configuração DI — aqui foca na
 /// camada Controller pura.
 /// </summary>
 public class PrefeituraControllerTests
 {
     private readonly Mock<IPrefeituraService> _service = new();
-    private PrefeituraController CreateController() => new(_service.Object);
+    private readonly Mock<IReportService> _reportService = new();
+    private PrefeituraController CreateController() => new(_service.Object, _reportService.Object);
 
     // ─────────────────────────────────────────────────────────────
     // Endpoints sem params — só delegam
@@ -217,5 +220,136 @@ public class PrefeituraControllerTests
         _service.Verify(s => s.GetHistoryAsync(
             It.IsAny<DateTime>(), It.IsAny<DateTime>(),
             "checkin", "ana", 2, 25, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Sprint 7B.2 — NotifyOs endpoint
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task NotifyOs_ValidRequest_ReturnsCreatedWithAlertId()
+    {
+        var expected = Guid.NewGuid();
+        _service.Setup(s => s.NotifyOsAboutAbsenceAsync(
+                        It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expected);
+
+        var result = await CreateController().NotifyOs(new NotifyOsRequest
+        {
+            ShiftId = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            Message = "manda ver",
+        }, CancellationToken.None);
+
+        result.Should().BeOfType<CreatedResult>();
+    }
+
+    [Fact]
+    public async Task NotifyOs_EmptyShiftId_ReturnsBadRequest()
+    {
+        var result = await CreateController().NotifyOs(new NotifyOsRequest
+        {
+            ShiftId = Guid.Empty,
+            UserId = Guid.NewGuid(),
+        }, CancellationToken.None);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _service.Verify(s => s.NotifyOsAboutAbsenceAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task NotifyOs_EmptyUserId_ReturnsBadRequest()
+    {
+        var result = await CreateController().NotifyOs(new NotifyOsRequest
+        {
+            ShiftId = Guid.NewGuid(),
+            UserId = Guid.Empty,
+        }, CancellationToken.None);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task NotifyOs_NullBody_ReturnsBadRequest()
+    {
+        var result = await CreateController().NotifyOs(null!, CancellationToken.None);
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Sprint 7B.2 — ExportReport endpoint
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExportReport_ValidParams_ReturnsFile()
+    {
+        var pdfBytes = new byte[] { 1, 2, 3 };
+        _reportService.Setup(r => r.GenerateAsync(It.IsAny<ReportRequest>(), It.IsAny<CancellationToken>()))
+                      .ReturnsAsync(new GeneratedReport(pdfBytes, "application/pdf", "kpis-2026-07-17.pdf"));
+
+        var result = await CreateController().ExportReport(
+            reportType: "kpis", format: "pdf",
+            from: null, to: null, clinicId: null, filter: null, search: null);
+
+        var file = result.Should().BeOfType<FileContentResult>().Subject;
+        file.FileContents.Should().Equal(pdfBytes);
+        file.ContentType.Should().Be("application/pdf");
+        file.FileDownloadName.Should().Be("kpis-2026-07-17.pdf");
+    }
+
+    [Fact]
+    public async Task ExportReport_InvalidReportType_ReturnsBadRequest()
+    {
+        var result = await CreateController().ExportReport(
+            reportType: "not-a-type", format: "pdf",
+            from: null, to: null, clinicId: null, filter: null, search: null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _reportService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ExportReport_InvalidFormat_ReturnsBadRequest()
+    {
+        var result = await CreateController().ExportReport(
+            reportType: "kpis", format: "docx",
+            from: null, to: null, clinicId: null, filter: null, search: null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task ExportReport_FromGreaterThanTo_ReturnsBadRequest()
+    {
+        var future = DateTime.UtcNow.AddDays(5);
+        var past = DateTime.UtcNow.AddDays(-5);
+
+        var result = await CreateController().ExportReport(
+            reportType: "kpis", format: "pdf",
+            from: future, to: past, clinicId: null, filter: null, search: null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task ExportReport_ForwardsClinicIdAndFiltersToService()
+    {
+        var clinicId = Guid.NewGuid();
+        _reportService.Setup(r => r.GenerateAsync(It.IsAny<ReportRequest>(), It.IsAny<CancellationToken>()))
+                      .ReturnsAsync(new GeneratedReport(new byte[] { 1 }, "application/pdf", "x.pdf"));
+
+        var result = await CreateController().ExportReport(
+            reportType: "history", format: "pdf",
+            from: null, to: null, clinicId: clinicId, filter: "checkin", search: "ana");
+
+        result.Should().BeOfType<FileContentResult>();
+        _reportService.Verify(r => r.GenerateAsync(It.Is<ReportRequest>(
+            req => req.Type == ReportType.History &&
+                   req.Format == ReportFormat.Pdf &&
+                   req.ClinicId == clinicId &&
+                   req.Filter == "checkin" &&
+                   req.Search == "ana"), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

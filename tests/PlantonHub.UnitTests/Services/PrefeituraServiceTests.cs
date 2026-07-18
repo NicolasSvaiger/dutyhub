@@ -30,6 +30,7 @@ public class PrefeituraServiceTests
     private readonly Mock<IJustificationRepository> _justificationRepo = new();
     private readonly Mock<IAlertRepository> _alertRepo = new();
     private readonly Mock<ISettingsRepository> _settingsRepo = new();
+    private readonly Mock<IAlertService> _alertService = new();
     private readonly PassthroughCache _cache = new();
 
     private static readonly Guid OrganId = Guid.Parse("11111111-0000-0000-0000-000000000001");
@@ -40,7 +41,7 @@ public class PrefeituraServiceTests
         _tenant.Object, _cache, _organRepo.Object, _contractRepo.Object,
         _clinicRepo.Object, _shiftRepo.Object, _attendanceRepo.Object,
         _substitutionRepo.Object, _justificationRepo.Object,
-        _alertRepo.Object, _settingsRepo.Object);
+        _alertRepo.Object, _settingsRepo.Object, _alertService.Object);
 
     private void SetupHealthyScope(params Guid[] clinicIds)
     {
@@ -785,6 +786,110 @@ public class PrefeituraServiceTests
 
         response.Clinics.Should().BeEmpty();
         response.TotalClinics.Should().Be(0);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Sprint 7B.2 — NotifyOsAboutAbsenceAsync (Acionar OS)
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task NotifyOs_HappyPath_DelegatesToAlertServiceAndReturnsAlertId()
+    {
+        SetupHealthyScope(ClinicA);
+        var shiftId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var expectedAlertId = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", DateTime.UtcNow.Date, new TimeSpan(7, 0, 0),
+            assignments: new() { (userId, "Dr. Ausente") }, attendances: new());
+        // Sobrescreve o Id do shift pra bater com o request.
+        typeof(Shift).GetProperty("Id")!.SetValue(shift, shiftId);
+        _shiftRepo.Setup(s => s.GetByIdAsync(shiftId)).ReturnsAsync(shift);
+
+        _alertService.Setup(a => a.CreateAsync(It.IsAny<PlantonHub.Application.DTOs.Alerts.CreateAlertRequest>()))
+                     .ReturnsAsync(new PlantonHub.Application.DTOs.Alerts.AlertResponse { Id = expectedAlertId });
+
+        var actual = await CreateService().NotifyOsAboutAbsenceAsync(shiftId, userId, "sem justificativa");
+
+        actual.Should().Be(expectedAlertId);
+        _alertService.Verify(a => a.CreateAsync(It.Is<PlantonHub.Application.DTOs.Alerts.CreateAlertRequest>(
+            r => r.Level == AlertLevel.Critical &&
+                 r.Type == AlertType.UnannouncedAbsence &&
+                 r.ClinicId == ClinicA &&
+                 r.RelatedUserId == userId &&
+                 r.Title.Contains("Dr. Ausente") &&
+                 r.Description.Contains("sem justificativa"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task NotifyOs_ShiftNotFound_ThrowsNotFound()
+    {
+        SetupHealthyScope(ClinicA);
+        var shiftId = Guid.NewGuid();
+        _shiftRepo.Setup(s => s.GetByIdAsync(shiftId)).ReturnsAsync((Shift?)null);
+
+        var act = () => CreateService().NotifyOsAboutAbsenceAsync(shiftId, Guid.NewGuid(), null);
+        await act.Should().ThrowAsync<NotFoundException>();
+        _alertService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task NotifyOs_ShiftOutsideScope_ThrowsNotFound_WithoutLeakingExistence()
+    {
+        // Shift existe mas está em outra clínica não coberta pelo scope.
+        SetupHealthyScope(ClinicA);
+        var otherClinic = Guid.NewGuid();
+        var shiftId = Guid.NewGuid();
+        var shift = NewShift(otherClinic, "Outra", DateTime.UtcNow.Date, new TimeSpan(7, 0, 0),
+            assignments: new() { (Guid.NewGuid(), "X") }, attendances: new());
+        typeof(Shift).GetProperty("Id")!.SetValue(shift, shiftId);
+        _shiftRepo.Setup(s => s.GetByIdAsync(shiftId)).ReturnsAsync(shift);
+
+        var act = () => CreateService().NotifyOsAboutAbsenceAsync(shiftId, Guid.NewGuid(), null);
+
+        // NotFoundException (não Forbidden) para não vazar existência.
+        await act.Should().ThrowAsync<NotFoundException>();
+        _alertService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task NotifyOs_UserNotAssignedToShift_ThrowsNotFound()
+    {
+        SetupHealthyScope(ClinicA);
+        var shiftId = Guid.NewGuid();
+        var assignedUser = Guid.NewGuid();
+        var strangerUser = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", DateTime.UtcNow.Date, new TimeSpan(7, 0, 0),
+            assignments: new() { (assignedUser, "Assigned") }, attendances: new());
+        typeof(Shift).GetProperty("Id")!.SetValue(shift, shiftId);
+        _shiftRepo.Setup(s => s.GetByIdAsync(shiftId)).ReturnsAsync(shift);
+
+        var act = () => CreateService().NotifyOsAboutAbsenceAsync(shiftId, strangerUser, null);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+        _alertService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task NotifyOs_MessageOmitted_OnlyDescribesShiftAndUser()
+    {
+        SetupHealthyScope(ClinicA);
+        var shiftId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", DateTime.UtcNow.Date, new TimeSpan(7, 0, 0),
+            assignments: new() { (userId, "Dra. Silva") }, attendances: new());
+        typeof(Shift).GetProperty("Id")!.SetValue(shift, shiftId);
+        _shiftRepo.Setup(s => s.GetByIdAsync(shiftId)).ReturnsAsync(shift);
+
+        _alertService.Setup(a => a.CreateAsync(It.IsAny<PlantonHub.Application.DTOs.Alerts.CreateAlertRequest>()))
+                     .ReturnsAsync(new PlantonHub.Application.DTOs.Alerts.AlertResponse { Id = Guid.NewGuid() });
+
+        await CreateService().NotifyOsAboutAbsenceAsync(shiftId, userId, message: null);
+
+        // Description deve mencionar o profissional/shift mas NÃO ter "Observação do gestor:".
+        _alertService.Verify(a => a.CreateAsync(It.Is<PlantonHub.Application.DTOs.Alerts.CreateAlertRequest>(
+            r => r.Description.Contains("Dra. Silva") &&
+                 !r.Description.Contains("Observação do gestor"))), Times.Once);
     }
 }
 

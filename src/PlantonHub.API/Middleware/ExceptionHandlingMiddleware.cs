@@ -36,6 +36,7 @@ public class ExceptionHandlingMiddleware
             NotFoundException ex => (StatusCodes.Status404NotFound, "Not Found", ex.Message),
             ConflictException ex => (StatusCodes.Status409Conflict, "Conflict", ex.Message),
             BadRequestException ex => (StatusCodes.Status400BadRequest, "Bad Request", ex.Message),
+            PayloadTooLargeException ex => (StatusCodes.Status413RequestEntityTooLarge, "Payload Too Large", ex.Message),
             RateLimitExceededException ex => (StatusCodes.Status429TooManyRequests, "Too Many Requests", ex.Message),
             ValidationException ex => (StatusCodes.Status400BadRequest, "Validation Error", ex.Message),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error", "An unexpected error occurred.")
