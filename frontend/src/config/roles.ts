@@ -21,16 +21,18 @@ export function isProfessional(roles: readonly string[]): boolean {
  * prioridade que ele tem:
  *
  *   Profissional (Medico/Enfermeiro/Tecnico) → /doctor
- *   AdminClinica                             → /dashboard
- *   AdminGlobal                              → /dashboard
+ *   GestorPublico                            → /prefeitura
+ *   AdminGlobal / AdminClinica               → /admin
  *   Nenhuma role reconhecida (edge case)     → /dashboard (fallback seguro)
  *
  * A ideia é que quem só faz check-in/check-out não precise passar por telas
- * administrativas antes de chegar onde quer estar.
+ * administrativas antes de chegar onde quer estar. Gestor público entra no
+ * portal Prefeitura direto (Sprint 7).
  */
 export function getHomeRouteFor(roles: readonly string[] | undefined | null): string {
   if (!roles || roles.length === 0) return '/dashboard';
   if (isProfessional(roles)) return '/doctor';
+  if (roles.includes('GestorPublico')) return '/prefeitura';
   if (roles.includes('AdminGlobal') || roles.includes('AdminClinica')) return '/admin';
   return '/dashboard';
 }

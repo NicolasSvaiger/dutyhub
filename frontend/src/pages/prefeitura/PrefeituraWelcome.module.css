@@ -1,0 +1,268 @@
+/*
+ * PrefeituraWelcome — layout do "Início" do portal Prefeitura baseado
+ * no mock op-welcome.html. Hero card + KPI strip + últimos alertas.
+ * Paleta teal + orange, dark mode via [data-theme="dark"].
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  animation: fadeUp 0.35s ease;
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Hero card ── */
+.hero {
+  background: linear-gradient(135deg, #2dbfb8 0%, #1a8a85 50%, #f5a623 100%);
+  border-radius: 24px;
+  padding: 2.2rem 2.4rem;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  border: 50px solid rgba(255, 255, 255, 0.06);
+  top: -120px;
+  right: -80px;
+}
+.heroDots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+.heroInner {
+  position: relative;
+  z-index: 1;
+}
+.heroGreeting {
+  font-size: 0.82rem;
+  font-weight: 700;
+  opacity: 0.85;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+}
+.heroName {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1.1;
+  margin-bottom: 0.5rem;
+}
+.heroEmail {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.4rem;
+}
+.heroTags {
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.heroTag {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ── KPI strip (4 cards) ── */
+.kpiStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.kpiCard {
+  background: #fff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 18px;
+  padding: 1.1rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  position: relative;
+  overflow: hidden;
+}
+[data-theme='dark'] .kpiCard {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.kpiCard::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: #2dbfb8;
+}
+.kpiCard.orange::after {
+  background: #f5a623;
+}
+.kpiCard.red::after {
+  background: #e05555;
+}
+.kpiLabel {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a9090;
+}
+.kpiValue {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1.9rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #2dbfb8;
+}
+.kpiCard.orange .kpiValue {
+  color: #f5a623;
+}
+.kpiCard.red .kpiValue {
+  color: #e05555;
+}
+.kpiSub {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7a9090;
+}
+
+/* ── Alerts card ── */
+.alertsCard {
+  background: #fff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 18px;
+  overflow: hidden;
+}
+[data-theme='dark'] .alertsCard {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.alertsHeader {
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+[data-theme='dark'] .alertsHeader {
+  border-bottom-color: rgba(45, 191, 184, 0.25);
+}
+.alertsTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .alertsTitle {
+  color: #f0f4f4;
+}
+.alertsCount {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+  border-radius: 10px;
+  background: rgba(224, 85, 85, 0.12);
+  color: #e05555;
+}
+.alertList {
+  display: flex;
+  flex-direction: column;
+}
+.alertItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.9rem 1.4rem;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.08);
+}
+.alertItem:last-child {
+  border-bottom: none;
+}
+[data-theme='dark'] .alertItem {
+  border-bottom-color: rgba(45, 191, 184, 0.15);
+}
+.alertDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.alertText {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1a2a2a;
+  line-height: 1.4;
+}
+[data-theme='dark'] .alertText {
+  color: #f0f4f4;
+}
+.alertMeta {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7a9090;
+  margin-top: 3px;
+}
+
+/* ── States ── */
+.loading,
+.empty,
+.error {
+  padding: 2rem;
+  text-align: center;
+  color: #7a9090;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.error {
+  color: #e05555;
+}
+
+/* ── Mobile ── */
+@media (max-width: 780px) {
+  .hero {
+    padding: 1.6rem 1.4rem;
+    border-radius: 18px;
+  }
+  .heroName {
+    font-size: 1.5rem;
+  }
+  .kpiStrip {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .kpiCard {
+    padding: 0.9rem 1rem;
+  }
+  .kpiValue {
+    font-size: 1.6rem;
+  }
+}

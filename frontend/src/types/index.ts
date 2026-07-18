@@ -4,7 +4,31 @@ export type { OfflineAttendanceEvent, AttendanceType, SyncStatus } from './offli
 
 // ===== Enums =====
 
-export type RoleType = 'AdminGlobal' | 'AdminClinica' | 'Medico' | 'Enfermeiro' | 'Tecnico';
+export type RoleType =
+  | 'AdminGlobal'
+  | 'AdminClinica'
+  | 'Medico'
+  | 'Enfermeiro'
+  | 'Tecnico'
+  | 'GestorPublico';
+
+// ===== Portal Prefeitura =====
+
+/**
+ * Sub-views do state-based <c>PrefeituraPage</c>. Mesma técnica do
+ * <c>AdminPage</c> — a URL fica em /prefeitura sem sub-paths, e o
+ * componente decide o conteúdo pelo <c>activeView</c> do state.
+ * O modo TV (/prefeitura/tv) é rota separada porque é fullscreen.
+ */
+export type PrefeituraView =
+  | 'home'
+  | 'kpis'
+  | 'escalas'
+  | 'frequencia'
+  | 'atrasos'
+  | 'ausencias'
+  | 'historico'
+  | 'realtime';
 
 // ===== Domain Entities =====
 

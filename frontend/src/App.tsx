@@ -19,6 +19,9 @@ import {
 } from './pages';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminPage } from './pages/admin/AdminPage';
+import { PrefeituraLoginPage } from './pages/prefeitura/PrefeituraLoginPage';
+import { PrefeituraPage } from './pages/prefeitura/PrefeituraPage';
+import { PrefeituraTvMode } from './pages/prefeitura/PrefeituraTvMode';
 
 function AppLayout() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -30,9 +33,14 @@ function AppLayout() {
   const isAdminClinica = roles.includes('AdminClinica');
   const professional = isProfessional(roles);
 
-  // Hide header on admin pages (they have their own sidebar) and login pages
+  // Hide header on admin/prefeitura pages (they have their own sidebar) and login pages
   const path = window.location.pathname;
-  if (path.startsWith('/admin') || path === '/login' || path === '/forgot-password') {
+  if (
+    path.startsWith('/admin') ||
+    path.startsWith('/prefeitura') ||
+    path === '/login' ||
+    path === '/forgot-password'
+  ) {
     return null;
   }
 
@@ -144,6 +152,23 @@ function App() {
           element={
             <ProtectedRoute requiredRoles={['AdminGlobal', 'AdminClinica']}>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/prefeitura/login" element={<PrefeituraLoginPage />} />
+        <Route
+          path="/prefeitura"
+          element={
+            <ProtectedRoute requiredRoles={['GestorPublico']}>
+              <PrefeituraPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/prefeitura/tv"
+          element={
+            <ProtectedRoute requiredRoles={['GestorPublico']}>
+              <PrefeituraTvMode />
             </ProtectedRoute>
           }
         />

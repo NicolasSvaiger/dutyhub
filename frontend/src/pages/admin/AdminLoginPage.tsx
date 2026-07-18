@@ -28,13 +28,18 @@ export function AdminLoginPage() {
   const [mfaCode, setMfaCode] = useState(['', '', '', '', '', '']);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Redirect admin autenticado
+  // Redirect admin autenticado. Se o user logar aqui mas na verdade for gestor
+  // público, encaminha pro portal /prefeitura ao invés de /admin — evita ficar
+  // preso no fluxo administrativo com uma tela sem permissão.
   useEffect(() => {
     if (isAuthenticated && user) {
       const roles = user.roles ?? [];
       const isAdmin = roles.includes('AdminGlobal') || roles.includes('AdminClinica');
+      const isGestor = roles.includes('GestorPublico');
       if (isAdmin) {
         navigate('/admin', { replace: true });
+      } else if (isGestor) {
+        navigate('/prefeitura', { replace: true });
       } else {
         navigate('/login', { replace: true });
       }

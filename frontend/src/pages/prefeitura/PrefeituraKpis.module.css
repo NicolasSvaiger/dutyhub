@@ -1,0 +1,304 @@
+/*
+ * PrefeituraKpis — layout do "Indicadores (KPIs)" baseado no mock op-kpis.html.
+ * Filtro de período + card hero de cumprimento global + grid 6 métricas +
+ * tabela de breakdown por UPA. Dark mode via [data-theme="dark"].
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  animation: fadeUp 0.35s ease;
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Filtros ── */
+.filters {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 14px;
+  padding: 1rem 1.2rem;
+}
+[data-theme='dark'] .filters {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 150px;
+}
+.filterLabel {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a9090;
+}
+.filterInput {
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 10px;
+  font-family: 'Nunito Sans', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a2a2a;
+  background: #fafefe;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.filterInput:focus {
+  border-color: #2dbfb8;
+  box-shadow: 0 0 0 3px rgba(45, 191, 184, 0.12);
+}
+[data-theme='dark'] .filterInput {
+  background: #0d1b1b;
+  color: #f0f4f4;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.filterButton {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #2dbfb8 0%, #f5a623 100%);
+  transition: transform 0.14s, box-shadow 0.14s, opacity 0.14s;
+}
+.filterButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(45, 191, 184, 0.3);
+}
+.filterButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Hero card (cumprimento global) ── */
+.hero {
+  background: linear-gradient(135deg, #2dbfb8 0%, #1a8a85 100%);
+  border-radius: 22px;
+  padding: 2rem 2.4rem;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  border: 40px solid rgba(255, 255, 255, 0.08);
+  top: -90px;
+  right: -60px;
+}
+.heroLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+.heroValue {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.heroSub {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 0.6rem;
+}
+.heroPeriod {
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Grid KPIs ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+.card {
+  background: #ffffff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 16px;
+  padding: 1.1rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+[data-theme='dark'] .card {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.cardLabel {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a9090;
+}
+.cardValue {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1;
+  color: #2dbfb8;
+}
+[data-theme='dark'] .cardValue {
+  color: #7ce6df;
+}
+.cardSub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a9090;
+}
+
+/* ── Tabela por UPA ── */
+.tableWrap {
+  background: #ffffff;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  border-radius: 16px;
+  overflow: hidden;
+}
+[data-theme='dark'] .tableWrap {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.tableHeader {
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.12);
+}
+.tableTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .tableTitle {
+  color: #f0f4f4;
+}
+.tableScroll {
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+.table th {
+  background: rgba(45, 191, 184, 0.06);
+  padding: 0.7rem 1rem;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7a9090;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.12);
+}
+[data-theme='dark'] .table th {
+  background: rgba(45, 191, 184, 0.1);
+  border-bottom-color: rgba(45, 191, 184, 0.25);
+}
+.table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a2a2a;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.08);
+}
+[data-theme='dark'] .table td {
+  color: #f0f4f4;
+  border-bottom-color: rgba(45, 191, 184, 0.15);
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.tableRateGood {
+  color: #2dbfb8;
+  font-weight: 800;
+}
+.tableRateWarn {
+  color: #f5a623;
+  font-weight: 800;
+}
+.tableRateBad {
+  color: #e05555;
+  font-weight: 800;
+}
+
+/* ── States ── */
+.loading,
+.empty,
+.error {
+  padding: 2rem;
+  text-align: center;
+  color: #7a9090;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.error {
+  color: #e05555;
+}
+
+/* ── Mobile ── */
+@media (max-width: 780px) {
+  .filters {
+    padding: 0.85rem 1rem;
+  }
+  .filterGroup {
+    min-width: 100%;
+  }
+  .filterButton {
+    width: 100%;
+  }
+  .hero {
+    padding: 1.5rem 1.4rem;
+    border-radius: 18px;
+  }
+  .heroValue {
+    font-size: 2.8rem;
+  }
+  .grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .cardValue {
+    font-size: 1.5rem;
+  }
+}
