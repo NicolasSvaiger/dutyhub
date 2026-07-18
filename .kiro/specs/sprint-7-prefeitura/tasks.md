@@ -1,13 +1,33 @@
-# Plano de Implementação: Portal Prefeitura
+# Implementation Plan: Sprint 7 Prefeitura
 
-## Visão Geral
+## Overview
 
 4 sprints incrementais (7A → 7D). Cada sprint termina com commit verde
 no CI, sem misturar concerns. 7A é foundation e pode ficar dormente
 até 7B; 7B expõe os endpoints mas sem UI; 7C entrega a UI; 7D fecha
 com testes E2E e docs.
 
-Estimativa: **10-13 dias corridos** paralelizando 7C com o final da 7B.
+Estimativa: **12-15 dias corridos** paralelizando 7C com o final da 7B
+(era 10-13 antes de incluir Acionar OS + Exportação PDF/Excel).
+
+## Task Dependency Graph.
+
+```
+Sprint 7A (foundation) ─┐
+                        ├─► Sprint 7B (backend) ──┐
+                        │                         │
+                        └──────────► Sprint 7C ───┼─► Sprint 7D (polish)
+                                     (frontend)   │
+                                                  │
+Sprint 7C pode iniciar em paralelo assim que 7A verde e o modelo de
+auth + policy estiver em produção. Sprint 7B pode ir em paralelo
+com 7C após os primeiros 2-3 endpoints backend estarem prontos
+(o frontend faz mocks temporários enquanto endpoints reais chegam).
+
+Sprint 7D depende de 7C mergeada (E2E precisa de UI).
+```
+
+## Tasks
 
 ## Sprint 7A — Foundation (auth model + Cognito)
 
@@ -126,6 +146,44 @@ Read-only APIs filtradas por escopo. Testáveis via Swagger sem UI.
     - `ProducesResponseType` completo para OpenAPI/Swagger
     - _Requisitos: 2.1-2.8_
 
+- [ ] 9.5. Acionar OS (mutação controlada)
+  - [ ] 9.5.1 Adicionar `NotifyOsAboutAbsenceAsync(Guid absenceId, string? message)` em `IPrefeituraService`
+    - Reusa `IAlertsService.CreateAsync` — nenhuma duplicação
+    - Valida scope da ausência
+    - _Requisitos: 10.1_
+  - [ ] 9.5.2 Adicionar rate limit policy `PrefeituraNotifyOs` em `Program.cs` (5/min por user)
+    - _Requisitos: 10.4_
+  - [ ] 9.5.3 Endpoint `POST /api/prefeitura/absences/{absenceId}/notify-os` no `PrefeituraController`
+    - `[Authorize(Policy = "GestorPublico")]`
+    - `[EnableRateLimiting("PrefeituraNotifyOs")]`
+    - _Requisitos: 10.1-10.4_
+  - [ ] 9.5.4 DTO `NotifyOsRequest` com `Message` opcional
+
+- [ ] 9.6. Exportação PDF/Excel
+  - [ ] 9.6.1 Adicionar pacotes NuGet
+    - `QuestPDF` (última estável, license MIT)
+    - `ClosedXML` (última estável, license MIT)
+    - _Requisitos: 11.2_
+  - [ ] 9.6.2 Criar estrutura `src/PlantonHub.Application/Reports/`
+    - `IReportGenerator.cs`, `ReportType.cs`, `ReportFormat.cs`, `ReportRequest.cs`
+    - `Pdf/SharedComponents.cs` (header + footer com logo 24p7 + filtros aplicados)
+    - _Requisitos: 11.3_
+  - [ ] 9.6.3 Templates PDF em `src/PlantonHub.Application/Reports/Pdf/`
+    - `KpisPdfDocument.cs`, `FrequencyPdfDocument.cs`, `AtrasosPdfDocument.cs`, `AusenciasPdfDocument.cs`, `HistoryPdfDocument.cs`
+    - _Requisitos: 11.3_
+  - [ ] 9.6.4 Templates Excel em `src/PlantonHub.Application/Reports/Excel/`
+    - `FrequencyExcelWorkbook.cs`, `AtrasosExcelWorkbook.cs`, `AusenciasExcelWorkbook.cs`, `HistoryExcelWorkbook.cs`
+    - (kpis não tem versão Excel)
+    - _Requisitos: 11.4_
+  - [ ] 9.6.5 `IReportService` + `ReportService.GenerateAsync(ReportRequest)` — orquestra tipo/formato
+  - [ ] 9.6.6 Rate limit policy `PrefeituraExport` (10/min por user)
+    - _Requisitos: 11.7_
+  - [ ] 9.6.7 Endpoint `GET /api/prefeitura/reports/{reportType}/export?format=...` no `PrefeituraController`
+    - Retorna `File(bytes, contentType, filename)` com `Content-Disposition: attachment`
+    - Validação de `reportType` e `format` retorna 400
+    - Se bytes > 5MB retorna 413 com mensagem em pt-BR
+    - _Requisitos: 11.1-11.7_
+
 - [ ] 10. Testes 7B
   - [ ] 10.1 Unit — `PrefeituraServiceTests.cs` (novo)
     - **30 testes** cobrindo os 8 métodos, permissão, agregações, hierarquia
@@ -231,7 +289,9 @@ Read-only APIs filtradas por escopo. Testáveis via Swagger sem UI.
     - Extrair do `op-ausencias.html`
     - Fetch `getAbsences({ type: 'Absence' })`
     - Alerta destacado no header quando `alertLevel !== 'ok'`
-    - _Requisitos: 5.7_
+    - Coluna "Ações" com botão vermelho "Acionar OS" por linha (abre modal)
+    - Botões "Exportar PDF" e "Exportar Excel" no topbar
+    - _Requisitos: 5.7, 10.5, 11.8_
   - [ ] 15.8 Criar `PrefeituraHistorico.tsx`
     - Extrair do `op-historico.html`
     - Toggle Timeline / Tabela
@@ -245,6 +305,32 @@ Read-only APIs filtradas por escopo. Testáveis via Swagger sem UI.
     - Cards de UPA com estado
     - Fetch `getRealtime()`
     - _Requisitos: 5.9_
+
+- [ ] 15.10 Reports export — botões nas outras 4 telas
+  - [ ] 15.10.1 Adicionar botões "Exportar PDF" (+ "Exportar Excel" onde aplica) em `PrefeituraKpis`, `PrefeituraFrequencia`, `PrefeituraAtrasos`, `PrefeituraHistorico`
+    - Style padrão dos mocks (`btn-pdf`/`btn-xlsx`)
+    - _Requisitos: 5.3, 5.5, 5.6, 5.8, 11.8_
+  - [ ] 15.10.2 Helper `downloadReport()` em `prefeituraApi.ts`
+    - Fetch com `responseType: 'blob'` + Bearer token
+    - Parse `Content-Disposition` para pegar filename do server
+    - Cria `<a download>` com `URL.createObjectURL`, dispara click, revoga
+    - _Requisitos: 11.8_
+  - [ ] 15.10.3 UX: enquanto baixa, mostra spinner no botão + toast de sucesso ao final
+    - Se 413 do backend (>5MB): toast pedindo pra filtrar mais
+    - Se erro genérico: toast vermelho com detalhe
+
+- [ ] 15.11 Modal "Acionar OS"
+  - [ ] 15.11.1 Componente `AcionarOsModal.tsx` em `pages/prefeitura/components/`
+    - Props: `absenceId`, `open`, `onClose`, `onSuccess`
+    - Textarea opcional para descrição
+    - Botão "Confirmar acionamento" (vermelho) + "Cancelar"
+    - Chama `prefeituraApi.notifyOs(absenceId, message)`
+    - Toast de sucesso: "OS acionada com sucesso"
+    - _Requisitos: 10.5_
+  - [ ] 15.11.2 Integração em `PrefeituraAusencias.tsx`
+    - Estado `acionarModal: { open: boolean, absenceId: Guid | null }`
+    - Click no botão de linha → abre modal com `absenceId` daquela linha
+    - onSuccess → refetch da lista de ausências (o alert já foi criado; ausência não muda)
 
 - [ ] 16. Modo TV
   - [ ] 16.1 Criar `frontend/src/pages/prefeitura/PrefeituraTvMode.tsx`
@@ -317,8 +403,8 @@ Fecha a sprint com validação end-to-end e documentação.
 
 - [ ] 20. E2E Playwright
   - [ ] 20.1 Criar `frontend/e2e/prefeitura-flows.spec.ts`
-    - 7 smokes: login → home ativa, click KPIs, click Escalas, click Frequência, click Realtime, /prefeitura sem login → redirect, gestor tenta /admin → redirect
-    - _Requisitos: 8.8_
+    - 9 smokes: login → home ativa, click KPIs, click Escalas, click Frequência, click Realtime, /prefeitura sem login → redirect, gestor tenta /admin → redirect, download de PDF (KPIs), click "Acionar OS" abre modal
+    - _Requisitos: 8.8, 10.5, 11.8_
   - [ ] 20.2 Criar `frontend/e2e/prefeitura-tv.spec.ts`
     - 3 testes: fullscreen renderiza, polling refetch dispara (network intercept), 401 → redirect com `?tv=1`
     - _Requisitos: 8.8_
@@ -389,7 +475,8 @@ Fecha a sprint com validação end-to-end e documentação.
 
 Explicitamente NÃO faz parte desta sprint:
 
-- Endpoints de escrita para o gestor (justificativas, aprovações — Admin OS)
+- Justificativas, aprovações, correções (continuam no Admin OS)
+- Escrita de dados operacionais (o único write do gestor é criar Alert via Acionar OS)
 - Exportação PDF/Excel dos relatórios
 - Notificações push para gestor
 - Chat/comentários em eventos

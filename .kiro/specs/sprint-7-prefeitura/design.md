@@ -1,6 +1,6 @@
 # Design: Portal Prefeitura
 
-## Sumário
+## Overview
 
 Portal read-only para o gestor público (GestorPublico) acompanhar as
 UPAs que ele contratou via `Contract`. Aproveita 90% do modelo de dados
@@ -10,6 +10,32 @@ de endpoints `/api/prefeitura/*` filtrados por escopo hierárquico.
 
 Frontend com layout próprio (sidebar state-based, similar ao
 `AdminPage`) mais um modo TV fullscreen para display de monitoramento.
+
+## Architecture
+
+Aproveita a Clean Architecture existente (Domain, Application,
+Infrastructure, API) sem novas camadas. Adiciona:
+
+- **Domain:** um enum value (`RoleType.GestorPublico`) e uma entity
+  de junção (`UserPublicOrganRole`).
+- **Application:** um novo service (`PrefeituraService`) + reuso
+  parcial de `AlertsService` (para Acionar OS) e novo `ReportService`
+  (para PDF/Excel).
+- **Infrastructure:** um repository (`UserPublicOrganRoleRepository`),
+  uma nova config de entity, uma migration. Duas bibliotecas novas:
+  `QuestPDF` e `ClosedXML`.
+- **API:** um controller (`PrefeituraController`) com 10 endpoints,
+  duas policies novas de rate limit, e uma policy de autorização
+  (`GestorPublico`).
+- **Middleware:** extensão em `TenantMiddleware` para resolver
+  `publicOrganId` do JWT + fallback DB.
+- **Cognito:** grupo `GestorPublico` + estensão da Lambda pre-token
+  para injetar claim `publicOrganId`.
+
+Frontend segue o padrão do Admin OS: rota `/prefeitura` protegida,
+layout com sidebar state-based, uma rota extra `/prefeitura/tv`
+fullscreen. Uma nova pasta `pages/prefeitura/` com 12 componentes
+espelhando o padrão `pages/admin/`.
 
 ## Decisões de arquitetura
 
@@ -85,22 +111,33 @@ superfície de segurança sem benefício.
 - Se refresh falhar (deslogado, token revogado): volta pra tela de login
   na próxima tick de refresh; user do físico intervém
 
-### D5. Sem escrita = sem serviços mutáveis
+### D5. Read-only com 2 exceções controladas
 
-Portal Prefeitura é **puramente de leitura**. Não haverá:
+Portal Prefeitura é **read-only por padrão**, com duas exceções
+específicas que fazem sentido para o gestor sem tocar em operação:
 
-- Endpoints POST/PUT/DELETE em `/api/prefeitura/*`
-- Justificativas ou aprovações via portal (fica no Admin OS)
-- Correção de check-in errado (fica no Admin OS)
+1. **Acionar OS** (`POST /prefeitura/absences/{id}/notify-os`) — o gestor
+   cria um `Alert` para a OS quando encontra uma ausência crítica.
+   Não altera a ausência, o plantão, nem qualquer entidade operacional.
+   É um "sinal" — o Admin OS decide se abre justificativa, corrige
+   plantão, etc.
+2. **Exportação** (`GET /prefeitura/reports/{type}/export?format=pdf|xlsx`) —
+   tecnicamente GET, sem efeito colateral no DB, mas retorna binário
+   gerado no momento. Ver seção "Exportação PDF/Excel" abaixo.
 
-Vantagens:
+Justificativas, aprovações, correção de check-in, criação/edição de
+escalas continuam sendo responsabilidade do Admin OS.
 
-- Nenhuma escrita significa nenhum audit interceptor para `PrefeituraService`
-- Cache Redis com TTL longo (30-60s) sem preocupação de invalidação
-  cirúrgica — se um dado mudou, o gestor vê 30s depois. Aceitável para
+Vantagens do modelo:
+
+- A única mutação (Acionar OS) reusa o `AlertsService` existente. Zero
+  código novo de escrita no `PrefeituraService`.
+- Cache Redis com TTL curto (30-60s) para reads, sem invalidação
+  cirúrgica — dado mudou, gestor vê 30s depois. Aceitável para
   fiscalização.
+- Exports não passam por cache (binários grandes, geração ad-hoc).
 
-## Modelo de dados
+## Data Models
 
 ### Alterações mínimas
 
@@ -152,9 +189,9 @@ alteração no existente).
 Adicionar `UserPublicOrganRole` para auditar quem virou gestor de que
 organ. Já auditamos `UserClinicRole`; padrão simétrico.
 
-## Autenticação e autorização
+## Components and Interfaces
 
-### Fluxo de login (Cognito + claim)
+### Autenticação e autorização — fluxo de login (Cognito + claim)
 
 ```
 Frontend                Cognito              Lambda pre-token
@@ -236,6 +273,8 @@ implicitamente por `_tenantService.GetCurrentPublicOrganId()`.
 | `GET /api/prefeitura/absences?from&to&type?` | Ausências e atrasos | 60s Redis | Atrasos + Ausências |
 | `GET /api/prefeitura/history?from&to&type?&search?&page&pageSize` | Timeline paginada | Nenhum | Histórico |
 | `GET /api/prefeitura/realtime` | Snapshot ao vivo | 15s Redis | Realtime + TV |
+| `POST /api/prefeitura/absences/{id}/notify-os` | Alert criado | Nenhum (escrita) | Ausências → modal "Acionar OS" |
+| `GET /api/prefeitura/reports/{type}/export?format=pdf|xlsx&<filtros>` | Binário PDF/Excel | Nenhum (dinâmico) | Botões "Exportar PDF/Excel" |
 
 ### Semântica do filtro por organ
 
@@ -266,6 +305,209 @@ return await _attendanceRepo.GetByClinicIdsAndPeriodAsync(clinicIds, from, to);
 - `PrefeituraHistoryItem` — { timestamp, action, userId, userName, clinicName, details }
 - `PrefeituraHistoryPage` — { items, page, pageSize, totalCount, totalPages }
 - `PrefeituraRealtimeResponse` — { clinics: [{ clinicId, name, presentCount, expectedCount, alertLevel, absentUsers[] }], asOf: iso }
+
+## Acionar OS
+
+Fluxo: gestor vê uma linha de ausência em `PrefeituraAusencias.tsx`, clica em "Acionar OS", modal abre pedindo descrição opcional, submit envia POST → backend cria um `Alert` no Admin OS.
+
+### Endpoint
+
+```
+POST /api/prefeitura/absences/{absenceId}/notify-os
+
+Body:
+{
+  "message": "descrição do gestor (opcional)"
+}
+
+Response 201:
+{
+  "alertId": "guid",
+  "createdAt": "iso"
+}
+```
+
+Autorização:
+
+- Policy `GestorPublico`
+- Middleware valida que a `absenceId` pertence a uma clínica dentro do
+  escopo do gestor (organ + descendentes). Se não pertencer → 404
+  (mesmo comportamento do resto do portal — não vaza existência de
+  ausências de outros organs).
+
+Implementação:
+
+```csharp
+// PrefeituraController
+[HttpPost("absences/{absenceId:guid}/notify-os")]
+[Authorize(Policy = "GestorPublico")]
+[EnableRateLimiting("PrefeituraNotifyOs")]
+public async Task<IActionResult> NotifyOs(Guid absenceId, [FromBody] NotifyOsRequest request)
+{
+    var alertId = await _prefeituraService.NotifyOsAboutAbsenceAsync(absenceId, request.Message);
+    return Created($"/api/alerts/{alertId}", new { alertId, createdAt = DateTime.UtcNow });
+}
+
+// PrefeituraService — reusa AlertsService existente
+public async Task<Guid> NotifyOsAboutAbsenceAsync(Guid absenceId, string? message)
+{
+    var organId = _tenantService.GetCurrentPublicOrganId() ?? throw new UnauthorizedException();
+    var absence = await _attendanceRepo.GetAbsenceInScopeAsync(absenceId, scope);
+    if (absence is null) throw new NotFoundException("Absence not found in scope");
+
+    var alert = new Alert {
+        Id = Guid.NewGuid(),
+        Level = AlertLevel.Critical,
+        Module = "Prefeitura",
+        ClinicId = absence.ClinicId,
+        Title = "Ausência acionada pela Prefeitura",
+        Description = FormatDescription(absence, message),
+        IsResolved = false,
+        CreatedAt = DateTime.UtcNow,
+    };
+    await _alertsService.CreateAsync(alert);  // reusa serviço existente
+    return alert.Id;
+}
+```
+
+Rate limit dedicado `PrefeituraNotifyOs`: 5/min por gestor (evita spam
+de alertas contra a OS).
+
+O `AdminAlertas.tsx` do Admin OS já lista todos os alertas — nada muda
+lá. O gestor vê o alerta aparecer automaticamente do lado do Admin.
+
+## Exportação PDF / Excel
+
+### Bibliotecas escolhidas
+
+- **PDF: [QuestPDF](https://www.questpdf.com/)**
+  - License: MIT (uso comercial permitido)
+  - API declarativa (compose de documentos como JSX)
+  - Suporte a tabelas, imagens, headers/footers, gráficos via QuestPDF.Skia
+  - Testável (renderiza pra memória, comparação por hash)
+- **Excel: [ClosedXML](https://github.com/ClosedXML/ClosedXML)**
+  - License: MIT
+  - Alternativa preferida ao EPPlus (que virou comercial na v5+)
+  - API fluente, styling completo (bold, cor, borda, autofit)
+
+### Endpoint
+
+```
+GET /api/prefeitura/reports/{reportType}/export?format=pdf|xlsx&<filtros>
+
+reportType ∈ { kpis, frequency, atrasos, ausencias, history }
+format ∈ { pdf, xlsx }
+filtros: os mesmos aceitos pelo endpoint de leitura correspondente
+        (kpis usa from/to; frequency usa from/to/clinicId; etc.)
+
+Response:
+  Content-Type: application/pdf
+                | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  Content-Disposition: attachment; filename="<tipo>-<yyyy-MM-dd>.<ext>"
+  Body: binário
+```
+
+### Estrutura no backend
+
+```
+src/PlantonHub.Application/Reports/
+├── IReportGenerator.cs                # interface comum
+├── ReportType.cs                      # enum: Kpis, Frequency, Atrasos, Ausencias, History
+├── ReportFormat.cs                    # enum: Pdf, Xlsx
+├── ReportRequest.cs                   # DTO com filtros
+├── Pdf/
+│   ├── KpisPdfDocument.cs             # QuestPDF IDocument
+│   ├── FrequencyPdfDocument.cs
+│   ├── AtrasosPdfDocument.cs
+│   ├── AusenciasPdfDocument.cs
+│   ├── HistoryPdfDocument.cs
+│   └── SharedComponents.cs            # Header, Footer com logo 24p7
+└── Excel/
+    ├── FrequencyExcelWorkbook.cs
+    ├── AtrasosExcelWorkbook.cs
+    ├── AusenciasExcelWorkbook.cs
+    └── HistoryExcelWorkbook.cs
+        (kpis não tem versão Excel)
+```
+
+### Controller
+
+```csharp
+[HttpGet("reports/{reportType}/export")]
+[Authorize(Policy = "GestorPublico")]
+[EnableRateLimiting("PrefeituraExport")]
+public async Task<IActionResult> ExportReport(
+    string reportType,
+    [FromQuery] string format,
+    [FromQuery] DateTime? from,
+    [FromQuery] DateTime? to,
+    [FromQuery] Guid? clinicId,
+    [FromQuery] string? type,
+    [FromQuery] string? search)
+{
+    if (!Enum.TryParse<ReportType>(reportType, true, out var rt))
+        return BadRequest($"Invalid reportType: {reportType}");
+    if (!Enum.TryParse<ReportFormat>(format, true, out var rf))
+        return BadRequest($"Invalid format: {format}");
+
+    var request = new ReportRequest {
+        Type = rt, Format = rf,
+        From = from, To = to, ClinicId = clinicId,
+        Filter = type, Search = search,
+    };
+
+    var (bytes, contentType, filename) = await _reportService.GenerateAsync(request);
+    return File(bytes, contentType, filename);
+}
+```
+
+Rate limit `PrefeituraExport`: 10/min por gestor.
+
+### Notas de implementação
+
+- Documentos QuestPDF são declarativos; usar composition pattern com
+  `SharedComponents` (header/footer com logo 24p7) para reduzir
+  duplicação
+- Filtros aplicados são impressos no header do PDF/Excel (transparência
+  ao imprimir/enviar por email)
+- Tamanho máximo aceitável do binário: 5MB antes de sinalizar como
+  "muito grande, use filtros". Se ultrapassar, retornar 413 com
+  mensagem em pt-BR
+- Sem cache — cada geração é ad-hoc. Se performance apertar, adicionar
+  cache por chave `(reportType, format, hashDosFiltros)` com TTL curto
+  (Sprint 8)
+
+### Frontend: download autenticado
+
+```typescript
+// prefeituraApi.ts
+export async function downloadReport(
+  reportType: ReportType,
+  format: 'pdf' | 'xlsx',
+  filters: Record<string, string>,
+): Promise<void> {
+  const params = new URLSearchParams({ format, ...filters }).toString();
+  const response = await axiosInstance.get(
+    `/prefeitura/reports/${reportType}/export?${params}`,
+    { responseType: 'blob' },
+  );
+
+  const contentDisposition = response.headers['content-disposition'] ?? '';
+  const filename = /filename="([^"]+)"/.exec(contentDisposition)?.[1] ?? 'relatorio';
+
+  const url = URL.createObjectURL(response.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+```
+
+Padrão de blob + `<a download>` porque `<a href>` direto não passa o
+Bearer token.
 
 ## Frontend
 
@@ -448,6 +690,101 @@ Sem invalidação cirúrgica — tudo com TTL curto, aceita staleness.
 Fallback Redis: se cair, o `RedisCacheService` (fail-open já existente)
 faz miss e a query vai direto no Postgres. Sem impacto além de
 latência.
+
+## Error Handling
+
+- **Gestor sem organ atribuído** — endpoint retorna 403 com corpo
+  `{ "code": "NO_ORGAN_CONTEXT" }`. Frontend mostra tela de "conta
+  não configurada, contate o admin".
+- **Ausência fora de scope no Acionar OS** — 404 (não vazamos que o
+  recurso existe em outro organ).
+- **Rate limit atingido** — 429 com header `Retry-After` em segundos.
+- **Cognito Lambda offline** — falha graciosa via DB fallback do
+  middleware; nenhuma request é rejeitada.
+- **Redis offline** — falha graciosa via `RedisCacheService` (fail-open
+  existente); requests batem no DB direto, mais lentas mas funcionais.
+- **Exports > 5MB** — 413 com mensagem em pt-BR pedindo pra reduzir
+  filtros. Não retorna binário parcial.
+- **PDF generation crash** — try/catch no `ReportService`, retorna 500
+  com mensagem genérica + log estruturado da causa (não expõe stack
+  trace ao cliente).
+
+## Testing Strategy
+
+Backend (paridade com Admin OS):
+
+- **Unit tests** (`PlantonHub.UnitTests/Prefeitura/`): ~62 testes
+  cobrindo `PrefeituraService`, `TenantService`, middleware, policy
+  e `ReportService`.
+- **Property tests** (`PlantonHub.PropertyTests/Prefeitura/`):
+  5 propriedades — isolamento por organ, hierarquia recursiva,
+  idempotência de agregações, geração determinística de PDF/Excel
+  para mesmos inputs.
+- **Integration tests** (`PlantonHub.IntegrationTests/Prefeitura/`):
+  10 cenários com Testcontainers + Cognito real, incluindo happy
+  path completo (login → dashboard → export PDF → acionar OS).
+
+Frontend:
+
+- **Vitest**: 12 arquivos, ~215 testes. Um por página + modal
+  AcionarOs + helpers de download.
+- **Playwright**: `prefeitura-flows.spec.ts` com 9 smokes +
+  `prefeitura-tv.spec.ts` com 3 testes de polling.
+
+Performance:
+
+- **k6**: `prefeitura-smoke.js` reusa infra existente, mira em p95 <
+  500ms para reads e p95 < 3000ms para exports (geração de binário
+  é mais lenta).
+
+## Correctness Properties
+
+As 5 propriedades formais que o `PlantonHub.PropertyTests/Prefeitura/`
+deve validar via FsCheck.
+
+### Property 1: Isolamento por organ
+
+Dado o token de `gestor(A)`, nenhuma response de qualquer endpoint
+contém dados vinculados a organs fora do scope de A (root + descendentes
+transitivos de A). Verificado via `fast-check` que gera dois organs
+não relacionados, seed em ambos, autentica como gestor(A) e assere
+que zero dados de B aparecem em qualquer endpoint.
+
+**Validates: Requirements 3.1, 3.3**
+
+### Property 2: Hierarquia recursiva
+
+Gestor(root) vê união dos dados de root + descendentes transitivos.
+Gestor(child) vê apenas o child. Se `child` é descendente de `root`,
+então `data(gestor(root)) ⊇ data(gestor(child))`. Se `A` e `B` não
+compartilham ancestral, então `data(gestor(A)) ∩ data(gestor(B)) = ∅`.
+
+**Validates: Requirements 3.2, 1.9**
+
+### Property 3: Idempotência de agregações
+
+Para mesmos inputs `(organId, from, to)`, duas chamadas ao
+`GET /dashboard`, `GET /kpis` ou `GET /frequency` retornam o mesmo
+output. Independente de cache quente/frio ou paralelismo.
+
+**Validates: Requirements 2.1, 2.2, 2.5**
+
+### Property 4: Determinismo do PDF
+
+Para mesmos inputs (mesmo `reportType`, mesmos filtros, mesmo scope),
+o mesmo binário PDF é gerado. Comparação por SHA256 do output.
+Permite cache futuro pelo hash dos inputs e detecta regressões em
+templates que geram output diferente.
+
+**Validates: Requirements 11.1, 11.3**
+
+### Property 5: Determinismo do Excel
+
+Mesma propriedade que Property 4 para `.xlsx`. Comparação
+estrutural — como xlsx é ZIP, comparamos o hash de cada entry após
+descompactar (timestamps embutidos são normalizados).
+
+**Validates: Requirements 11.1, 11.4**
 
 ## Riscos operacionais
 
