@@ -122,6 +122,7 @@ builder.Services.AddScoped<IAlertService, AlertService>();
 builder.Services.AddScoped<IAvailabilityService, AvailabilityService>();
 builder.Services.AddScoped<IManagementReportService, ManagementReportService>();
 builder.Services.AddScoped<IPrefeituraService, PrefeituraService>();
+builder.Services.AddScoped<IGestorService, GestorService>();
 
 // Portal Prefeitura → Exportação PDF/Excel (Sprint 7B.2).
 // 9 generators (5 PDF + 4 Excel) registrados como IReportGenerator;

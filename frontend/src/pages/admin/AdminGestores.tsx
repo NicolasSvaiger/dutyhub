@@ -4,6 +4,7 @@
  */
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { contractsApi } from '../../api/contractsApi';
+import { gestoresApi, type GestorResponse } from '../../api/gestoresApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Contract } from '../../types';
 
@@ -62,7 +63,6 @@ interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; 
 export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
   const { user: authUser } = useAuth();
   const isAdminGlobal = (authUser?.roles ?? []).includes('AdminGlobal');
-  const canManage = isAdminGlobal || (authUser?.roles ?? []).includes('AdminClinica');
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,16 +87,58 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
     return contracts.find(c => c.id === fContractId)?.clinics ?? [];
   }, [contracts, fContractId]);
 
+  // Gestores vindos do backend (UserPublicOrganRole). Recarrega após
+  // cada mutação (create, toggle, remove) pra manter a UI consistente
+  // com o servidor sem otimismo local.
+  const [gestoresData, setGestoresData] = useState<GestorResponse[]>([]);
+
+  async function loadAll() {
+    setLoading(true);
+    try {
+      const [contractsRes, gestoresRes] = await Promise.all([
+        contractsApi.getAll().catch(() => [] as Contract[]),
+        gestoresApi.getAll().catch(() => [] as GestorResponse[]),
+      ]);
+      setContracts(Array.isArray(contractsRes) ? contractsRes : []);
+      setGestoresData(Array.isArray(gestoresRes) ? gestoresRes : []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    contractsApi.getAll()
-      .then(c => setContracts(Array.isArray(c) ? c : []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    loadAll();
   }, []);
 
-  // Gestores da prefeitura virão de UserPublicOrganRole (Sprint 7).
-  // Por enquanto a lista é sempre vazia — não confundir com AdminClinica (usuários da OS).
-  const gestores: GestorView[] = [];
+  // Deriva GestorView (formato interno da UI) a partir do GestorResponse
+  // do backend + Contract já buscado. Mantém compat com a estrutura de
+  // tabela existente (avatar colorido, contractNumber, chips de UPAs
+  // derivadas do contract vinculado ao mesmo publicOrganId).
+  const gestores: GestorView[] = useMemo(() => gestoresData.map(g => {
+    const contract = contracts.find(c => c.publicOrganId === g.publicOrganId);
+    const initials = g.name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(p => p[0]?.toUpperCase() ?? '')
+      .join('');
+    // Cor determinística por hash simples do id — mantém o avatar
+    // estável entre renders sem persistir no backend.
+    const palette = ['#6366f1', '#2DBFB8', '#8b5cf6', '#f97316', '#22c55e', '#f59e0b', '#6b7280', '#ef4444'];
+    const hash = Array.from(g.id).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const color = palette[hash % palette.length];
+    return {
+      id: g.id,
+      name: g.name,
+      initials: initials || '—',
+      email: g.email,
+      color,
+      orgao: g.publicOrganName || '—',
+      contractNumber: contract?.contractNumber ?? '—',
+      clinics: (contract?.clinics ?? []).map(c => c.name),
+      isActive: g.isActive,
+    };
+  }), [gestoresData, contracts]);
 
   const uniqueOrgaos = useMemo(() => [...new Set(gestores.map(g => g.orgao).filter(o => o !== '—'))], [gestores]);
 
@@ -119,6 +161,8 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
     setTimeout(() => setToast(''), 3500);
   }
 
+  const [saving, setSaving] = useState(false);
+
   function openDrawer() {
     setFName(''); setFEmail(''); setFPhone(''); setFCargo('');
     setFContractId(contracts[0]?.id ?? '');
@@ -131,11 +175,65 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
     if (!fContractId) { showToast('Selecione um contrato.', true); return; }
     if (fSelectedClinicIds.length === 0) { showToast('Selecione ao menos uma UPA.', true); return; }
 
-    // Gestores da prefeitura serão criados via endpoint próprio (/public-organ-users)
-    // quando o painel /prefeitura for implementado no Sprint 7.
-    // Por ora registramos a intenção e exibimos confirmação.
-    showToast(`Convite para ${fName.trim()} será enviado quando o módulo /prefeitura estiver ativo.`);
-    setDrawerOpen(false);
+    // Do contrato selecionado, extraímos o publicOrganId — que é o que
+    // o backend vincula ao gestor. UPAs específicas + nível de acesso
+    // são metadata de UI hoje (o backend dá acesso ao organ inteiro).
+    const contract = contracts.find(c => c.id === fContractId);
+    if (!contract?.publicOrganId) {
+      showToast('Contrato sem órgão público vinculado.', true);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await gestoresApi.create({
+        name: fName.trim(),
+        email: fEmail.trim(),
+        phone: fPhone.trim() || undefined,
+        cargo: fCargo.trim() || undefined,
+        publicOrganId: contract.publicOrganId,
+      });
+      showToast(`Convite enviado para ${fEmail.trim()}. O gestor receberá senha temporária por e-mail.`);
+      setDrawerOpen(false);
+      // Refetch: gestor recém-criado precisa aparecer imediatamente na tabela.
+      await loadAll();
+    } catch (err: unknown) {
+      const raw = err instanceof Error ? err.message : '';
+      if (raw.includes('409') || raw.toLowerCase().includes('conflict')) {
+        showToast('Já existe um usuário com esse e-mail.', true);
+      } else if (raw.includes('403') || raw.toLowerCase().includes('forbidden')) {
+        showToast('Somente AdminGlobal pode cadastrar gestores.', true);
+      } else {
+        showToast('Falha ao cadastrar gestor. Tente novamente.', true);
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleGestorStatus(gestor: GestorView) {
+    if (!isAdminGlobal) return;
+    try {
+      await gestoresApi.toggleStatus(gestor.id);
+      showToast(`Status de ${gestor.name} atualizado.`);
+      await loadAll();
+    } catch {
+      showToast('Falha ao atualizar status.', true);
+    }
+  }
+
+  async function revogarGestor(gestor: GestorView) {
+    if (!isAdminGlobal) return;
+    if (!window.confirm(`Revogar acesso de ${gestor.name}? O vínculo com o órgão será removido; o cadastro do usuário é preservado por LGPD.`)) {
+      return;
+    }
+    try {
+      await gestoresApi.remove(gestor.id);
+      showToast(`Acesso de ${gestor.name} revogado.`);
+      await loadAll();
+    } catch {
+      showToast('Falha ao revogar acesso.', true);
+    }
   }
 
   const ThemeIcon = dark
@@ -234,7 +332,7 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
                   <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--muted)', fontWeight: 700 }}>Carregando...</td></tr>
                 ) : filtered.length === 0 ? (
                   <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--muted)', fontWeight: 700 }}>
-                    Nenhum gestor cadastrado. Os gestores das prefeituras serão cadastrados aqui após a implementação do módulo /prefeitura.
+                    Nenhum gestor cadastrado. {isAdminGlobal ? 'Clique em "Novo gestor" para começar.' : 'A OS ainda não cadastrou gestores para os contratos.'}
                   </td></tr>
                 ) : filtered.map(g => (
                   <tr key={g.id}>
@@ -268,18 +366,26 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
                         <button className="gest-act-btn" title="Ver detalhes" onClick={() => showToast(`Detalhes de ${g.name} — em breve`)}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
-                        {/* Editar, reenviar, revogar — AdminGlobal e AdminClinica (só do seu escopo) */}
-                        {canManage && (
+                        {/* Toggle status + revogar — só AdminGlobal (cadastro exclusivo 24p7).
+                            Editar granular fica pra sprint futura — hoje só liga/desliga acesso. */}
+                        {isAdminGlobal && (
                           <>
-                            <button className="gest-act-btn" title="Editar" onClick={() => showToast('Editar gestor — em breve')}>
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            <button
+                              className="gest-act-btn"
+                              title={g.isActive ? 'Desativar gestor' : 'Ativar gestor'}
+                              onClick={() => toggleGestorStatus(g)}
+                            >
+                              {g.isActive ? (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="16" cy="12" r="3"/></svg>
+                              ) : (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="5" width="22" height="14" rx="7"/><circle cx="8" cy="12" r="3"/></svg>
+                              )}
                             </button>
-                            {!g.isActive && (
-                              <button className="gest-act-btn" title="Reenviar convite" onClick={() => showToast(`Convite reenviado para ${g.name}`)}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                              </button>
-                            )}
-                            <button className="gest-act-btn gest-act-danger" title="Revogar acesso" onClick={() => showToast(`Acesso de ${g.name} revogado`)}>
+                            <button
+                              className="gest-act-btn gest-act-danger"
+                              title="Revogar acesso"
+                              onClick={() => revogarGestor(g)}
+                            >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                             </button>
                           </>
@@ -387,9 +493,13 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
           </div>
         </div>
         <div className="gest-drawer-footer">
-          <button className="gest-btn-cancelar" onClick={() => setDrawerOpen(false)}>Cancelar</button>
-          <button className="gest-btn-salvar" disabled={!fName.trim() || !fEmail.trim() || !fContractId || fSelectedClinicIds.length === 0} onClick={salvarGestor}>
-            Salvar e enviar convite
+          <button className="gest-btn-cancelar" onClick={() => setDrawerOpen(false)} disabled={saving}>Cancelar</button>
+          <button
+            className="gest-btn-salvar"
+            disabled={saving || !fName.trim() || !fEmail.trim() || !fContractId || fSelectedClinicIds.length === 0}
+            onClick={salvarGestor}
+          >
+            {saving ? 'Enviando…' : 'Salvar e enviar convite'}
           </button>
         </div>
       </div>

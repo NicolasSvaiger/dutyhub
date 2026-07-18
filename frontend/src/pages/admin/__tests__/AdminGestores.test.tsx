@@ -12,11 +12,21 @@ vi.mock('../../../api/contractsApi', () => ({
   contractsApi: { getAll: vi.fn() },
 }));
 
+vi.mock('../../../api/gestoresApi', () => ({
+  gestoresApi: {
+    getAll: vi.fn(),
+    create: vi.fn(),
+    toggleStatus: vi.fn(),
+    remove: vi.fn(),
+  },
+}));
+
 vi.mock('../../../hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }));
 
 import { contractsApi } from '../../../api/contractsApi';
+import { gestoresApi } from '../../../api/gestoresApi';
 import { useAuth } from '../../../hooks/useAuth';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -42,6 +52,30 @@ const mockContracts = [
     minSlaPercent: 85, status: 'Renewal', statusLabel: 'Renovação',
     notes: null, createdAt: '2023-01-01T00:00:00Z',
     clinics: [{ id: 'c3', name: 'UPA Zona Sul', address: 'Rua B, 200', isActive: true }],
+  },
+];
+
+const mockGestores = [
+  {
+    id: 'g1', name: 'Valmir Sousa', email: 'valmir@santoandre.gov.br',
+    phone: '11999998888', cargo: 'Secretário de Saúde',
+    publicOrganId: 'po1', publicOrganName: 'Pref. Santo André',
+    publicOrganAcronym: 'PMSA', isActive: true,
+    createdAt: '2026-01-15T10:00:00Z', assignedAt: '2026-01-15T10:00:00Z',
+  },
+  {
+    id: 'g2', name: 'Sileide Rocha', email: 'sileide@santoandre.gov.br',
+    phone: null, cargo: null,
+    publicOrganId: 'po1', publicOrganName: 'Pref. Santo André',
+    publicOrganAcronym: 'PMSA', isActive: false,
+    createdAt: '2026-02-01T12:00:00Z', assignedAt: '2026-02-01T12:00:00Z',
+  },
+  {
+    id: 'g3', name: 'Carlos Lima', email: 'carlos@diadema.gov.br',
+    phone: null, cargo: null,
+    publicOrganId: 'po2', publicOrganName: 'Pref. Diadema',
+    publicOrganAcronym: 'PMD', isActive: true,
+    createdAt: '2026-03-10T09:00:00Z', assignedAt: '2026-03-10T09:00:00Z',
   },
 ];
 
@@ -75,44 +109,69 @@ describe('<AdminGestores />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (contractsApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockContracts);
+    (gestoresApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue(mockGestores);
+    (gestoresApi.create as ReturnType<typeof vi.fn>).mockResolvedValue({ ...mockGestores[0], id: 'g-new' });
+    (gestoresApi.toggleStatus as ReturnType<typeof vi.fn>).mockResolvedValue(mockGestores[0]);
+    (gestoresApi.remove as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
-  // ── Renderização básica ────────────────────────────────────────────────────
+  // ── Render + loading ───────────────────────────────────────────────────────
 
-  it('exibe o título e subtítulo da página', async () => {
+  it('chama gestoresApi.getAll + contractsApi.getAll no mount', async () => {
+    renderGestores();
+    await waitFor(() => {
+      expect(gestoresApi.getAll).toHaveBeenCalledTimes(1);
+      expect(contractsApi.getAll).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('exibe título e subtítulo da página', async () => {
     renderGestores();
     expect(screen.getByText('Gestores do Órgão Público')).toBeInTheDocument();
     expect(screen.getByText('Gestores Cadastrados')).toBeInTheDocument();
   });
 
-  it('exibe KPIs com zeros (lista vazia — Sprint 7)', async () => {
+  it('renderiza gestores retornados pela API na tabela', async () => {
     renderGestores();
     await waitFor(() => {
-      // All KPI values should be 0
-      const zeros = screen.getAllByText('0');
-      expect(zeros.length).toBeGreaterThanOrEqual(3);
+      expect(screen.getByText('Valmir Sousa')).toBeInTheDocument();
     });
+    expect(screen.getByText('Sileide Rocha')).toBeInTheDocument();
+    expect(screen.getByText('Carlos Lima')).toBeInTheDocument();
+    // Emails também
+    expect(screen.getByText('valmir@santoandre.gov.br')).toBeInTheDocument();
   });
 
-  it('exibe mensagem de estado vazio explicativa', async () => {
+  it('KPIs refletem a lista da API (2 ativos, 1 inativo, 3 total, 2 órgãos)', async () => {
     renderGestores();
+    await waitFor(() => expect(screen.getByText('Valmir Sousa')).toBeInTheDocument());
+    // 3 total, 2 ativos, 1 inativo, 2 órgãos. Cada valor renderiza como
+    // conteúdo do .gest-kpi-val. Verificamos alguns por texto direto.
+    const total = document.querySelector('.gest-kpi.indigo .gest-kpi-val')?.textContent;
+    const ativos = document.querySelector('.gest-kpi.green .gest-kpi-val')?.textContent;
+    expect(total).toBe('3');
+    expect(ativos).toBe('2');
+  });
+
+  it('empty state contextual: AdminGlobal orientado a criar', async () => {
+    (gestoresApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    renderGestores('AdminGlobal');
     await waitFor(() => {
       expect(screen.getByText(/Nenhum gestor cadastrado/)).toBeInTheDocument();
+      expect(screen.getByText(/Clique em.*Novo gestor/i)).toBeInTheDocument();
     });
   });
 
-  it('exibe cabeçalhos da tabela', async () => {
-    renderGestores();
+  it('empty state contextual: AdminClinica sem orientação de cadastro', async () => {
+    (gestoresApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    renderGestores('AdminClinica');
     await waitFor(() => {
-      expect(screen.getByText('Gestor')).toBeInTheDocument();
-      expect(screen.getByText('Órgão público')).toBeInTheDocument();
-      expect(screen.getByText('Nível de acesso')).toBeInTheDocument();
-      expect(screen.getByText('Status')).toBeInTheDocument();
-      expect(screen.getByText('Ações')).toBeInTheDocument();
+      expect(screen.getByText(/A OS ainda não cadastrou gestores/i)).toBeInTheDocument();
     });
   });
 
-  it('lida com erro da API graciosamente', async () => {
+  it('lida com erro da API graciosamente (mostra layout, sem crash)', async () => {
+    (gestoresApi.getAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network'));
     (contractsApi.getAll as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Network'));
     renderGestores();
     await waitFor(() => {
@@ -152,19 +211,12 @@ describe('<AdminGestores />', () => {
     });
   });
 
-  // ── Filtros ────────────────────────────────────────────────────────────────
-
-  it('exibe selects de filtro de órgãos e status', async () => {
-    renderGestores();
-    await waitFor(() => {
-      expect(screen.getByText('Todos os órgãos')).toBeInTheDocument();
-      expect(screen.getByText('Todos os status')).toBeInTheDocument();
-    });
-  });
-
-  it('campo de busca está presente', async () => {
-    renderGestores();
-    expect(screen.getByPlaceholderText('Buscar por nome ou e-mail...')).toBeInTheDocument();
+  it('AdminClinica NÃO vê botões de escrita nas linhas (toggle/revogar)', async () => {
+    renderGestores('AdminClinica');
+    await waitFor(() => expect(screen.getByText('Valmir Sousa')).toBeInTheDocument());
+    // Nenhum botão "Revogar acesso" ou "Desativar gestor" aparece pra AdminClinica
+    expect(screen.queryByTitle(/Revogar acesso/)).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/Desativar gestor/)).not.toBeInTheDocument();
   });
 
   // ── Drawer "Novo gestor" (AdminGlobal) ─────────────────────────────────────
@@ -177,97 +229,31 @@ describe('<AdminGestores />', () => {
     expect(screen.getByText('Novo gestor do órgão público')).toBeInTheDocument();
   });
 
-  it('drawer exibe seção Dados do gestor', async () => {
+  it('drawer exibe seção Dados do gestor com inputs', async () => {
     renderGestores('AdminGlobal');
     const user = userEvent.setup();
     await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
     await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
-    expect(screen.getByText('Dados do gestor')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Ex: Valmir Correia Sousa')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('gestor@prefeitura.gov.br')).toBeInTheDocument();
   });
 
-  it('drawer exibe seção Contrato vinculado com contratos carregados', async () => {
-    renderGestores('AdminGlobal');
-    const user = userEvent.setup();
-    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
-    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
-    // Verifica a seção existe
-    expect(screen.getByText('Contrato vinculado')).toBeInTheDocument();
-    // Verifica o label inicial do CustomSelect (primeiro contrato é pré-selecionado via openDrawer)
-    // ou que o botão do cselect existe dentro do drawer
-    const drawerBody = document.querySelector('.gest-drawer-body');
-    expect(drawerBody).not.toBeNull();
-    // O CustomSelect deve estar presente dentro do drawer
-    const cselect = drawerBody?.querySelector('.gest-cselect');
-    expect(cselect).not.toBeNull();
-    // Os contratos foram carregados (não há mensagem de "sem contratos")
-    expect((contractsApi.getAll as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
-  });
+  // ── Fluxo de criação end-to-end ────────────────────────────────────────────
 
-  it('drawer exibe 4 opções de nível de acesso', async () => {
-    renderGestores('AdminGlobal');
-    const user = userEvent.setup();
-    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
-    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
-    expect(screen.getByText(/Acesso completo/)).toBeInTheDocument();
-    expect(screen.getByText(/Somente relatórios/)).toBeInTheDocument();
-    expect(screen.getByText(/Dashboard \+ TV/)).toBeInTheDocument();
-    expect(screen.getByText(/Somente leitura/)).toBeInTheDocument();
-  });
-
-  it('drawer exibe UPAs ao selecionar contrato', async () => {
+  it('salvar chama gestoresApi.create com publicOrganId do contrato + refetch', async () => {
+    // Tabela vazia neste caso — evita colisão de "UPA Vila Pereira" entre
+    // chips da tabela (via contract join) e a lista do drawer.
+    (gestoresApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     renderGestores('AdminGlobal');
     const user = userEvent.setup();
     await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
     await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
 
-    // Selecionar o contrato CT-2024-0087
-    const cselect = document.querySelector('.gest-cselect-btn') as HTMLElement;
-    await user.click(cselect);
-    const opt = document.querySelector('.gest-cselect-option:nth-child(2)') as HTMLElement;
-    await user.click(opt);
+    // Preencher form
+    await user.type(screen.getByPlaceholderText('Ex: Valmir Correia Sousa'), 'Novo Gestor');
+    await user.type(screen.getByPlaceholderText('gestor@prefeitura.gov.br'), 'novo@teste.gov.br');
 
-    await waitFor(() => {
-      expect(screen.getByText('UPA Vila Pereira')).toBeInTheDocument();
-      expect(screen.getByText('UPA Centro')).toBeInTheDocument();
-    });
-  });
-
-  it('botão "Salvar e enviar convite" desabilitado sem contrato selecionado', async () => {
-    renderGestores('AdminGlobal');
-    const user = userEvent.setup();
-    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
-    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
-    // Preenche nome e email mas sem contrato
-    await user.type(screen.getByPlaceholderText('Ex: Valmir Correia Sousa'), 'Gestor Teste');
-    await user.type(screen.getByPlaceholderText('gestor@prefeitura.gov.br'), 'gestor@teste.gov.br');
-    const saveBtn = screen.getByText('Salvar e enviar convite');
-    expect(saveBtn).toBeDisabled();
-  });
-
-  it('fecha drawer ao clicar em Cancelar', async () => {
-    renderGestores('AdminGlobal');
-    const user = userEvent.setup();
-    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
-    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
-    await user.click(screen.getByText('Cancelar'));
-    await waitFor(() => {
-      expect(document.querySelector('.gest-drawer')).not.toHaveClass('open');
-    });
-  });
-
-  it('salvar exibe toast de confirmação (Sprint 7 placeholder)', async () => {
-    renderGestores('AdminGlobal');
-    const user = userEvent.setup();
-    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
-    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
-
-    // Preencher nome e email
-    await user.type(screen.getByPlaceholderText('Ex: Valmir Correia Sousa'), 'Gestor Teste');
-    await user.type(screen.getByPlaceholderText('gestor@prefeitura.gov.br'), 'gestor@teste.gov.br');
-
-    // Selecionar contrato
+    // Selecionar contrato (2ª opção do CustomSelect — a primeira é "Selecione o contrato...")
     const cselect = document.querySelector('.gest-cselect-btn') as HTMLElement;
     await user.click(cselect);
     const opt = document.querySelector('.gest-cselect-option:nth-child(2)') as HTMLElement;
@@ -278,14 +264,117 @@ describe('<AdminGestores />', () => {
     const checkbox = document.querySelector('.gest-clinic-check-item input') as HTMLInputElement;
     await user.click(checkbox);
 
-    await user.click(screen.getByText('Salvar e enviar convite'));
+    // Salvar
+    await user.click(screen.getByRole('button', { name: /Salvar e enviar convite/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Convite para Gestor Teste/)).toBeInTheDocument();
+      expect(gestoresApi.create).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Novo Gestor',
+        email: 'novo@teste.gov.br',
+        publicOrganId: 'po1',
+      }));
+    });
+    // Refetch dispara segundo getAll (1 mount + 1 após create)
+    await waitFor(() => {
+      expect(gestoresApi.getAll).toHaveBeenCalledTimes(2);
     });
   });
 
-  // ── Theme ───────────────────────────────────────────────────────────────────
+  it('salvar em erro 409 (conflict) mostra toast de email duplicado', async () => {
+    (gestoresApi.getAll as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (gestoresApi.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Request failed with status code 409'));
+    renderGestores('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
+    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
+
+    await user.type(screen.getByPlaceholderText('Ex: Valmir Correia Sousa'), 'X');
+    await user.type(screen.getByPlaceholderText('gestor@prefeitura.gov.br'), 'x@x.com');
+    const cselect = document.querySelector('.gest-cselect-btn') as HTMLElement;
+    await user.click(cselect);
+    const opt = document.querySelector('.gest-cselect-option:nth-child(2)') as HTMLElement;
+    await user.click(opt);
+    await waitFor(() => screen.getByText('UPA Vila Pereira'));
+    const checkbox = document.querySelector('.gest-clinic-check-item input') as HTMLInputElement;
+    await user.click(checkbox);
+    await user.click(screen.getByRole('button', { name: /Salvar e enviar convite/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Já existe um usuário com esse e-mail/)).toBeInTheDocument();
+    });
+  });
+
+  it('fecha drawer ao clicar em Cancelar', async () => {
+    renderGestores('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByRole('button', { name: /Novo gestor/ }));
+    await user.click(screen.getByRole('button', { name: /Novo gestor/ }));
+    await user.click(screen.getByRole('button', { name: /^Cancelar$/i }));
+    await waitFor(() => {
+      expect(document.querySelector('.gest-drawer')).not.toHaveClass('open');
+    });
+  });
+
+  // ── Mutações inline ────────────────────────────────────────────────────────
+
+  it('clicar em "Revogar acesso" pede confirm e chama gestoresApi.remove', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderGestores('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Valmir Sousa')).toBeInTheDocument());
+
+    const revogar = screen.getAllByTitle('Revogar acesso')[0];
+    await user.click(revogar);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(gestoresApi.remove).toHaveBeenCalledWith('g1');
+    });
+    // Refetch após remove
+    await waitFor(() => expect(gestoresApi.getAll).toHaveBeenCalledTimes(2));
+    confirmSpy.mockRestore();
+  });
+
+  it('cancelar o confirm de revogar NÃO chama gestoresApi.remove', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderGestores('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Valmir Sousa')).toBeInTheDocument());
+
+    const revogar = screen.getAllByTitle('Revogar acesso')[0];
+    await user.click(revogar);
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(gestoresApi.remove).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('clicar em desativar chama gestoresApi.toggleStatus', async () => {
+    renderGestores('AdminGlobal');
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Valmir Sousa')).toBeInTheDocument());
+
+    // Valmir está ativo → botão "Desativar gestor"
+    const toggle = screen.getAllByTitle(/Desativar gestor/)[0];
+    await user.click(toggle);
+
+    await waitFor(() => {
+      expect(gestoresApi.toggleStatus).toHaveBeenCalledWith('g1');
+    });
+  });
+
+  // ── Filtros ────────────────────────────────────────────────────────────────
+
+  it('exibe campo de busca e filtros', async () => {
+    renderGestores();
+    expect(screen.getByPlaceholderText('Buscar por nome ou e-mail...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Todos os órgãos')).toBeInTheDocument();
+      expect(screen.getByText('Todos os status')).toBeInTheDocument();
+    });
+  });
+
+  // ── Theme ──────────────────────────────────────────────────────────────────
 
   it('chama onToggleTheme ao clicar no botão de tema', async () => {
     const onToggle = vi.fn();

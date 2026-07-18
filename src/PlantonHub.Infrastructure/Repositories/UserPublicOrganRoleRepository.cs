@@ -32,6 +32,7 @@ public class UserPublicOrganRoleRepository : IUserPublicOrganRoleRepository
         return await _context.UserPublicOrganRoles
             .AsNoTracking()
             .Include(r => r.PublicOrgan)  // middleware precisa do organ pra popular escopo
+            .Include(r => r.User)          // GestorService.Get* usa User pra mapear response
             .Where(r => r.UserId == userId)
             .ToListAsync(ct);
     }
@@ -42,7 +43,8 @@ public class UserPublicOrganRoleRepository : IUserPublicOrganRoleRepository
     {
         return await _context.UserPublicOrganRoles
             .AsNoTracking()
-            .Include(r => r.User)  // caso de uso: listar gestores desse organ
+            .Include(r => r.User)         // listar gestores desse organ
+            .Include(r => r.PublicOrgan)  // GestorService precisa do nome pra Response
             .Where(r => r.PublicOrganId == publicOrganId)
             .ToListAsync(ct);
     }

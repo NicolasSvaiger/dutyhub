@@ -52,6 +52,11 @@ USERS=(
   "medico@plantonhub.com|Dr. Médico Teste|Teste@123|Medico"
   "enfermeiro@plantonhub.com|Enfermeiro Teste|Teste@123|Enfermeiro"
   "adminclinica@plantonhub.com|Admin Clínica Teste|Teste@123|AdminClinica"
+  # Sprint 7A — Portal Prefeitura. Necessário para E2E prefeitura-flows/tv.
+  # DatabaseSeeder.SeedGestorPublicoAsync cria o registro no Postgres e vincula
+  # à Prefeitura de Santo André via UserPublicOrganRole; este user aqui é o
+  # lado Cognito equivalente (login SDK).
+  "gestor@plantonhub.com|Gestor Prefeitura Teste|Teste@123|GestorPublico"
 )
 
 create_user() {

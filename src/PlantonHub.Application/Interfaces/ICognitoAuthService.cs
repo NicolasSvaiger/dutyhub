@@ -19,6 +19,37 @@ public interface ICognitoAuthService
     /// No password is set — CUSTOM_AUTH flow doesn't require one.
     /// </summary>
     Task EnsureUserExistsAsync(string email);
+
+    /// <summary>
+    /// Cria um novo usuário no Cognito com senha temporária aleatória e
+    /// deixa o Cognito enviar o email de convite (welcome + credenciais
+    /// temp). Usado no cadastro administrativo de gestores da Prefeitura
+    /// via Admin OS — o convidado troca a senha no primeiro login pelo
+    /// challenge <c>NEW_PASSWORD_REQUIRED</c> do Cognito.
+    ///
+    /// Idempotente: se o usuário já existe (<see cref="UsernameExistsException"/>
+    /// ou verificação prévia via AdminGetUser), a chamada retorna sem
+    /// exceção. Isso permite retry seguro em caso de falha parcial no
+    /// pipeline (ex: DB rollback deixou o Cognito em estado consistente).
+    ///
+    /// A senha temp é gerada com <c>RandomNumberGenerator</c> e nunca
+    /// retornada — o gestor recebe pelo email do Cognito e é obrigado a
+    /// trocar no primeiro acesso.
+    /// </summary>
+    /// <param name="email">Email do gestor (usado como Username e claim).</param>
+    /// <param name="name">Nome exibido (claim <c>name</c> do Cognito).</param>
+    Task CreateInvitedUserAsync(string email, string name);
+
+    /// <summary>
+    /// Remove o usuário do Cognito. Usado como compensação (rollback) quando
+    /// o cadastro no Postgres falha após a criação no Cognito ter sucesso,
+    /// e no fluxo administrativo de desativação definitiva (LGPD).
+    ///
+    /// Idempotente: <see cref="UserNotFoundException"/> é silenciosamente
+    /// ignorada — se o user já não existe, o efeito desejado já está
+    /// alcançado.
+    /// </summary>
+    Task DeleteUserAsync(string email);
 }
 
 public record CognitoAuthResult(

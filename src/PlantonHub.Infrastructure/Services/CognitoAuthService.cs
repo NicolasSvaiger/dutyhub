@@ -153,6 +153,124 @@ public class CognitoAuthService : ICognitoAuthService
         }
     }
 
+    public async Task CreateInvitedUserAsync(string email, string name)
+    {
+        using var client = new AmazonCognitoIdentityProviderClient(
+            Amazon.RegionEndpoint.GetBySystemName(_region));
+
+        // Idempotência: se o user já existe, retorna sem enviar novo convite
+        // pra evitar spam de emails em retries do fluxo administrativo.
+        try
+        {
+            await client.AdminGetUserAsync(new AdminGetUserRequest
+            {
+                UserPoolId = _userPoolId,
+                Username = email,
+            });
+            _logger.LogInformation("Cognito user already exists for invite: {Email}", email);
+            return;
+        }
+        catch (UserNotFoundException)
+        {
+            // Continua pro create — o path esperado no fluxo administrativo
+            // é criar um novo user.
+        }
+
+        // Senha temp aleatória — o Cognito exige senha temporária no fluxo
+        // com email invite. O user é obrigado a trocar no primeiro login
+        // (challenge NEW_PASSWORD_REQUIRED). A senha em si nunca é usada
+        // depois desse primeiro acesso.
+        var temporaryPassword = GenerateTemporaryPassword();
+
+        try
+        {
+            await client.AdminCreateUserAsync(new AdminCreateUserRequest
+            {
+                UserPoolId = _userPoolId,
+                Username = email,
+                TemporaryPassword = temporaryPassword,
+                UserAttributes = new List<AttributeType>
+                {
+                    new() { Name = "email", Value = email },
+                    new() { Name = "email_verified", Value = "true" },
+                    new() { Name = "name", Value = name },
+                },
+                // MessageAction default (não SUPPRESS) → Cognito envia
+                // o email de convite com a senha temporária. O template
+                // é configurável no console Cognito.
+                DesiredDeliveryMediums = new List<string> { "EMAIL" },
+            });
+
+            _logger.LogInformation("Created Cognito user with invite: {Email}", email);
+        }
+        catch (UsernameExistsException)
+        {
+            // Race condition: outro thread criou entre o AdminGetUser e o
+            // AdminCreateUser. Idempotência mantida — trata como sucesso.
+            _logger.LogInformation("Cognito user was created concurrently: {Email}", email);
+        }
+    }
+
+    public async Task DeleteUserAsync(string email)
+    {
+        using var client = new AmazonCognitoIdentityProviderClient(
+            Amazon.RegionEndpoint.GetBySystemName(_region));
+
+        try
+        {
+            await client.AdminDeleteUserAsync(new AdminDeleteUserRequest
+            {
+                UserPoolId = _userPoolId,
+                Username = email,
+            });
+            _logger.LogInformation("Deleted Cognito user: {Email}", email);
+        }
+        catch (UserNotFoundException)
+        {
+            // Idempotente — se o user já não existe, o objetivo já foi
+            // alcançado. Usado como compensating action no rollback do
+            // GestorService.CreateAsync quando o DB falha após o Cognito.
+            _logger.LogDebug("Cognito user already absent on delete: {Email}", email);
+        }
+    }
+
+    /// <summary>
+    /// Gera senha temporária que satisfaz a policy padrão do Cognito
+    /// (min 8, upper, lower, digit, symbol). A senha é usada uma única
+    /// vez e trocada no primeiro login via challenge NEW_PASSWORD_REQUIRED.
+    /// Combinamos entropia criptográfica com garantia dos requisitos.
+    /// </summary>
+    private static string GenerateTemporaryPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // sem I, O pra reduzir confusão visual
+        const string lower = "abcdefghijkmnpqrstuvwxyz"; // sem l, o
+        const string digits = "23456789";                 // sem 0, 1
+        const string symbols = "!@#$%&*?";
+        const string all = upper + lower + digits + symbols;
+
+        var buffer = new char[16];
+        // Garante pelo menos 1 de cada categoria — Cognito rejeita senha
+        // sem cada componente. Os 4 primeiros índices são "reservados";
+        // depois embaralhamos.
+        buffer[0] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
+        buffer[1] = lower[RandomNumberGenerator.GetInt32(lower.Length)];
+        buffer[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
+        buffer[3] = symbols[RandomNumberGenerator.GetInt32(symbols.Length)];
+        for (var i = 4; i < buffer.Length; i++)
+        {
+            buffer[i] = all[RandomNumberGenerator.GetInt32(all.Length)];
+        }
+
+        // Fisher-Yates shuffle com RNG criptográfica
+        for (var i = buffer.Length - 1; i > 0; i--)
+        {
+            var j = RandomNumberGenerator.GetInt32(i + 1);
+            (buffer[i], buffer[j]) = (buffer[j], buffer[i]);
+        }
+
+        return new string(buffer);
+    }
+
     /// <summary>
     /// Compute HMAC-SHA256 of the nonce using the shared secret.
     /// This proves to Cognito's VerifyAuthChallenge Lambda that we are the legitimate backend.
