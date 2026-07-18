@@ -27,9 +27,14 @@ public class TenantMiddleware
     // every request. TTL is short (10 min) so status/permission changes
     // propagate reasonably fast without needing an explicit invalidate.
     private static readonly ConcurrentDictionary<string, CachedIdentity> _identityCache = new();
+    // sub → publicOrganId. Cache separado propositalmente: só é consultado
+    // quando o user tem role GestorPublico (~1% dos usuários), evitando
+    // fazer round-trip DB pro caso comum (profissional / admin).
+    private static readonly ConcurrentDictionary<string, CachedPublicOrgan> _publicOrganCache = new();
     private static readonly TimeSpan _cacheTtl = TimeSpan.FromMinutes(10);
 
     private readonly record struct CachedIdentity(Guid UserId, IReadOnlyList<Guid> ClinicIds, DateTime ExpiresAt);
+    private readonly record struct CachedPublicOrgan(Guid PublicOrganId, DateTime ExpiresAt);
 
     public TenantMiddleware(RequestDelegate next, ILogger<TenantMiddleware> logger)
     {
@@ -80,6 +85,16 @@ public class TenantMiddleware
                 if (claimClinicIds.Count == 0 && resolvedClinicIds.Count > 0)
                 {
                     authorizedClinicIds = new List<Guid>(resolvedClinicIds);
+                }
+
+                // Resolução do publicOrganId — só quando o user é
+                // GestorPublico, pra evitar DB round-trip pros 99% que não são.
+                // Fluxo: claim JWT (fast path) → cache → DB fallback via
+                // IUserPublicOrganRoleRepository. Ver design.md § D2.
+                var organId = await ResolvePublicOrganIdAsync(context, sub, resolvedUserId);
+                if (organId.HasValue)
+                {
+                    context.Items["CurrentPublicOrganId"] = organId.Value;
                 }
             }
 
@@ -191,6 +206,113 @@ public class TenantMiddleware
 
         _identityCache[sub] = new CachedIdentity(user.Id, clinicIds, DateTime.UtcNow.Add(_cacheTtl));
         return (user.Id, clinicIds);
+    }
+
+    /// <summary>
+    /// Retorna o PublicOrgan do gestor logado.
+    ///
+    /// Ordem de resolução:
+    ///   1. Se o user não tem role <c>GestorPublico</c>, retorna null sem
+    ///      tocar em cache ou DB. Fast path pros 99% dos users.
+    ///   2. Claim <c>publicOrganId</c> do JWT (fast path) — injetado pela
+    ///      Lambda pre-token-generation do Cognito.
+    ///   3. Cache in-process (10min TTL).
+    ///   4. Fallback DB via <see cref="IUserPublicOrganRoleRepository"/> —
+    ///      cobre gestor legado sem claim ou Lambda offline. Retorna o
+    ///      primeiro organ da lista (multi-organ é débito documentado em
+    ///      design.md § R4).
+    /// </summary>
+    private static async Task<Guid?> ResolvePublicOrganIdAsync(
+        HttpContext context,
+        string sub,
+        Guid? userId)
+    {
+        // Guard 1: só resolve pra gestor. Evita DB call pros outros roles.
+        if (!IsGestorPublico(context)) return null;
+
+        // Guard 2: prefer claim JWT quando presente e válido.
+        var claim = context.User.FindFirst("publicOrganId")?.Value;
+        if (Guid.TryParse(claim, out var fromClaim))
+        {
+            return fromClaim;
+        }
+
+        // Guard 3: cache hit.
+        if (_publicOrganCache.TryGetValue(sub, out var cached) && cached.ExpiresAt > DateTime.UtcNow)
+        {
+            return cached.PublicOrganId;
+        }
+
+        // Guard 4: DB fallback só faz sentido se já resolvemos o userId local.
+        // Se não, não temos por onde procurar.
+        if (userId is null) return null;
+
+        var organRepo = context.RequestServices.GetService<IUserPublicOrganRoleRepository>();
+        if (organRepo is null) return null;
+
+        try
+        {
+            var roles = await organRepo.GetByUserIdAsync(userId.Value);
+            var first = roles.FirstOrDefault();
+            if (first is null) return null;
+
+            _publicOrganCache[sub] = new CachedPublicOrgan(first.PublicOrganId, DateTime.UtcNow.Add(_cacheTtl));
+            return first.PublicOrganId;
+        }
+        catch
+        {
+            // Fail-open: se o DB estiver fora do ar, o request segue sem
+            // organId. Downstream retorna 403/404 conforme apropriado.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Detecta se o usuário logado tem role <c>GestorPublico</c>. Não usa
+    /// <see cref="ITenantService.GetCurrentRoles"/> pra evitar dependência
+    /// circular (o middleware roda antes do TenantService ser resolvido);
+    /// lê os claims direto igual o <c>AuthorizationExtensions.HasRole</c>.
+    /// </summary>
+    private static bool IsGestorPublico(HttpContext context)
+    {
+        var user = context.User;
+
+        // Source 1: cognito:groups (Cognito nativo).
+        foreach (var claim in user.FindAll("cognito:groups"))
+        {
+            if (string.Equals(claim.Value, "GestorPublico", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        // Source 2: "roles" custom claim (JSON array ou CSV).
+        var rolesClaim = user.FindFirst("roles")?.Value;
+        if (string.IsNullOrEmpty(rolesClaim)) return false;
+
+        var raw = rolesClaim.Trim();
+        if (raw.StartsWith('['))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<string[]>(raw);
+                if (parsed is not null)
+                {
+                    foreach (var r in parsed)
+                    {
+                        if (string.Equals(r?.Trim(), "GestorPublico", StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                    return false;
+                }
+            }
+            catch { /* fall through to CSV */ }
+        }
+
+        foreach (var r in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (string.Equals(r, "GestorPublico", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>

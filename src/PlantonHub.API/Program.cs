@@ -90,6 +90,7 @@ builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IOfflineSyncAuditLogRepository, OfflineSyncAuditLogRepository>();
 builder.Services.AddScoped<IPublicOrganRepository, PublicOrganRepository>();
 builder.Services.AddScoped<IContractRepository, ContractRepository>();
+builder.Services.AddScoped<IUserPublicOrganRoleRepository, UserPublicOrganRoleRepository>();
 builder.Services.AddScoped<IFaceEnrollmentRepository, FaceEnrollmentRepository>();
 builder.Services.AddScoped<IDeviceRegistrationRepository, DeviceRegistrationRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();

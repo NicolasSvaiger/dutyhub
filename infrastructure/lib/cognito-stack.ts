@@ -79,7 +79,9 @@ export class CognitoStack extends cdk.Stack {
     });
 
     // Groups
-    const groups = ["Medico", "Enfermeiro", "Tecnico", "AdminClinica", "AdminGlobal"];
+    // GestorPublico = gestor de Prefeitura (Sprint 7A). Paralelo aos demais,
+    // não subordinado ao AdminGlobal. Portal /prefeitura só aceita esse role.
+    const groups = ["Medico", "Enfermeiro", "Tecnico", "AdminClinica", "AdminGlobal", "GestorPublico"];
     for (const group of groups) {
       new cognito.CfnUserPoolGroup(this, `Group${group}`, {
         userPoolId: this.userPool.userPoolId,

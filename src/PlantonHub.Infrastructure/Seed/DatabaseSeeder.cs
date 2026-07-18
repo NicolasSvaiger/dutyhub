@@ -16,6 +16,9 @@ public class DatabaseSeeder
     private static readonly Guid MedicoUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid EnfermeiroUserId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid AdminClinicaUserId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    // Gestor Público — Prefeitura de Santo André (Sprint 7A)
+    private static readonly Guid GestorPublicoUserId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+    private static readonly Guid GestorPublicoRoleId = Guid.Parse("77777777-7777-7777-7777-777777777777");
     private static readonly Guid ClinicAlphaId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid ClinicBetaId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
@@ -67,6 +70,7 @@ public class DatabaseSeeder
             await SeedExtraDoctorsAndSubstitutionsAsync();
             await SeedAuditLogsAsync();
             await SeedAlertsAsync();
+            await SeedGestorPublicoAsync();
             return;
         }
 
@@ -401,6 +405,57 @@ public class DatabaseSeeder
         await SeedExtraDoctorsAndSubstitutionsAsync();
         await SeedAuditLogsAsync();
         await SeedAlertsAsync();
+        await SeedGestorPublicoAsync();
+    }
+
+    /// <summary>
+    /// Semeia o user gestor público (portal Prefeitura — Sprint 7A) e seu
+    /// vínculo com a Prefeitura de Santo André. Idempotente por Id fixo em
+    /// ambas as pontas: pode rodar após base seed limpo ou em base legada
+    /// com admin já existente. Depende de <see cref="SeedPublicOrgansAndContractsAsync"/>
+    /// ter rodado antes (a chamada em <c>SeedAsync</c> garante a ordem).
+    /// </summary>
+    private async Task SeedGestorPublicoAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        // 1) User gestor (idempotente por Id fixo).
+        if (!await _context.Users.AnyAsync(u => u.Id == GestorPublicoUserId))
+        {
+            _context.Users.Add(new User
+            {
+                Id = GestorPublicoUserId,
+                Email = "gestor@plantonhub.com",
+                Name = "Gestor Prefeitura Teste",
+                PasswordHash = _passwordHashService.HashPassword("Teste@123"),
+                CreatedAt = now,
+                UpdatedAt = now,
+                IsActive = true,
+                // Não define ProfessionalType — gestor não é profissional de
+                // saúde e não aparece em telas de escala/atendimento.
+            });
+        }
+
+        // 2) Vínculo UserPublicOrganRole (só cria quando o organ já existe).
+        // Guard defensivo — em teoria SeedPublicOrgansAndContractsAsync rodou
+        // antes, mas se o seed dele foi pulado (ex.: reset parcial), evitamos
+        // FK violation.
+        var organExists = await _context.PublicOrgans
+            .AnyAsync(p => p.Id == PublicOrganSantoAndreId);
+
+        if (organExists && !await _context.UserPublicOrganRoles.AnyAsync(r => r.Id == GestorPublicoRoleId))
+        {
+            _context.UserPublicOrganRoles.Add(new UserPublicOrganRole
+            {
+                Id = GestorPublicoRoleId,
+                UserId = GestorPublicoUserId,
+                PublicOrganId = PublicOrganSantoAndreId,
+                Role = RoleType.GestorPublico,
+                AssignedAt = now,
+            });
+        }
+
+        await _context.SaveChangesAsync();
     }
 
     /// <summary>

@@ -36,6 +36,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
     {
         typeof(User),
         typeof(UserClinicRole),
+        typeof(UserPublicOrganRole),
         typeof(Clinic),
         typeof(ClinicShiftTemplate),
         typeof(Contract),
@@ -53,6 +54,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
     {
         [typeof(User)] = "Usuários",
         [typeof(UserClinicRole)] = "Permissões",
+        [typeof(UserPublicOrganRole)] = "Permissões",
         [typeof(Clinic)] = "UPAs",
         [typeof(ClinicShiftTemplate)] = "UPAs",
         [typeof(Contract)] = "Contratos",

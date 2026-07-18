@@ -305,4 +305,138 @@ public class TenantServiceTests
         result.Should().Contain(Guid.Empty);
         result.Should().NotContain(g => g.ToString() == "not-a-guid");
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Sprint 7A — GestorPublico / PublicOrgan scoping.
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Overload que já popula <c>HttpContext.Items["CurrentPublicOrganId"]</c>,
+    /// simulando o trabalho que o <c>TenantMiddleware</c> fez pré-request.
+    /// </summary>
+    private TenantService CreateServiceWithItemsAndClaims(
+        Guid? currentPublicOrganId,
+        params Claim[] claims)
+    {
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext { User = principal };
+        if (currentPublicOrganId.HasValue)
+        {
+            httpContext.Items["CurrentPublicOrganId"] = currentPublicOrganId.Value;
+        }
+
+        var accessor = new Mock<IHttpContextAccessor>();
+        accessor.Setup(a => a.HttpContext).Returns(httpContext);
+        return new TenantService(accessor.Object);
+    }
+
+    [Fact]
+    public void GetCurrentPublicOrganId_FromHttpContextItems_ShouldReturnValue()
+    {
+        // Fast path: TenantMiddleware já resolveu e stashed em Items.
+        var organId = Guid.NewGuid();
+        var service = CreateServiceWithItemsAndClaims(organId);
+
+        var result = service.GetCurrentPublicOrganId();
+
+        result.Should().Be(organId);
+    }
+
+    [Fact]
+    public void GetCurrentPublicOrganId_FallbackToClaim_WhenItemsMissing()
+    {
+        // Sem middleware (unit test com ClaimsPrincipal montado à mão),
+        // TenantService lê o claim direto — mesmo padrão de GetCurrentUserId.
+        var organId = Guid.NewGuid();
+        var service = CreateServiceWithClaims(new Claim("publicOrganId", organId.ToString()));
+
+        var result = service.GetCurrentPublicOrganId();
+
+        result.Should().Be(organId);
+    }
+
+    [Fact]
+    public void GetCurrentPublicOrganId_WithInvalidClaimAndNoItems_ShouldReturnNull()
+    {
+        var service = CreateServiceWithClaims(new Claim("publicOrganId", "not-a-guid"));
+
+        var result = service.GetCurrentPublicOrganId();
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetCurrentPublicOrganId_WithNoClaimAndNoItems_ShouldReturnNull()
+    {
+        var service = CreateServiceWithClaims();
+
+        var result = service.GetCurrentPublicOrganId();
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetCurrentPublicOrganId_WithNoHttpContext_ShouldReturnNull()
+    {
+        var service = CreateServiceWithNoContext();
+
+        var result = service.GetCurrentPublicOrganId();
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CanAccessPublicOrganAsync_AsAdminGlobal_ShouldReturnTrue()
+    {
+        // AdminGlobal escapa de qualquer scoping — mesmo padrão do
+        // CanOperateOnUserAsync existente.
+        var otherOrgan = Guid.NewGuid();
+        var service = CreateServiceWithClaims(new Claim("roles", "AdminGlobal"));
+
+        var result = await service.CanAccessPublicOrganAsync(otherOrgan);
+
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CanAccessPublicOrganAsync_WhenMatchingCurrentOrgan_ShouldReturnTrue()
+    {
+        var organId = Guid.NewGuid();
+        var service = CreateServiceWithItemsAndClaims(organId,
+            new Claim("roles", "GestorPublico"));
+
+        var result = await service.CanAccessPublicOrganAsync(organId);
+
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CanAccessPublicOrganAsync_WhenDifferentOrgan_ShouldReturnFalseInSprint7A()
+    {
+        // Sprint 7A curto-circuita a hierarquia recursiva pra false — o
+        // caminho de descendentes só chega na 7B. Guarda semantic-safe.
+        var currentOrgan = Guid.NewGuid();
+        var otherOrgan = Guid.NewGuid();
+        var service = CreateServiceWithItemsAndClaims(currentOrgan,
+            new Claim("roles", "GestorPublico"));
+
+        var result = await service.CanAccessPublicOrganAsync(otherOrgan);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CanAccessPublicOrganAsync_WithNoCurrentOrgan_ShouldReturnFalse()
+    {
+        // Sem currentOrganId (user não é gestor ou middleware não resolveu)
+        // e sem AdminGlobal → sempre 403.
+        var target = Guid.NewGuid();
+        var service = CreateServiceWithClaims(new Claim("roles", "Medico"));
+
+        var result = await service.CanAccessPublicOrganAsync(target);
+
+        result.Should().BeFalse();
+    }
 }

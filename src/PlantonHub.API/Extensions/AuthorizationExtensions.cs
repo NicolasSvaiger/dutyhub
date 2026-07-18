@@ -18,6 +18,13 @@ public static class AuthorizationExtensions
             options.AddPolicy("Profissional", policy =>
                 policy.RequireAssertion(context =>
                     HasRole(context, "Medico") || HasRole(context, "Enfermeiro") || HasRole(context, "Tecnico")));
+
+            // Gestor público (Prefeitura). Perfil paralelo, não subordinado
+            // ao AdminGlobal — um AdminGlobal que quer ver dados de Prefeitura
+            // consulta via Admin OS (que já tem endpoints agregados). O portal
+            // /prefeitura só aceita esse role.
+            options.AddPolicy("GestorPublico", policy =>
+                policy.RequireAssertion(context => HasRole(context, "GestorPublico")));
         });
 
         return services;

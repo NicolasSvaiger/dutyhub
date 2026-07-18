@@ -23,8 +23,8 @@ export async function handler(event) {
 
     await client.connect();
 
-    // Query clinic IDs and roles for this user
-    const result = await client.query(
+    // Query clinic IDs and roles for this user (clinical / admin path)
+    const clinicResult = await client.query(
       `SELECT "ClinicId"::text, "Role"::int
        FROM "UserClinicRoles" ucr
        JOIN "Users" u ON u."Id" = ucr."UserId"
@@ -32,27 +32,44 @@ export async function handler(event) {
       [email]
     );
 
+    // Query public organ role (GestorPublico — Sprint 7A). Multi-organ é
+    // débito documentado; por ora pegamos o primeiro. Coluna Role fica em
+    // GestorPublico=6 sempre por FK design.
+    const organResult = await client.query(
+      `SELECT "PublicOrganId"::text
+       FROM "UserPublicOrganRoles" upor
+       JOIN "Users" u ON u."Id" = upor."UserId"
+       WHERE u."Email" = $1
+       LIMIT 1`,
+      [email]
+    );
+
     await client.end();
 
-    // Build clinicIds array and roles
-    const clinicIds = result.rows.map((r) => r.ClinicId);
-    const roles = [...new Set(result.rows.map((r) => mapRole(r.Role)))];
+    // Build clinicIds array + roles set
+    const clinicIds = clinicResult.rows.map((r) => r.ClinicId);
+    const roles = [...new Set(clinicResult.rows.map((r) => mapRole(r.Role)))];
+
+    // GestorPublico: append role + inject publicOrganId claim
+    const publicOrganId = organResult.rows[0]?.PublicOrganId;
+    if (publicOrganId && !roles.includes("GestorPublico")) {
+      roles.push("GestorPublico");
+    }
+
+    // Claims comuns aos dois tokens
+    const claimsToAdd = {
+      clinicIds: JSON.stringify(clinicIds),
+      roles: JSON.stringify(roles),
+    };
+    if (publicOrganId) {
+      claimsToAdd.publicOrganId = publicOrganId;
+    }
 
     // Inject custom claims into the token
     event.response = {
       claimsAndScopeOverrideDetails: {
-        idTokenGeneration: {
-          claimsToAddOrOverride: {
-            clinicIds: JSON.stringify(clinicIds),
-            roles: JSON.stringify(roles),
-          },
-        },
-        accessTokenGeneration: {
-          claimsToAddOrOverride: {
-            clinicIds: JSON.stringify(clinicIds),
-            roles: JSON.stringify(roles),
-          },
-        },
+        idTokenGeneration: { claimsToAddOrOverride: claimsToAdd },
+        accessTokenGeneration: { claimsToAddOrOverride: claimsToAdd },
       },
     };
   } catch (error) {
@@ -63,13 +80,17 @@ export async function handler(event) {
   return event;
 }
 
+// Mapping alinhado com PlantonHub.Domain.Enums.RoleType (1-indexado).
+// O código anterior estava 0-indexado — bug pré-existente corrigido nesta
+// sprint. HasConversion<int>() no EF grava exatamente o valor do enum.
 function mapRole(roleInt) {
   const roles = {
-    0: "Medico",
-    1: "Enfermeiro",
-    2: "Tecnico",
-    3: "AdminClinica",
-    4: "AdminGlobal",
+    1: "AdminGlobal",
+    2: "AdminClinica",
+    3: "Medico",
+    4: "Enfermeiro",
+    5: "Tecnico",
+    6: "GestorPublico",
   };
   return roles[roleInt] || "Unknown";
 }

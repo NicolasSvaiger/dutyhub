@@ -83,6 +83,51 @@ public class TenantService : ITenantService
         return Guid.TryParse(sub, out var parsed) ? parsed : (Guid?)null;
     }
 
+    public Guid? GetCurrentPublicOrganId()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext is null) return null;
+
+        // Preferido: TenantMiddleware já resolveu o publicOrganId do JWT (fast
+        // path via claim) ou do fallback DB (UserPublicOrganRoleRepository) e
+        // guardou em HttpContext.Items. Mesmo padrão do CurrentUserId — o
+        // async fica no middleware, aqui é só leitura sync.
+        if (httpContext.Items.TryGetValue("CurrentPublicOrganId", out var stored) && stored is Guid storedGuid)
+        {
+            return storedGuid;
+        }
+
+        // Fallback: ler claim direto. Usado em call sites sem middleware
+        // (unit tests com ClaimsPrincipal montado à mão). Sem DB lookup aqui.
+        var claim = httpContext.User?.FindFirst("publicOrganId")?.Value;
+        return Guid.TryParse(claim, out var parsed) ? parsed : (Guid?)null;
+    }
+
+    public async Task<bool> CanAccessPublicOrganAsync(Guid publicOrganId)
+    {
+        if (IsAdminGlobal()) return true;
+
+        var currentOrganId = GetCurrentPublicOrganId();
+        if (currentOrganId is null) return false;
+
+        // Match direto: o organ solicitado é o próprio do gestor.
+        if (currentOrganId.Value == publicOrganId) return true;
+
+        // Hierarquia recursiva: o organ solicitado precisa ser descendente
+        // do organ do gestor. A busca de descendentes vive no
+        // IPublicOrganRepository — método adicionado na Sprint 7B junto com
+        // o PrefeituraService. Nesta sprint (7A) a assinatura existe mas o
+        // caminho recursivo é curto-circuitado para false; o rebate volta
+        // quando 7B for mergeado.
+        //
+        // Guarda semântica: mesmo sem descendentes ainda, endpoints que já
+        // usarem CanAccessPublicOrganAsync não vazam nada — apenas retornam
+        // 403 pra tudo fora do organ direto, o que é o comportamento mais
+        // restritivo (safe by default).
+        await Task.CompletedTask;
+        return false;
+    }
+
     public IEnumerable<string> GetCurrentRoles()
     {
         var user = _httpContextAccessor.HttpContext?.User;

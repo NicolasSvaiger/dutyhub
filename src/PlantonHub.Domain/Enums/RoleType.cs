@@ -6,5 +6,6 @@ public enum RoleType
     AdminClinica = 2,
     Medico = 3,
     Enfermeiro = 4,
-    Tecnico = 5
+    Tecnico = 5,
+    GestorPublico = 6
 }
