@@ -65,11 +65,15 @@ export async function handler(event) {
       claimsToAdd.publicOrganId = publicOrganId;
     }
 
-    // Inject custom claims into the token
+    // Inject custom claims — formato V1 pra bater com PreTokenGenerationConfig.LambdaVersion=V1_0
+    // do pool. O trigger no CDK (cognito-stack.ts:164) foi criado sem especificar
+    // cognito.LambdaVersion.V2_0, então caiu no default V1_0 — o response.claimsAndScopeOverrideDetails
+    // (formato V2) era silenciosamente ignorado, resultando em JWTs sem claims.
+    // Depois: migrar trigger pro V2_0 no CDK (addTrigger com terceiro parametro)
+    // e reverter esta mudanca pra idToken/accessTokenGeneration separados.
     event.response = {
-      claimsAndScopeOverrideDetails: {
-        idTokenGeneration: { claimsToAddOrOverride: claimsToAdd },
-        accessTokenGeneration: { claimsToAddOrOverride: claimsToAdd },
+      claimsOverrideDetails: {
+        claimsToAddOrOverride: claimsToAdd,
       },
     };
   } catch (error) {
