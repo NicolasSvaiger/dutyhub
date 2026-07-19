@@ -127,8 +127,8 @@ describe('<AttendanceConfirmModal />', () => {
       );
       const user = userEvent.setup();
 
-      await screen.findByText('Plantão');
-      await user.click(screen.getByRole('button', { name: i18n.t('doctor.modal.confirm') }));
+      const confirmButton = await screen.findByRole('button', { name: i18n.t('doctor.modal.confirm') });
+      await user.click(confirmButton);
 
       await waitFor(() => {
         expect(onConfirm).toHaveBeenCalledWith('shift-42');
