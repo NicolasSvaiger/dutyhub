@@ -56,7 +56,10 @@ test.describe('Portal Prefeitura — fluxos básicos', () => {
     // Badge "Somente visualização" + navegação de semana — indicadores da
     // nova view Escalas (grade semanal UPA x dia x turno).
     await expect(page.getByText(/Somente visualização/i)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole('button', { name: /^Hoje$/i })).toBeVisible();
+    // "Hoje" só aparece após getClinics() + getWeeklySchedule() resolverem em
+    // sequência (2 round-trips assíncronos) — timeout maior que o default
+    // (5s) evita flakiness em CI sob carga.
+    await expect(page.getByRole('button', { name: /^Hoje$/i })).toBeVisible({ timeout: 15_000 });
   });
 
   test('clicar em "Frequência" carrega a view com botões de export', async ({ page }) => {
@@ -73,8 +76,9 @@ test.describe('Portal Prefeitura — fluxos básicos', () => {
     await page.getByRole('button', { name: /Tempo Real/i }).first().click();
 
     // Título "Situação em tempo real" + pelo menos um totalCard visível.
+    // "Total de UPAs" é o label real do card (prefeitura.realtime.kpiTotalUpas).
     await expect(page.getByText(/Situação em tempo real/i)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/UPAs monitoradas/i)).toBeVisible();
+    await expect(page.getByText(/Total de UPAs/i)).toBeVisible();
   });
 
   test('clicar em "Ausências" mostra tabela e coluna Ação (Acionar OS)', async ({ page }) => {
