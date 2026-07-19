@@ -92,7 +92,7 @@ public class ReportServiceTests
     {
         var generator = FakeGenerator(ReportType.Atrasos, ReportFormat.Pdf);
         _prefeitura.Setup(p => p.GetAbsencesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
-                                                   It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                                                   It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<int?>()))
                    .ReturnsAsync(Array.Empty<PrefeituraAbsenceItem>());
 
         var service = new ReportService(_prefeitura.Object, new[] { generator });
@@ -104,7 +104,7 @@ public class ReportServiceTests
 
         // Mesmo com Filter no request, Atrasos força "late" internamente.
         _prefeitura.Verify(p => p.GetAbsencesAsync(
-            It.IsAny<DateTime>(), It.IsAny<DateTime>(), "late", It.IsAny<CancellationToken>()),
+            It.IsAny<DateTime>(), It.IsAny<DateTime>(), "late", It.IsAny<CancellationToken>(), It.IsAny<int?>()),
             Times.Once);
     }
 
@@ -113,7 +113,7 @@ public class ReportServiceTests
     {
         var generator = FakeGenerator(ReportType.Ausencias, ReportFormat.Xlsx, extension: "xlsx");
         _prefeitura.Setup(p => p.GetAbsencesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
-                                                   It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                                                   It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<int?>()))
                    .ReturnsAsync(Array.Empty<PrefeituraAbsenceItem>());
 
         var service = new ReportService(_prefeitura.Object, new[] { generator });
@@ -124,7 +124,7 @@ public class ReportServiceTests
         });
 
         _prefeitura.Verify(p => p.GetAbsencesAsync(
-            It.IsAny<DateTime>(), It.IsAny<DateTime>(), "absence", It.IsAny<CancellationToken>()),
+            It.IsAny<DateTime>(), It.IsAny<DateTime>(), "absence", It.IsAny<CancellationToken>(), It.IsAny<int?>()),
             Times.Once);
     }
 

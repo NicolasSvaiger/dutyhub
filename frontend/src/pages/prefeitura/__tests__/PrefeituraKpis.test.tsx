@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PrefeituraKpis } from '../PrefeituraKpis';
 
@@ -24,10 +24,19 @@ const mockKpis = {
   totalLateEvents: 18,
   averageLateMinutes: 14.5,
   substitutionRate: 6.5,
+  totalActiveDoctors: 9,
+  totalActiveMedicos: 7,
+  totalActiveEnfermeiros: 2,
   byClinic: [
     { clinicId: 'c1', clinicName: 'UPA Centro', complianceRate: 95.2, expectedShifts: 60, coveredShifts: 57, absences: 2, lateEvents: 4 },
     { clinicId: 'c2', clinicName: 'UPA Norte', complianceRate: 82.1, expectedShifts: 70, coveredShifts: 58, absences: 6, lateEvents: 8 },
     { clinicId: 'c3', clinicName: 'UPA Sul', complianceRate: 65.0, expectedShifts: 70, coveredShifts: 45, absences: 4, lateEvents: 6 },
+  ],
+  topAbsenceDoctors: [
+    { userId: 'u1', userName: 'Enf. Renata Silva', registrationNumber: null, professionalType: 'Enfermeiro', clinicId: 'c1', clinicName: 'UPA Centro', absences: 7, complianceRate: 60 },
+  ],
+  perfectAttendanceDoctors: [
+    { userId: 'u2', userName: 'Dra. Jessica Lima', registrationNumber: null, professionalType: 'Medico', clinicId: 'c2', clinicName: 'UPA Norte', absences: 0, complianceRate: 100 },
   ],
 };
 
@@ -39,10 +48,10 @@ describe('<PrefeituraKpis />', () => {
 
   // ── Fetch inicial ──────────────────────────────────────────────────
 
-  it('chama getKpis() no mount com defaults from/to (últimos 30 dias)', async () => {
+  it('chama getKpis() 5 vezes no mount (períodos consecutivos pra evolução+trend)', async () => {
     render(<PrefeituraKpis />);
     await waitFor(() => {
-      expect(prefeituraApi.getKpis).toHaveBeenCalledTimes(1);
+      expect(prefeituraApi.getKpis).toHaveBeenCalledTimes(5);
     });
     const args = (prefeituraApi.getKpis as ReturnType<typeof vi.fn>).mock.calls[0];
     // ISO date shape yyyy-MM-dd
@@ -54,31 +63,28 @@ describe('<PrefeituraKpis />', () => {
 
   it('renderiza card hero com % de cumprimento global (88.4%)', async () => {
     render(<PrefeituraKpis />);
-    await waitFor(() => expect(screen.getByText('88.4%')).toBeInTheDocument());
-    expect(screen.getByText(/Cumprimento global/i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Cumprimento global/i)).toBeInTheDocument());
+    // O mini-gráfico de evolução também exibe "88.4%" em <text> SVG (mock
+    // repete o mesmo valor pros 5 períodos) — escopar a busca ao hero card.
+    const heroCards = screen.getAllByText('88.4%').filter((el) => el.tagName === 'DIV');
+    expect(heroCards.length).toBeGreaterThan(0);
   });
 
-  it('mostra período no hero com formato pt-BR (dd/mm/yyyy → dd/mm/yyyy)', async () => {
+  it('mostra período no rodapé do hero com formato pt-BR (dd/mm/yyyy → dd/mm/yyyy)', async () => {
     render(<PrefeituraKpis />);
     await waitFor(() => {
-      // Vai depender do timezone; validar por regex de datas brasileiras
       expect(screen.getByText(/\d{2}\/\d{2}\/\d{4}.*→.*\d{2}\/\d{2}\/\d{4}/)).toBeInTheDocument();
     });
   });
 
-  // ── Grid de KPIs ───────────────────────────────────────────────────
-
-  it('renderiza grid com 6 cards (expected, covered, absences, late, avg late, subst rate)', async () => {
+  it('renderiza os 4 cards do hero (cumprimento, ausências, atrasos, profissionais ativos)', async () => {
     render(<PrefeituraKpis />);
     await waitFor(() => {
-      expect(screen.getByText(/Plantões previstos/i)).toBeInTheDocument();
+      expect(screen.getByText(/Cumprimento global/i)).toBeInTheDocument();
     });
-    expect(screen.getByText('200')).toBeInTheDocument(); // expected
-    expect(screen.getByText('177')).toBeInTheDocument(); // covered
     expect(screen.getByText('12')).toBeInTheDocument(); // absences
     expect(screen.getByText('18')).toBeInTheDocument(); // late events
-    expect(screen.getByText('14.5')).toBeInTheDocument(); // avg late minutes
-    expect(screen.getByText('6.5%')).toBeInTheDocument(); // substitution rate
+    expect(screen.getByText('9')).toBeInTheDocument(); // active doctors
   });
 
   // ── Filtros ───────────────────────────────────────────────────────
@@ -95,10 +101,10 @@ describe('<PrefeituraKpis />', () => {
     expect(to.type).toBe('date');
   });
 
-  it('mudar filtro e clicar em "Aplicar" dispara nova fetch com valores novos', async () => {
+  it('mudar filtro e clicar em "Aplicar" dispara nova bateria de fetches', async () => {
     render(<PrefeituraKpis />);
     const user = userEvent.setup();
-    await waitFor(() => expect(prefeituraApi.getKpis).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(prefeituraApi.getKpis).toHaveBeenCalledTimes(5));
 
     const from = document.getElementById('kpis-from') as HTMLInputElement;
     const to = document.getElementById('kpis-to') as HTMLInputElement;
@@ -111,15 +117,14 @@ describe('<PrefeituraKpis />', () => {
     await user.click(screen.getByRole('button', { name: /Aplicar/i }));
 
     await waitFor(() => {
-      expect(prefeituraApi.getKpis).toHaveBeenCalledTimes(2);
+      expect(prefeituraApi.getKpis).toHaveBeenCalledTimes(10);
     });
-    const lastArgs = (prefeituraApi.getKpis as ReturnType<typeof vi.fn>).mock.calls[1];
-    expect(lastArgs[0]).toBe('2026-01-01');
+    // O último dos 5 novos calls (índice 9) deve terminar em 2026-06-30.
+    const lastArgs = (prefeituraApi.getKpis as ReturnType<typeof vi.fn>).mock.calls[9];
     expect(lastArgs[1]).toBe('2026-06-30');
   });
 
   it('botão Aplicar fica disabled durante loading', async () => {
-    // Deixar promise pendente
     let resolveFn: ((v: typeof mockKpis) => void) | null = null;
     (prefeituraApi.getKpis as ReturnType<typeof vi.fn>).mockReturnValue(
       new Promise<typeof mockKpis>((resolve) => {
@@ -127,7 +132,6 @@ describe('<PrefeituraKpis />', () => {
       }),
     );
     render(<PrefeituraKpis />);
-    // Durante loading inicial, botão está disabled
     const btn = screen.getByRole('button', { name: /Carregando/i });
     expect(btn).toBeDisabled();
 
@@ -137,15 +141,70 @@ describe('<PrefeituraKpis />', () => {
     });
   });
 
+  // ── Ranking por UPA e médicos ──────────────────────────────────────
+
+  it('renderiza ranking por UPA com as 3 clínicas ordenadas por compliance', async () => {
+    render(<PrefeituraKpis />);
+    await waitFor(() => {
+      expect(screen.getByText(/Desempenho por UPA/i)).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('UPA Centro').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('UPA Norte').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('UPA Sul').length).toBeGreaterThan(0);
+  });
+
+  it('renderiza card "Maiores ausências" com Enf. Renata Silva', async () => {
+    render(<PrefeituraKpis />);
+    await waitFor(() => {
+      expect(screen.getByText(/Maiores ausências/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Enf. Renata Silva')).toBeInTheDocument();
+    expect(screen.getByText(/7 faltas/i)).toBeInTheDocument();
+  });
+
+  it('renderiza badge de tipo profissional nos rankings + breakdown médicos/enfermeiros no card de ativos', async () => {
+    render(<PrefeituraKpis />);
+    await waitFor(() => {
+      expect(screen.getByText(/Maiores ausências/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Enfermeiro(a)')).toBeInTheDocument();
+    expect(screen.getByText('Médico')).toBeInTheDocument();
+    expect(screen.getByText(/Médicos: 7/)).toBeInTheDocument();
+    expect(screen.getByText(/Enfermeiros\(as\): 2/)).toBeInTheDocument();
+  });
+
+  it('renderiza card "Melhor frequência" com Dra. Jessica Lima', async () => {
+    render(<PrefeituraKpis />);
+    await waitFor(() => {
+      expect(screen.getByText(/Melhor frequência/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Dra. Jessica Lima')).toBeInTheDocument();
+    expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
+  it('empty state dos rankings de médicos quando listas vêm vazias', async () => {
+    (prefeituraApi.getKpis as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...mockKpis,
+      topAbsenceDoctors: [],
+      perfectAttendanceDoctors: [],
+    });
+    render(<PrefeituraKpis />);
+    await waitFor(() => {
+      expect(screen.getByText(/Nenhuma ausência registrada no período/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Nenhum profissional com 100% de presença/i)).toBeInTheDocument();
+  });
+
   // ── Tabela por UPA ─────────────────────────────────────────────────
 
   it('renderiza tabela com todas as clínicas', async () => {
     render(<PrefeituraKpis />);
     await waitFor(() => {
-      expect(screen.getByText('UPA Centro')).toBeInTheDocument();
+      expect(screen.getByRole('table')).toBeInTheDocument();
     });
-    expect(screen.getByText('UPA Norte')).toBeInTheDocument();
-    expect(screen.getByText('UPA Sul')).toBeInTheDocument();
+    expect(screen.getAllByText('UPA Centro').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('UPA Norte').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('UPA Sul').length).toBeGreaterThan(0);
   });
 
   it('colunas da tabela: UPA, Cumprimento, Previsto, Coberto, Ausências, Atrasos', async () => {
@@ -163,22 +222,25 @@ describe('<PrefeituraKpis />', () => {
 
   it('aplica classe verde pra compliance >= 90 (UPA Centro 95.2%)', async () => {
     render(<PrefeituraKpis />);
-    await waitFor(() => expect(screen.getByText('95.2%')).toBeInTheDocument());
-    const cell = screen.getByText('95.2%');
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+    const table = screen.getByRole('table');
+    const cell = within(table).getByText('95.2%');
     expect(cell.className).toMatch(/Good/i);
   });
 
   it('aplica classe laranja pra compliance entre 70 e 89 (UPA Norte 82.1%)', async () => {
     render(<PrefeituraKpis />);
-    await waitFor(() => expect(screen.getByText('82.1%')).toBeInTheDocument());
-    const cell = screen.getByText('82.1%');
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+    const table = screen.getByRole('table');
+    const cell = within(table).getByText('82.1%');
     expect(cell.className).toMatch(/Warn/i);
   });
 
   it('aplica classe vermelha pra compliance < 70 (UPA Sul 65.0%)', async () => {
     render(<PrefeituraKpis />);
-    await waitFor(() => expect(screen.getByText('65.0%')).toBeInTheDocument());
-    const cell = screen.getByText('65.0%');
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+    const table = screen.getByRole('table');
+    const cell = within(table).getByText('65.0%');
     expect(cell.className).toMatch(/Bad/i);
   });
 
@@ -186,6 +248,8 @@ describe('<PrefeituraKpis />', () => {
     (prefeituraApi.getKpis as ReturnType<typeof vi.fn>).mockResolvedValue({
       ...mockKpis,
       byClinic: [],
+      topAbsenceDoctors: [],
+      perfectAttendanceDoctors: [],
     });
     render(<PrefeituraKpis />);
     await waitFor(() => {

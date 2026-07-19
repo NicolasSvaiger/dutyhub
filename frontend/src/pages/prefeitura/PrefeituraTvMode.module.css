@@ -1,202 +1,461 @@
 /*
- * PrefeituraTvMode — layout fullscreen otimizado pra display em TV/telão.
- * Fontes gigantes, contraste alto, refresh visível. Cores fortes por
- * alertLevel. Dark theme por padrão pra reduzir cansaço visual em telão.
+ * PrefeituraTvMode — layout fullscreen otimizado pra display em TV/telão,
+ * espelhando op-tv.html: header com clock, grid de UPA cards (semáforo,
+ * contador grande, barra de progresso, dots de médicos, linha de alerta),
+ * footer com stats + anel de countdown + anel de ocupação global.
+ * Dark theme fixo (mesma paleta do mock: --bg #0d1b1b, --card #132424).
  */
 
 .tvRoot {
   position: fixed;
   inset: 0;
   background: #0d1b1b;
-  color: #f0f4f4;
-  display: flex;
-  flex-direction: column;
+  color: #f0fdfc;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   overflow: hidden;
-  padding: 2vh 2vw;
-  gap: 1.6vh;
   font-family: 'Nunito Sans', system-ui, sans-serif;
 }
 
-/* Cabeçalho */
+/* ── Header ── */
 .tvHeader {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 0.4rem;
+  justify-content: space-between;
+  padding: 1.2rem 2.4rem;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.15);
+  background: rgba(13, 27, 27, 0.8);
 }
 .tvBrand {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 1rem;
 }
 .tvBrandName {
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 2.8rem;
+  font-size: 2rem;
   font-weight: 900;
-  background: linear-gradient(135deg, #2dbfb8 0%, #f5a623 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: #2dbfb8;
+  letter-spacing: -1.5px;
   line-height: 1;
 }
 .tvBrandTag {
-  font-size: 1rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  color: #7ce6df;
-  letter-spacing: 0.06em;
+  color: #7ab8b5;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.tvHeaderCenter {
+  text-align: center;
+}
+.tvHeaderTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f0fdfc;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.tvHeaderSub {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #7ab8b5;
+  margin-top: 2px;
 }
 .tvClock {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.2rem;
+  gap: 0.3rem;
 }
 .tvTime {
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 3.2rem;
+  font-size: 2.2rem;
   font-weight: 900;
-  color: #f0f4f4;
+  color: #f0fdfc;
+  letter-spacing: -1px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .tvDate {
-  font-size: 1rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #7a9090;
+  color: #7ab8b5;
   text-transform: capitalize;
 }
-.tvUpdatedBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.9rem;
-  background: rgba(45, 191, 184, 0.14);
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #7ce6df;
-  margin-top: 0.3rem;
-}
-.tvPulseDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #2dbfb8;
-  animation: tvPulse 1.6s infinite;
-}
-@keyframes tvPulse {
-  0%,100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(1.4); }
-}
 
-/* Totalizadores */
-.tvTotals {
+/* ── Body / UPA grid ── */
+.tvBody {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.4vw;
+  gap: 1.2rem;
+  padding: 1.4rem 2.4rem;
+  align-items: stretch;
+  overflow-y: auto;
 }
-.tvTotal {
-  background: rgba(45, 191, 184, 0.08);
-  border: 2px solid rgba(45, 191, 184, 0.2);
-  border-radius: 18px;
-  padding: 1.6vh 1.4vw;
+@media (max-width: 1200px) {
+  .tvBody { grid-template-columns: repeat(2, 1fr); }
+}
+
+.upaCard {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  background: #132424;
+  border-radius: 20px;
+  border: 1.5px solid rgba(45, 191, 184, 0.15);
+  overflow: hidden;
+  position: relative;
 }
-.tvTotalLabel {
-  font-size: 0.95rem;
+.upaCard::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+}
+.upaCard.green::before { background: #22c55e; }
+.upaCard.yellow::before { background: #f59e0b; }
+.upaCard.red::before { background: #ef4444; }
+
+.upaCardTop {
+  padding: 1.2rem 1.4rem 1rem 1.8rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.15);
+}
+.upaCardName {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #f0fdfc;
+  line-height: 1.2;
+}
+.upaCardTurno {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7ab8b5;
+  margin-top: 4px;
+}
+.semaforo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 30px;
+  flex-shrink: 0;
+}
+.semaforoLight {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+.upaCard.green .semaforoLight:nth-child(1) { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+.upaCard.yellow .semaforoLight:nth-child(2) { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+.upaCard.red .semaforoLight:nth-child(3) { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.65rem;
   font-weight: 800;
-  color: #7a9090;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  padding: 0.26rem 0.7rem;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  margin-top: 0.5rem;
 }
-.tvTotalValue {
+.upaCard.green .statusPill { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+.upaCard.yellow .statusPill { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.upaCard.red .statusPill { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: tvPulseSmall 1.5s ease infinite;
+}
+.upaCard.green .statusDot { background: #4ade80; }
+.upaCard.yellow .statusDot { background: #fbbf24; }
+.upaCard.red .statusDot { background: #f87171; }
+@keyframes tvPulseSmall {
+  0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+}
+
+.upaMeters {
+  padding: 1rem 1.4rem 1rem 1.8rem;
+  flex: 1;
+}
+.countWrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.countBig {
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 5rem;
+  font-size: 3rem;
   font-weight: 900;
   line-height: 1;
-  color: #7ce6df;
 }
-.tvTotalValue.bad { color: #f0a0a0; }
-
-/* Grid de clínicas */
-.tvClinics {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(20vw, 1fr));
-  gap: 1.4vw;
-  overflow: hidden;
-  align-content: start;
+.upaCard.green .countBig { color: #22c55e; }
+.upaCard.yellow .countBig { color: #f59e0b; }
+.upaCard.red .countBig { color: #ef4444; }
+.countOf {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #7ab8b5;
+  padding-bottom: 0.4rem;
 }
-.tvClinic {
-  background: rgba(45, 191, 184, 0.06);
-  border: 2px solid rgba(45, 191, 184, 0.2);
-  border-left-width: 8px;
-  border-radius: 18px;
-  padding: 1.4vh 1.2vw;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.tvClinic.green {
-  border-left-color: #2dbfb8;
-}
-.tvClinic.yellow {
-  border-left-color: #f5a623;
-}
-.tvClinic.red {
-  border-left-color: #e05555;
-  background: rgba(224, 85, 85, 0.08);
-}
-.tvClinicName {
-  font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 1.6rem;
-  font-weight: 900;
-  color: #f0f4f4;
-}
-.tvClinicStats {
-  display: flex;
-  gap: 1.4vw;
-}
-.tvStat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-.tvStatLabel {
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #7a9090;
+.countLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7ab8b5;
   text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.8rem;
 }
-.tvStatValue {
-  font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 2rem;
+.progBg {
+  height: 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+.progFill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.upaCard.green .progFill { background: linear-gradient(90deg, #2dbfb8, #22c55e); }
+.upaCard.yellow .progFill { background: linear-gradient(90deg, #f5a623, #f59e0b); }
+.upaCard.red .progFill { background: linear-gradient(90deg, #b91c1c, #ef4444); }
+
+.medicosDots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.medicoDotItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.32rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #f0fdfc;
+}
+.mdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mdot.present { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
+.mdot.late { background: #f59e0b; box-shadow: 0 0 5px #f59e0b; }
+.mdot.absent { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+.mdot.upcoming { background: #7ab8b5; }
+.noShiftLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7ab8b5;
+}
+
+.upaAlerts {
+  border-top: 1px solid rgba(45, 191, 184, 0.15);
+  padding: 0.6rem 1.4rem 0.6rem 1.8rem;
+}
+.alertItem {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7ab8b5;
+}
+.alertItem.warn { color: #fbbf24; }
+.alertItem.crit { color: #f87171; }
+
+/* ── Footer ── */
+.tvFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 2.4rem;
+  border-top: 1px solid rgba(45, 191, 184, 0.15);
+  background: rgba(13, 27, 27, 0.8);
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  flex-wrap: wrap;
+}
+.footerStat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.footerStatNum {
+  font-size: 1.3rem;
   font-weight: 900;
-  color: #f0f4f4;
+  color: #f0fdfc;
 }
-.tvStatValue.present { color: #7ce6df; }
-.tvStatValue.absent { color: #f0a0a0; }
+.footerStatNum.green { color: #22c55e; }
+.footerStatNum.yellow { color: #f59e0b; }
+.footerStatNum.red { color: #ef4444; }
+.footerStatLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #7ab8b5;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+}
+.footerDivider {
+  width: 1px;
+  height: 30px;
+  background: rgba(45, 191, 184, 0.15);
+}
+
+.footerCenter {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+.ocupacaoWrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1.4rem;
+  border-left: 1px solid rgba(45, 191, 184, 0.15);
+  border-right: 1px solid rgba(45, 191, 184, 0.15);
+}
+.ocupacaoRing {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+.ocupacaoRing svg { transform: rotate(-90deg); }
+.oringBg { stroke: rgba(255, 255, 255, 0.07); fill: none; stroke-width: 6; }
+.oringFill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.3s;
+}
+.ocupacaoPct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.ocupacaoInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.ocupacaoTitle {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7ab8b5;
+}
+.ocupacaoMeta {
+  font-size: 0.78rem;
+  font-weight: 900;
+  color: #f0fdfc;
+}
+
+.refreshWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.refreshRing {
+  position: relative;
+  width: 30px;
+  height: 30px;
+}
+.refreshRing svg { transform: rotate(-90deg); }
+.ringBg { stroke: rgba(255, 255, 255, 0.08); fill: none; stroke-width: 3; }
+.ringFill {
+  fill: none;
+  stroke: #2dbfb8;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s linear;
+}
+.refreshLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7ab8b5;
+}
+.refreshCountdown {
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #2dbfb8;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #7ab8b5;
+}
+.liveBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 20px;
+  padding: 0.24rem 0.65rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: #4ade80;
+}
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: tvPulseSmall 1.2s ease infinite;
+}
 
 .tvExit {
   position: absolute;
-  top: 2vh;
-  right: 2vw;
+  top: 1.2rem;
+  right: 2.4rem;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #f0f4f4;
+  color: #f0fdfc;
   border-radius: 10px;
   padding: 0.4rem 0.8rem;
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
-  display: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 .tvRoot:hover .tvExit {
-  display: block;
+  opacity: 1;
 }
 
 .tvLoading,
@@ -205,8 +464,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  font-size: 1.6rem;
   font-weight: 700;
-  color: #7a9090;
+  color: #7ab8b5;
 }
 .tvError { color: #f0a0a0; }

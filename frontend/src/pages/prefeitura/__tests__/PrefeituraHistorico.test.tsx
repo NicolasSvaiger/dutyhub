@@ -8,196 +8,167 @@ import { PrefeituraHistorico } from '../PrefeituraHistorico';
 
 vi.mock('../../../api/prefeituraApi', () => ({
   prefeituraApi: {
-    getHistory: vi.fn(),
-    downloadReport: vi.fn(),
+    getClinics: vi.fn(),
+    getUnitTimeline: vi.fn(),
   },
 }));
 
 import { prefeituraApi } from '../../../api/prefeituraApi';
 
-function makePage(page: number, totalPages: number, itemCount: number = 5) {
-  return {
-    page,
-    pageSize: 30,
-    totalCount: totalPages * 30,
-    totalPages,
-    items: Array.from({ length: itemCount }, (_, i) => ({
-      timestamp: `2026-07-15T${String(i).padStart(2, '0')}:00:00Z`,
-      type: i % 2 === 0 ? 'checkin' : 'absence',
-      title: `Evento ${page}-${i}`,
-      details: `Detalhes ${i}`,
-      userId: `u${i}`,
-      userName: `Profissional ${i}`,
-      clinicId: `c${i}`,
-      clinicName: `UPA ${i}`,
-    })),
-  };
-}
+const mockClinics = [
+  { clinicId: 'c1', name: 'UPA Centro', address: null, contractNumber: null },
+  { clinicId: 'c2', name: 'UPA Norte', address: null, contractNumber: null },
+];
+
+const mockTimeline = {
+  clinicId: 'c1',
+  clinicName: 'UPA Centro',
+  from: '2026-07-08',
+  to: '2026-07-18',
+  totalShifts: 3,
+  entradas: 2,
+  saidas: 1,
+  atrasos: 1,
+  ausencias: 1,
+  items: [
+    {
+      shiftId: 's1', userId: 'u1', userName: 'Dra. Ana', professionalType: 'Medico', date: '2026-07-15T00:00:00Z',
+      turno: 'manha', expectedTime: '07:00:00', checkInTime: '2026-07-15T07:02:00Z',
+      checkOutTime: '2026-07-15T19:00:00Z', type: 'in', minutesLate: null,
+    },
+    {
+      shiftId: 's2', userId: 'u2', userName: 'Enf. Bruno', professionalType: 'Enfermeiro', date: '2026-07-15T00:00:00Z',
+      turno: 'manha', expectedTime: '07:00:00', checkInTime: '2026-07-15T07:35:00Z',
+      checkOutTime: null, type: 'late', minutesLate: 20,
+    },
+    {
+      shiftId: 's3', userId: 'u3', userName: 'Dra. Carla', professionalType: 'Medico', date: '2026-07-14T00:00:00Z',
+      turno: 'noite', expectedTime: '19:00:00', checkInTime: null,
+      checkOutTime: null, type: 'absent', minutesLate: null,
+    },
+  ],
+};
 
 describe('<PrefeituraHistorico />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValue(makePage(1, 3, 5));
-    (prefeituraApi.downloadReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (prefeituraApi.getClinics as ReturnType<typeof vi.fn>).mockResolvedValue(mockClinics);
+    (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mockResolvedValue(mockTimeline);
   });
 
-  it('chama getHistory no mount com page=1', async () => {
+  it('chama getClinics no mount e getUnitTimeline com a primeira UPA', async () => {
     render(<PrefeituraHistorico />);
-    await waitFor(() => expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(1));
-    const args = (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(args[4]).toBe(1); // page
-    expect(args[5]).toBe(30); // pageSize
+    await waitFor(() => expect(prefeituraApi.getClinics).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(prefeituraApi.getUnitTimeline).toHaveBeenCalledTimes(1));
+    const args = (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(args[0]).toBe('c1');
   });
 
-  it('renderiza itens com título + userName + clinicName', async () => {
+  it('renderiza o seletor de UPA com as clínicas do escopo', async () => {
     render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByText('Evento 1-0')).toBeInTheDocument());
-    expect(screen.getByText('Evento 1-1')).toBeInTheDocument();
-    expect(screen.getByText('Profissional 0')).toBeInTheDocument();
-    expect(screen.getByText('UPA 0')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('UPA Centro')).toBeInTheDocument());
+    expect(screen.getByText('UPA Norte')).toBeInTheDocument();
   });
 
-  it('renderiza pageInfo "Página 1 de 3"', async () => {
-    render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByText(/Página 1 de 3/)).toBeInTheDocument());
-  });
-
-  it('botão Anterior fica disabled na página 1', async () => {
-    render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Anterior/i })).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Anterior/i })).toBeDisabled();
-  });
-
-  it('botão Próxima habilitado quando page < totalPages', async () => {
-    render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Próxima/i })).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Próxima/i })).not.toBeDisabled();
-  });
-
-  it('clicar em Próxima chama getHistory com page=2', async () => {
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(1, 3, 5));
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(2, 3, 5));
+  it('clicar em outra UPA dispara nova fetch com o novo clinicId', async () => {
     render(<PrefeituraHistorico />);
     const user = userEvent.setup();
-    await waitFor(() => expect(screen.getByText(/Página 1 de 3/)).toBeInTheDocument());
+    await waitFor(() => expect(prefeituraApi.getUnitTimeline).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole('button', { name: /Próxima/i }));
+    await user.click(screen.getByText('UPA Norte'));
+
+    await waitFor(() => expect(prefeituraApi.getUnitTimeline).toHaveBeenCalledTimes(2));
+    const lastArgs = (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mock.calls[1];
+    expect(lastArgs[0]).toBe('c2');
+  });
+
+  it('renderiza os 5 KPIs (total/entradas/saidas/atrasos/ausencias)', async () => {
+    render(<PrefeituraHistorico />);
+    await waitFor(() => expect(screen.getByText(/Total de plantões/i)).toBeInTheDocument());
+    expect(screen.getByText('3')).toBeInTheDocument(); // totalShifts
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0); // entradas
+    expect(screen.getAllByText('1').length).toBeGreaterThan(0); // saidas/atrasos/ausencias
+  });
+
+  it('renderiza timeline agrupada por dia com nomes dos médicos', async () => {
+    render(<PrefeituraHistorico />);
+    await waitFor(() => expect(screen.getByText('Dra. Ana')).toBeInTheDocument());
+    expect(screen.getByText('Enf. Bruno')).toBeInTheDocument();
+    expect(screen.getByText('Dra. Carla')).toBeInTheDocument();
+  });
+
+  it('renderiza badge de tipo profissional na timeline', async () => {
+    render(<PrefeituraHistorico />);
+    await waitFor(() => expect(screen.getByText('Dra. Ana')).toBeInTheDocument());
+    expect(screen.getAllByText('Médico').length).toBeGreaterThan(0);
+    expect(screen.getByText('Enfermeiro(a)')).toBeInTheDocument();
+  });
+
+  it('alternar pra visão "Tabela" renderiza a tabela com colunas esperadas', async () => {
+    render(<PrefeituraHistorico />);
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Dra. Ana')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /Tabela/i }));
+
+    await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument());
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers).toContain('Profissional');
+    expect(headers).toContain('Data');
+    expect(headers).toContain('Turno');
+  });
+
+  it('filtro de evento "Atrasos" reduz a lista aos itens type=late', async () => {
+    render(<PrefeituraHistorico />);
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Dra. Ana')).toBeInTheDocument());
+
+    const select = document.getElementById('hist-evento') as HTMLSelectElement;
+    await user.selectOptions(select, 'late');
 
     await waitFor(() => {
-      expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(2);
+      expect(screen.queryByText('Dra. Ana')).not.toBeInTheDocument();
     });
-    const lastArgs = (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mock.calls[1];
-    expect(lastArgs[4]).toBe(2);
+    expect(screen.getByText('Enf. Bruno')).toBeInTheDocument();
   });
 
-  it('Anterior fica habilitado após ir pra page 2', async () => {
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(1, 3, 5));
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(2, 3, 5));
+  it('mudar turno dispara nova fetch com o param turno', async () => {
     render(<PrefeituraHistorico />);
     const user = userEvent.setup();
-    await waitFor(() => expect(screen.getByText(/Página 1 de 3/)).toBeInTheDocument());
+    await waitFor(() => expect(prefeituraApi.getUnitTimeline).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole('button', { name: /Próxima/i }));
-    await waitFor(() => expect(screen.getByText(/Página 2 de 3/)).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Anterior/i })).not.toBeDisabled();
+    const select = document.getElementById('hist-turno') as HTMLSelectElement;
+    await user.selectOptions(select, 'noite');
+
+    await waitFor(() => expect(prefeituraApi.getUnitTimeline).toHaveBeenCalledTimes(2));
+    const lastArgs = (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mock.calls[1];
+    expect(lastArgs[3]).toBe('noite');
   });
 
-  it('Próxima fica disabled na última página', async () => {
-    // Backend retorna 1 página apenas (page=1 totalPages=1) — Próxima já vem disabled
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValue(makePage(1, 1, 5));
+  it('empty state quando não há UPAs no escopo', async () => {
+    (prefeituraApi.getClinics as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Próxima/i })).toBeInTheDocument());
-    expect(screen.getByRole('button', { name: /Próxima/i })).toBeDisabled();
+    await waitFor(() => expect(screen.getByText(/Selecione uma UPA/i)).toBeInTheDocument());
   });
 
-  it('filtro por tipo dispara nova fetch com type param', async () => {
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValue(makePage(1, 1, 3));
-    render(<PrefeituraHistorico />);
-    const user = userEvent.setup();
-    await waitFor(() => expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(1));
-
-    const select = document.getElementById('hist-type') as HTMLSelectElement;
-    await user.selectOptions(select, 'checkin');
-    await user.click(screen.getByRole('button', { name: /Aplicar/i }));
-
-    await waitFor(() => expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(2));
-    expect((prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mock.calls[1][2]).toBe('checkin');
-  });
-
-  it('busca livre dispara fetch com search param', async () => {
-    render(<PrefeituraHistorico />);
-    const user = userEvent.setup();
-    await waitFor(() => expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(1));
-
-    const searchInput = document.getElementById('hist-search') as HTMLInputElement;
-    await user.type(searchInput, 'Ana Silva');
-    await user.click(screen.getByRole('button', { name: /Aplicar/i }));
-
-    await waitFor(() => expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(2));
-    expect((prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mock.calls[1][3]).toBe('Ana Silva');
-  });
-
-  it('empty state quando itens vazios', async () => {
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValue(makePage(1, 0, 0));
-    render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByText(/Sem eventos no período/i)).toBeInTheDocument());
-  });
-
-  it('renderiza totalCount no header', async () => {
-    render(<PrefeituraHistorico />);
-    // 3 páginas * 30 = 90 no makePage
-    await waitFor(() => expect(screen.getByText(/90 eventos/i)).toBeInTheDocument());
-  });
-
-  it('type badges diferenciam por tipo (checkin vs absence)', async () => {
-    render(<PrefeituraHistorico />);
-    await waitFor(() => expect(screen.getByText('Evento 1-0')).toBeInTheDocument());
-    // Badges são renderizadas com traduções — verificar quantidade
-    const checkinBadges = screen.getAllByText('Check-in');
-    const absenceBadges = screen.getAllByText('Ausência');
-    expect(checkinBadges.length).toBeGreaterThan(0);
-    expect(absenceBadges.length).toBeGreaterThan(0);
-  });
-
-  it('botão exportar chama downloadReport("history", "pdf")', async () => {
-    render(<PrefeituraHistorico />);
-    const user = userEvent.setup();
-    await waitFor(() => expect(screen.getByText('Evento 1-0')).toBeInTheDocument());
-
-    await user.click(screen.getByRole('button', { name: /Exportar PDF/i }));
-
-    await waitFor(() => {
-      expect(prefeituraApi.downloadReport).toHaveBeenCalledWith('history', 'pdf', expect.any(Object));
+  it('empty state quando a timeline não tem itens', async () => {
+    (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ...mockTimeline,
+      items: [],
+      totalShifts: 0,
+      entradas: 0,
+      saidas: 0,
+      atrasos: 0,
+      ausencias: 0,
     });
-  });
-
-  it('reset da paginação ao mudar filtro (volta pra page 1)', async () => {
-    // Setup: mostra page 2 primeiro
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(1, 3, 5));
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(2, 3, 5));
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(makePage(1, 3, 5));
     render(<PrefeituraHistorico />);
-    const user = userEvent.setup();
-
-    await waitFor(() => expect(screen.getByText(/Página 1 de 3/)).toBeInTheDocument());
-    // Vai pra page 2
-    await user.click(screen.getByRole('button', { name: /Próxima/i }));
-    await waitFor(() => expect(screen.getByText(/Página 2 de 3/)).toBeInTheDocument());
-
-    // Muda o filtro — deve voltar pra page 1
-    const searchInput = document.getElementById('hist-search') as HTMLInputElement;
-    await user.type(searchInput, 'Ana');
-    await user.click(screen.getByRole('button', { name: /Aplicar/i }));
-
-    await waitFor(() => {
-      // Terceira chamada deve ter page=1
-      expect(prefeituraApi.getHistory).toHaveBeenCalledTimes(3);
-    });
-    expect((prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mock.calls[2][4]).toBe(1);
+    await waitFor(() => expect(screen.getByText(/Nenhum registro encontrado/i)).toBeInTheDocument());
   });
 
-  it('error NO_ORGAN_CONTEXT mostra mensagem específica', async () => {
-    (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('NO_ORGAN_CONTEXT'));
+  it('mostra erro NO_ORGAN_CONTEXT específico quando backend responde 403', async () => {
+    (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('NO_ORGAN_CONTEXT'),
+    );
     render(<PrefeituraHistorico />);
     await waitFor(() => expect(screen.getByText(/não está vinculada a um órgão/i)).toBeInTheDocument());
   });

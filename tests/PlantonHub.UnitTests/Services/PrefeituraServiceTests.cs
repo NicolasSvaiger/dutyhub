@@ -74,10 +74,11 @@ public class PrefeituraServiceTests
         },
     };
 
-    private static User NewUser(Guid id, string name) => new()
+    private static User NewUser(Guid id, string name, ProfessionalType? professionalType = null) => new()
     {
         Id = id, Name = name, Email = $"{id}@x", PasswordHash = "h", IsActive = true,
         CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
+        ProfessionalType = professionalType,
     };
 
     /// <summary>
@@ -320,6 +321,68 @@ public class PrefeituraServiceTests
         response.ByClinic.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetKpis_ComputesTopAbsenceDoctorsAndPerfectAttendanceDoctors()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uPerfect = Guid.NewGuid();
+        var uAbsent = Guid.NewGuid();
+
+        // Dia 1: uPerfect comparece, uAbsent falta.
+        var shift1 = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uPerfect, "Perfeito"), (uAbsent, "Ausente") },
+            attendances: new() { (uPerfect, 0) });
+        // Dia 2: uPerfect comparece de novo, uAbsent falta de novo.
+        var shift2 = NewShift(ClinicA, "Alpha", day.AddDays(1), new TimeSpan(7, 0, 0),
+            assignments: new() { (uPerfect, "Perfeito"), (uAbsent, "Ausente") },
+            attendances: new() { (uPerfect, 0) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift1, shift2 });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+
+        var response = await CreateService().GetKpisAsync(day.AddDays(-1), day.AddDays(2));
+
+        response.TotalActiveDoctors.Should().Be(2);
+        response.TopAbsenceDoctors.Should().ContainSingle();
+        response.TopAbsenceDoctors[0].UserId.Should().Be(uAbsent);
+        response.TopAbsenceDoctors[0].Absences.Should().Be(2);
+
+        response.PerfectAttendanceDoctors.Should().ContainSingle();
+        response.PerfectAttendanceDoctors[0].UserId.Should().Be(uPerfect);
+        response.PerfectAttendanceDoctors[0].ComplianceRate.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task GetKpis_PopulatesProfessionalTypeAndBreaksDownActiveCounts()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uMedico = Guid.NewGuid();
+        var uEnfermeiro = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uMedico, "Dr. Medico"), (uEnfermeiro, "Enf. Enfermeira") },
+            attendances: new() { (uMedico, 0), (uEnfermeiro, 0) });
+        shift.ShiftAssignments.Single(a => a.UserId == uMedico).User!.ProfessionalType = ProfessionalType.Medico;
+        shift.ShiftAssignments.Single(a => a.UserId == uEnfermeiro).User!.ProfessionalType = ProfessionalType.Enfermeiro;
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+
+        var response = await CreateService().GetKpisAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.TotalActiveDoctors.Should().Be(2);
+        response.TotalActiveMedicos.Should().Be(1);
+        response.TotalActiveEnfermeiros.Should().Be(1);
+        response.PerfectAttendanceDoctors.Should().Contain(d => d.UserId == uMedico && d.ProfessionalType == "Medico");
+        response.PerfectAttendanceDoctors.Should().Contain(d => d.UserId == uEnfermeiro && d.ProfessionalType == "Enfermeiro");
+    }
+
     // ─────────────────────────────────────────────────────────────
     // Clinics
     // ─────────────────────────────────────────────────────────────
@@ -418,6 +481,216 @@ public class PrefeituraServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────
+    // Unit Timeline (op-historico.html)
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetUnitTimeline_ClinicOutsideScope_ThrowsNotFound()
+    {
+        SetupHealthyScope(ClinicA);
+        var stranger = Guid.NewGuid();
+
+        var act = () => CreateService().GetUnitTimelineAsync(
+            stranger, DateTime.UtcNow.Date.AddDays(-7), DateTime.UtcNow.Date);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task GetUnitTimeline_ComputesKpisAndClassifiesEvents()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uIn = Guid.NewGuid();
+        var uLate = Guid.NewGuid();
+        var uAbsent = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uIn, "OnTime"), (uLate, "Late"), (uAbsent, "Absent") },
+            attendances: new() { (uIn, 0), (uLate, 30) }); // late = 30 min acima da tolerância 15
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetUnitTimelineAsync(
+            ClinicA, day.AddDays(-1), day.AddDays(1));
+
+        response.ClinicId.Should().Be(ClinicA);
+        response.ClinicName.Should().Be("Alpha");
+        response.TotalShifts.Should().Be(3);
+        response.Entradas.Should().Be(2); // in + late
+        response.Atrasos.Should().Be(1);
+        response.Ausencias.Should().Be(1);
+        response.Items.Should().ContainSingle(i => i.UserId == uIn && i.Type == "in");
+        response.Items.Should().ContainSingle(i => i.UserId == uLate && i.Type == "late");
+        response.Items.Should().ContainSingle(i => i.UserId == uAbsent && i.Type == "absent");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Weekly Schedule (op-escalas.html)
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetWeeklySchedule_ClinicOutsideScope_ThrowsNotFound()
+    {
+        SetupHealthyScope(ClinicA);
+        var stranger = Guid.NewGuid();
+
+        var act = () => CreateService().GetWeeklyScheduleAsync(stranger, DateTime.UtcNow.Date);
+
+        await act.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
+    public async Task GetWeeklySchedule_GroupsByTurnoAndDay_ComputesTotals()
+    {
+        SetupHealthyScope(ClinicA);
+        // Ancora numa quarta-feira pra garantir semana previsível.
+        var wednesday = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc); // quarta
+        var u1 = Guid.NewGuid();
+        var u2 = Guid.NewGuid();
+
+        // Turno manhã na quarta com 1 médico (assignment antigo = confirmado).
+        var shift = NewShift(ClinicA, "Alpha", wednesday, new TimeSpan(7, 0, 0),
+            assignments: new() { (u1, "Doc1") }, attendances: new());
+        shift.ShiftAssignments.First().AssignedAt = DateTime.UtcNow.AddDays(-30);
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetWeeklyScheduleAsync(ClinicA, wednesday);
+
+        response.ClinicId.Should().Be(ClinicA);
+        response.ClinicName.Should().Be("Alpha");
+        response.Days.Should().HaveCount(7);
+        response.Days[0].DayOfWeek.Should().Be(DayOfWeek.Sunday);
+        response.Rows.Should().ContainSingle();
+        var row = response.Rows[0];
+        row.Turno.Should().Be("manha");
+        var wedCell = row.Cells.Single(c => c.Date.Date == wednesday.Date);
+        wedCell.Assignments.Should().ContainSingle();
+        wedCell.Assignments[0].UserId.Should().Be(u1);
+        wedCell.Assignments[0].Status.Should().Be("confirmado");
+        response.TotalConfirmed.Should().Be(1);
+        response.TotalDoctors.Should().Be(1);
+
+        _ = u2; // não usado neste teste — mantido pra clareza do próximo cenário
+    }
+
+    [Fact]
+    public async Task GetWeeklySchedule_RecentAssignmentOnFutureShift_IsPending()
+    {
+        SetupHealthyScope(ClinicA);
+        var futureDay = DateTime.UtcNow.Date.AddDays(3);
+        var u1 = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", futureDay, new TimeSpan(7, 0, 0),
+            assignments: new() { (u1, "Doc1") }, attendances: new());
+        shift.ShiftAssignments.First().AssignedAt = DateTime.UtcNow.AddHours(-2); // recém-escalado
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetWeeklyScheduleAsync(ClinicA, futureDay);
+
+        var cell = response.Rows.Single().Cells.Single(c => c.Date.Date == futureDay.Date);
+        cell.Assignments.Single().Status.Should().Be("pendente");
+        response.TotalPending.Should().Be(1);
+        response.TotalConfirmed.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetWeeklySchedule_BelowTarget_ComputesUncovered()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(3);
+        var u1 = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (u1, "Doc1") }, attendances: new());
+        shift.Clinic!.DoctorsPerShift = 3;
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetWeeklyScheduleAsync(ClinicA, day);
+
+        var cell = response.Rows.Single().Cells.Single(c => c.Date.Date == day.Date);
+        cell.UncoveredCount.Should().Be(2); // meta 3 - 1 assignment
+        response.TotalUncovered.Should().Be(2);
+        response.DoctorsPerShiftTarget.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetUnitTimeline_TurnoFilter_RestrictsToMatchingShifts()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var u1 = Guid.NewGuid();
+        var u2 = Guid.NewGuid();
+
+        var manhaShift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (u1, "Manha") }, attendances: new() { (u1, 0) });
+        var noiteShift = NewShift(ClinicA, "Alpha", day, new TimeSpan(19, 0, 0),
+            assignments: new() { (u2, "Noite") }, attendances: new() { (u2, 0) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { manhaShift, noiteShift });
+
+        var response = await CreateService().GetUnitTimelineAsync(
+            ClinicA, day.AddDays(-1), day.AddDays(1), turno: "noite");
+
+        response.Items.Should().ContainSingle();
+        response.Items[0].UserId.Should().Be(u2);
+        response.Items[0].Turno.Should().Be("noite");
+    }
+
+    [Fact]
+    public async Task GetUnitTimeline_PopulatesProfessionalType()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uEnfermeiro = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uEnfermeiro, "Enf. Enfermeira") }, attendances: new() { (uEnfermeiro, 0) });
+        shift.ShiftAssignments.Single().User!.ProfessionalType = ProfessionalType.Enfermeiro;
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetUnitTimelineAsync(ClinicA, day.AddDays(-1), day.AddDays(1));
+
+        response.Items.Should().ContainSingle();
+        response.Items[0].ProfessionalType.Should().Be("Enfermeiro");
+    }
+
+    [Fact]
+    public async Task GetWeeklySchedule_PopulatesProfessionalTypePerAssignment()
+    {
+        SetupHealthyScope(ClinicA);
+        var wednesday = new DateTime(2026, 7, 15, 0, 0, 0, DateTimeKind.Utc); // quarta
+        var uMedico = Guid.NewGuid();
+        var uEnfermeiro = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", wednesday, new TimeSpan(7, 0, 0),
+            assignments: new() { (uMedico, "Dr. Medico"), (uEnfermeiro, "Enf. Enfermeira") },
+            attendances: new());
+        shift.ShiftAssignments.Single(a => a.UserId == uMedico).User!.ProfessionalType = ProfessionalType.Medico;
+        shift.ShiftAssignments.Single(a => a.UserId == uEnfermeiro).User!.ProfessionalType = ProfessionalType.Enfermeiro;
+        foreach (var a in shift.ShiftAssignments) a.AssignedAt = DateTime.UtcNow.AddDays(-30);
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetWeeklyScheduleAsync(ClinicA, wednesday);
+
+        var cell = response.Rows.Single().Cells.Single(c => c.Date.Date == shift.Date.Date);
+        cell.Assignments.Should().Contain(a => a.UserId == uMedico && a.ProfessionalType == "Medico");
+        cell.Assignments.Should().Contain(a => a.UserId == uEnfermeiro && a.ProfessionalType == "Enfermeiro");
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Frequency
     // ─────────────────────────────────────────────────────────────
 
@@ -455,6 +728,104 @@ public class PrefeituraServiceTests
     }
 
     // ─────────────────────────────────────────────────────────────
+    // FrequencyByDoctor
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_AggregatesAcrossMultipleShifts_ComputesComplianceRate()
+    {
+        SetupHealthyScope(ClinicA);
+        var day1 = DateTime.UtcNow.Date.AddDays(-3);
+        var day2 = DateTime.UtcNow.Date.AddDays(-2);
+        var doctor = Guid.NewGuid();
+
+        var shift1 = NewShift(ClinicA, "Alpha", day1, new TimeSpan(7, 0, 0),
+            assignments: new() { (doctor, "Dra. Ana") },
+            attendances: new() { (doctor, 0) }); // cumprido, no horário
+        var shift2 = NewShift(ClinicA, "Alpha", day2, new TimeSpan(7, 0, 0),
+            assignments: new() { (doctor, "Dra. Ana") },
+            attendances: new() { (doctor, 45) }); // cumprido, mas atrasado (45 > tol 15)
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift1, shift2 });
+
+        var response = await CreateService().GetFrequencyByDoctorAsync(day1.AddDays(-1), day2.AddDays(1));
+
+        response.Should().ContainSingle();
+        var row = response[0];
+        row.UserName.Should().Be("Dra. Ana");
+        row.ExpectedShifts.Should().Be(2);
+        row.CompletedShifts.Should().Be(2);
+        row.LateEvents.Should().Be(1);
+        row.Absences.Should().Be(0);
+        row.ComplianceRate.Should().Be(100);
+        row.ClinicName.Should().Be("Alpha");
+    }
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_CountsAbsenceWhenPastThresholdWithoutCheckIn()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-5); // bem no passado — já passou o threshold
+        var doctor = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (doctor, "Dr. Ausente") },
+            attendances: new());
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetFrequencyByDoctorAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.Should().ContainSingle();
+        response[0].Absences.Should().Be(1);
+        response[0].CompletedShifts.Should().Be(0);
+        response[0].ComplianceRate.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_ClinicOutsideScope_ReturnsEmpty()
+    {
+        SetupHealthyScope(ClinicA);
+        var response = await CreateService().GetFrequencyByDoctorAsync(
+            DateTime.UtcNow.Date.AddDays(-7), DateTime.UtcNow.Date, clinicId: Guid.NewGuid());
+        response.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_EmptyScope_ReturnsEmpty()
+    {
+        SetupHealthyScope();
+        var response = await CreateService().GetFrequencyByDoctorAsync(
+            DateTime.UtcNow.Date.AddDays(-7), DateTime.UtcNow.Date);
+        response.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_PopulatesProfessionalType()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uMedico = Guid.NewGuid();
+        var uEnfermeiro = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uMedico, "Dr. Medico"), (uEnfermeiro, "Enf. Enfermeira") },
+            attendances: new() { (uMedico, 0), (uEnfermeiro, 0) });
+        shift.ShiftAssignments.Single(a => a.UserId == uMedico).User!.ProfessionalType = ProfessionalType.Medico;
+        shift.ShiftAssignments.Single(a => a.UserId == uEnfermeiro).User!.ProfessionalType = ProfessionalType.Enfermeiro;
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+
+        var response = await CreateService().GetFrequencyByDoctorAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.Should().Contain(r => r.UserId == uMedico && r.ProfessionalType == "Medico");
+        response.Should().Contain(r => r.UserId == uEnfermeiro && r.ProfessionalType == "Enfermeiro");
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Absences
     // ─────────────────────────────────────────────────────────────
 
@@ -482,6 +853,29 @@ public class PrefeituraServiceTests
         response.Should().ContainSingle(i => i.Type == "late" && i.UserId == uLate);
         response.Single(i => i.Type == "late").MinutesLate.Should().BeGreaterThan(0);
         response.Should().ContainSingle(i => i.Type == "absence" && i.UserId == uAbsent);
+    }
+
+    [Fact]
+    public async Task GetAbsences_PopulatesProfessionalType()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uEnfermeiro = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uEnfermeiro, "Enf. Enfermeira") }, attendances: new() { (uEnfermeiro, 45) });
+        shift.ShiftAssignments.Single().User!.ProfessionalType = ProfessionalType.Enfermeiro;
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+        _justificationRepo.Setup(j => j.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                          .ReturnsAsync(Array.Empty<Justification>());
+
+        var response = await CreateService().GetAbsencesAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.Should().ContainSingle();
+        response[0].ProfessionalType.Should().Be("Enfermeiro");
     }
 
     [Fact]
@@ -539,6 +933,31 @@ public class PrefeituraServiceTests
     }
 
     [Fact]
+    public async Task GetAbsences_ToleranceOverride_ReclassifiesLateVsOnTime()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var u1 = Guid.NewGuid();
+        // 20 min de atraso: com tolerância real (15) é "late", com override (30) não é.
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (u1, "u1") }, attendances: new() { (u1, 20) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+        _justificationRepo.Setup(j => j.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                          .ReturnsAsync(Array.Empty<Justification>());
+
+        var withRealTolerance = await CreateService().GetAbsencesAsync(day.AddDays(-1), day.AddDays(1), "late");
+        withRealTolerance.Should().ContainSingle();
+
+        var withOverride = await CreateService().GetAbsencesAsync(
+            day.AddDays(-1), day.AddDays(1), "late", CancellationToken.None, toleranceOverrideMinutes: 30);
+        withOverride.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetAbsences_SubstitutionCovered_ExposesSubstituteName()
     {
         SetupHealthyScope(ClinicA);
@@ -567,6 +986,116 @@ public class PrefeituraServiceTests
 
         response.Should().ContainSingle();
         response[0].SubstituteName.Should().Be("Sub Doctor");
+    }
+
+    [Theory]
+    [InlineData(JustificationStatus.Pending, "em-analise")]
+    [InlineData(JustificationStatus.UnderAnalysis, "em-analise")]
+    [InlineData(JustificationStatus.Approved, "resolvido")]
+    [InlineData(JustificationStatus.Rejected, "resolvido")]
+    public async Task GetAbsences_ComputesGranularStatus_FromJustification(
+        JustificationStatus justificationStatus, string expectedStatus)
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uAbsent = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uAbsent, "Absent") }, attendances: new());
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+        _justificationRepo.Setup(j => j.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                          .ReturnsAsync(new[] { new Justification
+                          {
+                              Id = Guid.NewGuid(), ClinicId = ClinicA,
+                              ShiftDate = shift.Date, AbsentUserId = uAbsent,
+                              Status = justificationStatus,
+                              CreatedAt = day, ProtocolNumber = "P-1",
+                              RequestText = "..",
+                          }});
+
+        var response = await CreateService().GetAbsencesAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.Should().ContainSingle();
+        response[0].Status.Should().Be(expectedStatus);
+    }
+
+    [Theory]
+    [InlineData(SubstitutionStatus.Pending, "pendente")]
+    [InlineData(SubstitutionStatus.Confirmed, "resolvido")]
+    [InlineData(SubstitutionStatus.Cancelled, "pendente")]
+    public async Task GetAbsences_ComputesGranularStatus_FromSubstitutionWhenNoJustification(
+        SubstitutionStatus substitutionStatus, string expectedStatus)
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uAbsent = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uAbsent, "Absent") }, attendances: new());
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(new[] { new Substitution
+                         {
+                             Id = Guid.NewGuid(), ClinicId = ClinicA,
+                             ShiftDate = shift.Date, AbsentUserId = uAbsent,
+                             Status = substitutionStatus,
+                             CreatedAt = day,
+                         }});
+        _justificationRepo.Setup(j => j.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                          .ReturnsAsync(Array.Empty<Justification>());
+
+        var response = await CreateService().GetAbsencesAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.Should().ContainSingle();
+        response[0].Status.Should().Be(expectedStatus);
+    }
+
+    [Fact]
+    public async Task GetAbsences_ComputesGranularStatus_SemJustificativaWhenNothingRegistered()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uAbsent = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uAbsent, "Absent") }, attendances: new());
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+        _justificationRepo.Setup(j => j.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                          .ReturnsAsync(Array.Empty<Justification>());
+
+        var response = await CreateService().GetAbsencesAsync(day.AddDays(-1), day.AddDays(1));
+
+        response.Should().ContainSingle();
+        response[0].Status.Should().Be("sem-justificativa");
+    }
+
+    [Fact]
+    public async Task GetAbsences_LateItems_HaveNullStatus()
+    {
+        SetupHealthyScope(ClinicA);
+        var day = DateTime.UtcNow.Date.AddDays(-1);
+        var uLate = Guid.NewGuid();
+        var shift = NewShift(ClinicA, "Alpha", day, new TimeSpan(7, 0, 0),
+            assignments: new() { (uLate, "Late") }, attendances: new() { (uLate, 45) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _substitutionRepo.Setup(s => s.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                         .ReturnsAsync(Array.Empty<Substitution>());
+        _justificationRepo.Setup(j => j.GetByClinicIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                          .ReturnsAsync(Array.Empty<Justification>());
+
+        var response = await CreateService().GetAbsencesAsync(day.AddDays(-1), day.AddDays(1), "late");
+
+        response.Should().ContainSingle();
+        response[0].Status.Should().BeNull();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -786,6 +1315,118 @@ public class PrefeituraServiceTests
 
         response.Clinics.Should().BeEmpty();
         response.TotalClinics.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetRealtime_PopulatesPerDoctorStatusList()
+    {
+        SetupHealthyScope(ClinicA);
+        var now = DateTime.UtcNow;
+        // Início do shift há 90 min → já passou o threshold de ausência (60min).
+        var shiftStartUtc = now.AddMinutes(-90);
+        var uPresent = Guid.NewGuid();
+        var uAbsent = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha",
+            shiftStartUtc.Date, shiftStartUtc.TimeOfDay,
+            assignments: new() { (uPresent, "Presente Dr."), (uAbsent, "Ausente Dr.") },
+            attendances: new() { (uPresent, 2) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _clinicRepo.Setup(c => c.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                   .ReturnsAsync(new[] { NewClinic(ClinicA, "Alpha") });
+
+        var response = await CreateService().GetRealtimeAsync();
+
+        var card = response.Clinics.Should().ContainSingle().Subject;
+        card.Doctors.Should().HaveCount(2);
+        card.Doctors.Should().ContainSingle(d => d.UserName == "Presente Dr." && d.Status == "present");
+        card.Doctors.Should().ContainSingle(d => d.UserName == "Ausente Dr." && d.Status == "absent");
+        card.TurnoCode.Should().NotBeNull();
+        card.LastEventUserName.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task GetRealtime_FlagsLateCheckInsSeparatelyFromPresent()
+    {
+        SetupHealthyScope(ClinicA);
+        var now = DateTime.UtcNow;
+        var shiftStartUtc = now.AddMinutes(-30);
+        var uLate = Guid.NewGuid();
+
+        // Tolerância default é 15min (NewSettings) — checkin 20min depois do
+        // início do turno é atraso.
+        var shift = NewShift(ClinicA, "Alpha",
+            shiftStartUtc.Date, shiftStartUtc.TimeOfDay,
+            assignments: new() { (uLate, "Atrasado Dr.") },
+            attendances: new() { (uLate, 20) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _clinicRepo.Setup(c => c.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                   .ReturnsAsync(new[] { NewClinic(ClinicA, "Alpha") });
+
+        var response = await CreateService().GetRealtimeAsync();
+
+        var card = response.Clinics.Should().ContainSingle().Subject;
+        card.Doctors.Should().ContainSingle(d => d.UserName == "Atrasado Dr." && d.Status == "late");
+        card.LateCount.Should().Be(1);
+        response.TotalLateNow.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetRealtime_BuildsRecentEventsFeedOrderedByMostRecentFirst()
+    {
+        SetupHealthyScope(ClinicA);
+        var now = DateTime.UtcNow;
+        var u1 = Guid.NewGuid();
+        var u2 = Guid.NewGuid();
+
+        var earlierShift = NewShift(ClinicA, "Alpha",
+            now.AddHours(-2).Date, now.AddHours(-2).TimeOfDay,
+            assignments: new() { (u1, "Primeiro Dr.") },
+            attendances: new() { (u1, 5) });
+        var laterShift = NewShift(ClinicA, "Alpha",
+            now.AddMinutes(-10).Date, now.AddMinutes(-10).TimeOfDay,
+            assignments: new() { (u2, "Segundo Dr.") },
+            attendances: new() { (u2, 1) });
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { earlierShift, laterShift });
+        _clinicRepo.Setup(c => c.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                   .ReturnsAsync(new[] { NewClinic(ClinicA, "Alpha") });
+
+        var response = await CreateService().GetRealtimeAsync();
+
+        response.RecentEvents.Should().HaveCountGreaterThanOrEqualTo(2);
+        response.RecentEvents[0].UserName.Should().Be("Segundo Dr.");
+        response.RecentEvents.Should().Contain(e => e.UserName == "Primeiro Dr.");
+    }
+
+    [Fact]
+    public async Task GetRealtime_PopulatesProfessionalTypePerDoctor()
+    {
+        SetupHealthyScope(ClinicA);
+        var now = DateTime.UtcNow;
+        var shiftStartUtc = now.AddMinutes(-30);
+        var uEnfermeiro = Guid.NewGuid();
+
+        var shift = NewShift(ClinicA, "Alpha",
+            shiftStartUtc.Date, shiftStartUtc.TimeOfDay,
+            assignments: new() { (uEnfermeiro, "Enf. Enfermeira") },
+            attendances: new() { (uEnfermeiro, 2) });
+        shift.ShiftAssignments.Single().User!.ProfessionalType = ProfessionalType.Enfermeiro;
+
+        _shiftRepo.Setup(s => s.GetInPeriodWithDetailsAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
+                  .ReturnsAsync(new[] { shift });
+        _clinicRepo.Setup(c => c.GetByIdsAsync(It.IsAny<IEnumerable<Guid>>()))
+                   .ReturnsAsync(new[] { NewClinic(ClinicA, "Alpha") });
+
+        var response = await CreateService().GetRealtimeAsync();
+
+        var card = response.Clinics.Should().ContainSingle().Subject;
+        card.Doctors.Should().ContainSingle(d => d.UserName == "Enf. Enfermeira" && d.ProfessionalType == "Enfermeiro");
     }
 
     // ─────────────────────────────────────────────────────────────

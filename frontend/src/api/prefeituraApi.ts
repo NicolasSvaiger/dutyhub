@@ -34,6 +34,18 @@ export interface PrefeituraKpiByClinic {
   lateEvents: number;
 }
 
+export interface PrefeituraKpiDoctorItem {
+  userId: string;
+  userName: string;
+  registrationNumber?: string | null;
+  /** "Medico" | "Enfermeiro" | null. */
+  professionalType?: string | null;
+  clinicId: string;
+  clinicName: string;
+  absences: number;
+  complianceRate: number;
+}
+
 export interface PrefeituraKpisResponse {
   from: string;
   to: string;
@@ -44,7 +56,15 @@ export interface PrefeituraKpisResponse {
   totalLateEvents: number;
   averageLateMinutes: number;
   substitutionRate: number;
+  /** Profissionais distintos (médicos + enfermeiros). Nome mantido por
+   * compatibilidade — ver totalActiveMedicos/totalActiveEnfermeiros pro
+   * breakdown por tipo. */
+  totalActiveDoctors: number;
+  totalActiveMedicos: number;
+  totalActiveEnfermeiros: number;
   byClinic: PrefeituraKpiByClinic[];
+  topAbsenceDoctors: PrefeituraKpiDoctorItem[];
+  perfectAttendanceDoctors: PrefeituraKpiDoctorItem[];
 }
 
 export interface PrefeituraClinicItem {
@@ -58,6 +78,44 @@ export interface PrefeituraShiftAssignment {
   userId: string;
   userName: string;
   hasCheckedIn: boolean;
+}
+
+export interface PrefeituraScheduleAssignment2 {
+  userId: string;
+  userName: string;
+  /** "Medico" | "Enfermeiro" | null. */
+  professionalType?: string | null;
+  /** "confirmado" | "pendente". */
+  status: string;
+}
+
+export interface PrefeituraScheduleCell {
+  date: string;
+  assignments: PrefeituraScheduleAssignment2[];
+  uncoveredCount: number;
+}
+
+export interface PrefeituraScheduleRow {
+  /** "manha" | "tarde" | "noite". */
+  turno: string;
+  startTime: string;
+  endTime: string;
+  cells: PrefeituraScheduleCell[];
+}
+
+export interface PrefeituraWeeklyScheduleResponse {
+  clinicId: string;
+  clinicName: string;
+  doctorsPerShiftTarget?: number | null;
+  weekStart: string;
+  weekEnd: string;
+  days: string[];
+  totalShiftSlots: number;
+  totalConfirmed: number;
+  totalPending: number;
+  totalUncovered: number;
+  totalDoctors: number;
+  rows: PrefeituraScheduleRow[];
 }
 
 export interface PrefeituraShiftItem {
@@ -81,12 +139,32 @@ export interface PrefeituraFrequencyItem {
   presenceRate: number;
 }
 
+export interface PrefeituraFrequencyByDoctorItem {
+  userId: string;
+  userName: string;
+  registrationNumber?: string | null;
+  /** "Medico" | "Enfermeiro" | null. */
+  professionalType?: string | null;
+  clinicId: string;
+  clinicName: string;
+  expectedShifts: number;
+  completedShifts: number;
+  absences: number;
+  lateEvents: number;
+  complianceRate: number;
+}
+
 export interface PrefeituraAbsenceItem {
   id: string;
+  /** "sem-justificativa" | "pendente" | "em-analise" | "resolvido" | null.
+   * Null quando type === "late" (o mock só classifica ausências). */
+  status?: string | null;
   /** "late" | "absence" — vem do backend em lowercase. */
   type: string;
   userId: string;
   userName: string;
+  /** "Medico" | "Enfermeiro" | null. */
+  professionalType?: string | null;
   clinicId: string;
   clinicName: string;
   date: string;
@@ -94,6 +172,36 @@ export interface PrefeituraAbsenceItem {
   minutesLate?: number | null;
   justified: boolean;
   substituteName?: string | null;
+}
+
+export interface PrefeituraUnitTimelineItem {
+  shiftId: string;
+  userId: string;
+  userName: string;
+  /** "Medico" | "Enfermeiro" | null. */
+  professionalType?: string | null;
+  date: string;
+  /** "manha" | "tarde" | "noite". */
+  turno: string;
+  expectedTime: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  /** "in" | "late" | "absent". */
+  type: string;
+  minutesLate?: number | null;
+}
+
+export interface PrefeituraUnitTimelineResponse {
+  clinicId: string;
+  clinicName: string;
+  from: string;
+  to: string;
+  totalShifts: number;
+  entradas: number;
+  saidas: number;
+  atrasos: number;
+  ausencias: number;
+  items: PrefeituraUnitTimelineItem[];
 }
 
 export interface PrefeituraHistoryItem {
@@ -116,15 +224,47 @@ export interface PrefeituraHistoryPage {
   totalPages: number;
 }
 
+export interface PrefeituraRealtimeDoctor {
+  userId: string;
+  userName: string;
+  registrationNumber?: string | null;
+  /** "Medico" | "Enfermeiro" | null. */
+  professionalType?: string | null;
+  /** "present" | "late" | "absent" | "upcoming". */
+  status: string;
+  checkInTime?: string | null;
+  expectedTime: string;
+}
+
 export interface PrefeituraRealtimeClinic {
   clinicId: string;
   name: string;
   expectedCount: number;
   presentCount: number;
   absentCount: number;
+  lateCount: number;
   /** "green" | "yellow" | "red". */
   alertLevel: string;
   absentUserNames: string[];
+  /** "manha" | "tarde" | "noite" | null quando não há turno ativo agora. */
+  turnoCode?: string | null;
+  shiftStartTime?: string | null;
+  shiftEndTime?: string | null;
+  doctors: PrefeituraRealtimeDoctor[];
+  lastEventUserName?: string | null;
+  /** "checkin" | "absence" | null. */
+  lastEventType?: string | null;
+  lastEventTime?: string | null;
+}
+
+export interface PrefeituraRealtimeEvent {
+  timestamp: string;
+  /** "checkin" | "late" | "checkout" | "absence". */
+  type: string;
+  userId?: string | null;
+  userName?: string | null;
+  clinicName?: string | null;
+  minutesLate?: number | null;
 }
 
 export interface PrefeituraRealtimeResponse {
@@ -134,6 +274,8 @@ export interface PrefeituraRealtimeResponse {
   totalExpectedNow: number;
   totalPresentNow: number;
   totalAbsentNow: number;
+  totalLateNow: number;
+  recentEvents: PrefeituraRealtimeEvent[];
 }
 
 export interface NotifyOsResponse {
@@ -187,6 +329,24 @@ export const prefeituraApi = {
     return data;
   },
 
+  getFrequencyByDoctor: async (
+    from?: Date | string,
+    to?: Date | string,
+    clinicId?: string,
+  ): Promise<PrefeituraFrequencyByDoctorItem[]> => {
+    const params: Record<string, string> = {};
+    const f = toIsoDate(from);
+    const t = toIsoDate(to);
+    if (f) params.from = f;
+    if (t) params.to = t;
+    if (clinicId) params.clinicId = clinicId;
+    const { data } = await axiosInstance.get<PrefeituraFrequencyByDoctorItem[]>(
+      '/prefeitura/frequency/by-doctor',
+      { params },
+    );
+    return data;
+  },
+
   getShifts: async (
     from?: Date | string,
     to?: Date | string,
@@ -221,14 +381,49 @@ export const prefeituraApi = {
     from?: Date | string,
     to?: Date | string,
     type?: 'late' | 'absence',
+    toleranceMinutes?: number,
   ): Promise<PrefeituraAbsenceItem[]> => {
-    const params: Record<string, string> = {};
+    const params: Record<string, string | number> = {};
     const f = toIsoDate(from);
     const t = toIsoDate(to);
     if (f) params.from = f;
     if (t) params.to = t;
     if (type) params.type = type;
+    if (toleranceMinutes != null) params.toleranceMinutes = toleranceMinutes;
     const { data } = await axiosInstance.get<PrefeituraAbsenceItem[]>('/prefeitura/absences', { params });
+    return data;
+  },
+
+  getWeeklySchedule: async (
+    clinicId: string,
+    weekStart?: Date | string,
+  ): Promise<PrefeituraWeeklyScheduleResponse> => {
+    const params: Record<string, string> = { clinicId };
+    const w = toIsoDate(weekStart);
+    if (w) params.weekStart = w;
+    const { data } = await axiosInstance.get<PrefeituraWeeklyScheduleResponse>(
+      '/prefeitura/schedule/weekly',
+      { params },
+    );
+    return data;
+  },
+
+  getUnitTimeline: async (
+    clinicId: string,
+    from?: Date | string,
+    to?: Date | string,
+    turno?: string,
+  ): Promise<PrefeituraUnitTimelineResponse> => {
+    const params: Record<string, string> = { clinicId };
+    const f = toIsoDate(from);
+    const t = toIsoDate(to);
+    if (f) params.from = f;
+    if (t) params.to = t;
+    if (turno) params.turno = turno;
+    const { data } = await axiosInstance.get<PrefeituraUnitTimelineResponse>(
+      '/prefeitura/units/timeline',
+      { params },
+    );
     return data;
   },
 

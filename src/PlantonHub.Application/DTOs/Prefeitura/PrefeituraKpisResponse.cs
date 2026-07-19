@@ -25,8 +25,26 @@ public class PrefeituraKpisResponse
     /// <summary>Percentual de plantões com substituto acionado.</summary>
     public double SubstitutionRate { get; set; }
 
+    /// <summary>Profissionais distintos (médicos + enfermeiros) com ao menos
+    /// um plantão escalado no período. Nome mantido por compatibilidade —
+    /// ver <see cref="TotalActiveMedicos"/>/<see cref="TotalActiveEnfermeiros"/>
+    /// para o breakdown por tipo.</summary>
+    public int TotalActiveDoctors { get; set; }
+
+    /// <summary>Subconjunto de <see cref="TotalActiveDoctors"/> com ProfessionalType == Medico.</summary>
+    public int TotalActiveMedicos { get; set; }
+
+    /// <summary>Subconjunto de <see cref="TotalActiveDoctors"/> com ProfessionalType == Enfermeiro.</summary>
+    public int TotalActiveEnfermeiros { get; set; }
+
     /// <summary>Breakdown por UPA — mesmos KPIs por clínica.</summary>
     public List<PrefeituraKpiByClinic> ByClinic { get; set; } = new();
+
+    /// <summary>Top 5 médicos com mais ausências no período (Absences > 0), ordenado desc.</summary>
+    public List<PrefeituraKpiDoctorItem> TopAbsenceDoctors { get; set; } = new();
+
+    /// <summary>Médicos com 100% de cumprimento (sem ausências nem atrasos) no período.</summary>
+    public List<PrefeituraKpiDoctorItem> PerfectAttendanceDoctors { get; set; } = new();
 }
 
 public class PrefeituraKpiByClinic
@@ -38,4 +56,22 @@ public class PrefeituraKpiByClinic
     public int CoveredShifts { get; set; }
     public int Absences { get; set; }
     public int LateEvents { get; set; }
+}
+
+/// <summary>Linha de ranking por médico — usado nos cards "Maiores ausências" e "Melhor frequência".</summary>
+public class PrefeituraKpiDoctorItem
+{
+    public Guid UserId { get; set; }
+    public string UserName { get; set; } = string.Empty;
+    public string? RegistrationNumber { get; set; }
+
+    /// <summary>"Medico" | "Enfermeiro" — de <c>User.ProfessionalType</c>.</summary>
+    public string? ProfessionalType { get; set; }
+
+    /// <summary>UPA "âncora" — onde o profissional mais atuou no período (heurística de maioria).</summary>
+    public Guid ClinicId { get; set; }
+    public string ClinicName { get; set; } = string.Empty;
+
+    public int Absences { get; set; }
+    public double ComplianceRate { get; set; }
 }

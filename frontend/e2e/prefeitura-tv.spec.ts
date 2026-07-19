@@ -14,14 +14,15 @@ test.describe('Portal Prefeitura — Modo TV', () => {
     // Tagline do modo TV (i18n prefeitura.tv.tagline)
     await expect(page.getByText(/Monitoramento em tempo real/i).first()).toBeVisible();
 
-    // Totalizadores: pelo menos os 4 labels aparecem.
-    await expect(page.getByText(/UPAs/i).first()).toBeVisible();
-    await expect(page.getByText(/Previstos/i).first()).toBeVisible();
-    await expect(page.getByText(/Presentes/i).first()).toBeVisible();
-    await expect(page.getByText(/Ausentes/i).first()).toBeVisible();
+    // Footer com stats agregados (Médicos presentes / Total escalados /
+    // Com atraso / Plantão ausente) — mesmos totais do mock op-tv.html.
+    await expect(page.getByText(/presentes/i).first()).toBeVisible();
+    await expect(page.getByText(/escalados/i).first()).toBeVisible();
+    await expect(page.getByText(/Taxa de Ocupação Global/i).first()).toBeVisible();
+    await expect(page.getByText('AO VIVO').first()).toBeVisible();
 
     // Relógio wall-clock em formato HH:MM (o clock tick de 1s garante renderização).
-    await expect(page.getByText(/^\d{1,2}:\d{2}$/).first()).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/^\d{1,2}:\d{2}(:\d{2})?$/).first()).toBeVisible({ timeout: 5_000 });
   });
 
   test('polling faz refetch do endpoint /prefeitura/realtime em ~20s', async ({ page }) => {
