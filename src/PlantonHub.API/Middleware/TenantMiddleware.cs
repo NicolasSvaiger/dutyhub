@@ -98,12 +98,22 @@ public class TenantMiddleware
                 }
             }
 
+            // AdminGlobal has unrestricted cross-clinic access by design —
+            // see TenantService.IsAdminGlobal(), CanOperateOnUserAsync,
+            // CanAccessPublicOrganAsync. The claim-based allowlist below
+            // exists to catch tenant-bypass attempts from regular users;
+            // enforcing it against AdminGlobal too causes a full lockout
+            // (every request 403s) whenever their JWT/DB still carries
+            // stale UserClinicRoles rows that don't happen to include
+            // whichever clinic the frontend defaults to.
+            var isAdminGlobal = IsAdminGlobal(context);
+
             var clinicIdHeader = context.Request.Headers["X-Clinic-Id"].FirstOrDefault();
             if (!string.IsNullOrEmpty(clinicIdHeader) && Guid.TryParse(clinicIdHeader, out var headerClinicId))
             {
                 // Path (a): the JWT brought explicit clinicIds and the header
                 // asks for something outside that set. Tenant bypass — 403.
-                if (claimClinicIds.Count > 0 && !claimClinicIds.Contains(headerClinicId))
+                if (!isAdminGlobal && claimClinicIds.Count > 0 && !claimClinicIds.Contains(headerClinicId))
                 {
                     _logger.LogWarning(
                         "Tenant bypass attempt: user tried to access clinic {ClinicId} via X-Clinic-Id header but is not authorized. Authorized: [{AuthorizedClinics}]",
@@ -122,7 +132,8 @@ public class TenantMiddleware
                 // the header points to something the DB doesn't know about
                 // either, we silently drop it — downstream services yield
                 // empty results, which is the documented contract.
-                if (authorizedClinicIds.Contains(headerClinicId))
+                // AdminGlobal always gets the requested clinic honored.
+                if (isAdminGlobal || authorizedClinicIds.Contains(headerClinicId))
                 {
                     context.Items["TenantClinicId"] = headerClinicId;
                 }
@@ -273,14 +284,26 @@ public class TenantMiddleware
     /// circular (o middleware roda antes do TenantService ser resolvido);
     /// lê os claims direto igual o <c>AuthorizationExtensions.HasRole</c>.
     /// </summary>
-    private static bool IsGestorPublico(HttpContext context)
+    private static bool IsGestorPublico(HttpContext context) => HasRole(context, "GestorPublico");
+
+    /// <summary>
+    /// Detecta se o usuário logado tem role <c>AdminGlobal</c> — usado para
+    /// isentar o tenant-bypass check abaixo (AdminGlobal tem acesso
+    /// irrestrito a qualquer clínica em todo o resto do sistema; ver
+    /// <see cref="PlantonHub.Infrastructure.Services.TenantService.IsAdminGlobal"/>).
+    /// Mesma leitura direta de claims que <see cref="IsGestorPublico"/>,
+    /// pelo mesmo motivo (sem dependência circular no TenantService).
+    /// </summary>
+    private static bool IsAdminGlobal(HttpContext context) => HasRole(context, "AdminGlobal");
+
+    private static bool HasRole(HttpContext context, string role)
     {
         var user = context.User;
 
         // Source 1: cognito:groups (Cognito nativo).
         foreach (var claim in user.FindAll("cognito:groups"))
         {
-            if (string.Equals(claim.Value, "GestorPublico", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(claim.Value, role, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
 
@@ -298,7 +321,7 @@ public class TenantMiddleware
                 {
                     foreach (var r in parsed)
                     {
-                        if (string.Equals(r?.Trim(), "GestorPublico", StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(r?.Trim(), role, StringComparison.OrdinalIgnoreCase))
                             return true;
                     }
                     return false;
@@ -309,7 +332,7 @@ public class TenantMiddleware
 
         foreach (var r in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            if (string.Equals(r, "GestorPublico", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(r, role, StringComparison.OrdinalIgnoreCase))
                 return true;
         }
         return false;
