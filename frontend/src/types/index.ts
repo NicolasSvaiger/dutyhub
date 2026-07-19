@@ -278,7 +278,9 @@ export interface UpdateContractRequest extends CreateContractRequest {}
 export interface CreateUserRequest {
   email: string;
   name: string;
-  password: string;
+  /** Obsoleto — ignorado pelo backend. Auth real é via Cognito (senha
+   * temporária + email de convite). Mantido opcional só por compat. */
+  password?: string;
   professionalType?: number;
   cpf?: string;
   phone?: string;
@@ -288,10 +290,13 @@ export interface CreateUserRequest {
   dateOfBirth?: string;
 }
 
-// Update payload for admin edits — no password (Cognito reset flow) and no
-// email (immutable identity). All fields optional: null means "leave alone".
+// Update payload for admin edits — no password (Cognito reset flow, the
+// professional resets it themselves). All fields optional: null means
+// "leave alone". Email pode ser alterado — o backend sincroniza com o
+// Cognito (alias de login) e valida duplicidade.
 export interface UpdateUserRequest {
   name?: string;
+  email?: string;
   professionalType?: number;
   cpf?: string;
   phone?: string;

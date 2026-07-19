@@ -99,13 +99,16 @@ public class MultipleProfilesPropertyTests
 
                 var passwordHashService = new Mock<IPasswordHashService>();
                 var cacheService = new Mock<ICacheService>();
+                var cognitoAuthService = new Mock<ICognitoAuthService>();
+                cognitoAuthService.Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
                 var userService = new UserService(
                     userRepository.Object,
                     clinicRepository.Object,
                     tenantService.Object,
                     passwordHashService.Object,
-                    cacheService.Object);
+                    cacheService.Object,
+                    cognitoAuthService.Object);
 
                 // Act: Assign each role to the user (simulating the sequence of AssignClinicRoleAsync calls)
                 // We verify the user entity's UserClinicRoles collection persists all associations
@@ -171,13 +174,16 @@ public class MultipleProfilesPropertyTests
 
                 var passwordHashService = new Mock<IPasswordHashService>();
                 var cacheService = new Mock<ICacheService>();
+                var cognitoAuthService = new Mock<ICognitoAuthService>();
+                cognitoAuthService.Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
                 var userService = new UserService(
                     userRepository.Object,
                     clinicRepository.Object,
                     tenantService.Object,
                     passwordHashService.Object,
-                    cacheService.Object);
+                    cacheService.Object,
+                    cognitoAuthService.Object);
 
                 var request = new AssignRoleRequest
                 {
@@ -346,7 +352,7 @@ public class InvalidDataRejectionPropertyTests
             });
     }
 
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 100, Skip = "Password é opcional — auth via Cognito, sem validação local (Sprint 7E)")]
     public Property ShortPassword_IsRejected_WithValidationError()
     {
         var shortPasswordGen = Gen.Elements("1234567", "abc", "short", "1", "12", "pass", "Ab1");
@@ -374,7 +380,7 @@ public class InvalidDataRejectionPropertyTests
             });
     }
 
-    [Property(MaxTest = 100)]
+    [Property(MaxTest = 100, Skip = "Password é opcional — auth via Cognito, sem validação local (Sprint 7E)")]
     public Property EmptyPassword_IsRejected_WithValidationError()
     {
         var validNameGen = Gen.Elements("John", "Maria", "Carlos", "Ana");
@@ -422,13 +428,16 @@ public class InvalidDataRejectionPropertyTests
                 var clinicRepository = new Mock<IClinicRepository>();
                 var passwordHashService = new Mock<IPasswordHashService>();
                 var cacheService = new Mock<ICacheService>();
+                var cognitoAuthService = new Mock<ICognitoAuthService>();
+                cognitoAuthService.Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
 
                 var userService = new UserService(
                     userRepository.Object,
                     clinicRepository.Object,
                     tenantService.Object,
                     passwordHashService.Object,
-                    cacheService.Object);
+                    cacheService.Object,
+                    cognitoAuthService.Object);
 
                 var request = new CreateUserRequest
                 {

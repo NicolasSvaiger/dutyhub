@@ -246,7 +246,9 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
         const newUser = await usersApi.create({
           email: formEmail.trim(),
           name: formNome.trim(),
-          password: 'Temp@' + Date.now(), // Temporary password — user will reset
+          // Password removido — o backend cria no Cognito com senha
+          // temporária e envia email de convite (mesmo padrão do
+          // AdminUsuariosOS e GestorService.CreateAsync).
           professionalType: profType,
           cpf: formCpf.replace(/\D/g, '') || undefined,
           phone: formTel.replace(/\D/g, '') || undefined,

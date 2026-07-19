@@ -234,6 +234,41 @@ public class CognitoAuthService : ICognitoAuthService
         }
     }
 
+    public async Task UpdateEmailAsync(string oldEmail, string newEmail)
+    {
+        if (string.Equals(oldEmail, newEmail, StringComparison.OrdinalIgnoreCase))
+        {
+            return; // nada a fazer — evita round-trip ao Cognito sem necessidade
+        }
+
+        using var client = new AmazonCognitoIdentityProviderClient(
+            Amazon.RegionEndpoint.GetBySystemName(_region));
+
+        try
+        {
+            await client.AdminUpdateUserAttributesAsync(new AdminUpdateUserAttributesRequest
+            {
+                UserPoolId = _userPoolId,
+                Username = oldEmail,
+                UserAttributes = new List<AttributeType>
+                {
+                    new() { Name = "email", Value = newEmail },
+                    // email_verified precisa ser reafirmado — o Cognito zera
+                    // essa flag quando o atributo email muda via admin API,
+                    // e um email não-verificado bloqueia login com alias.
+                    new() { Name = "email_verified", Value = "true" },
+                },
+            });
+            _logger.LogInformation("Updated Cognito email: {OldEmail} -> {NewEmail}", oldEmail, newEmail);
+        }
+        catch (UserNotFoundException)
+        {
+            // Usuário não existe no Cognito (ex.: seed local sem migração).
+            // Não bloqueia a atualização no Postgres — loga e segue.
+            _logger.LogWarning("Cognito user not found for email update: {OldEmail}", oldEmail);
+        }
+    }
+
     /// <summary>
     /// Gera senha temporária que satisfaz a policy padrão do Cognito
     /// (min 8, upper, lower, digit, symbol). A senha é usada uma única

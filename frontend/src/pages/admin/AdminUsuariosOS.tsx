@@ -118,6 +118,11 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
   const [fObs, setFObs] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Edição — reusa o mesmo drawer da criação. editingId != null indica
+  // modo edição: título, submit e payload mudam, mas o layout do form
+  // permanece o mesmo (evita duplicar todo o JSX do drawer).
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   useEffect(() => {
     usersApi.getAdmins()
       .then(u => setUsers(Array.isArray(u) ? u : []))
@@ -171,42 +176,76 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
 
   function closeDrawer() {
     setDrawerOpen(false);
+    setEditingId(null);
     setFNome(''); setFEmail(''); setFCargo(''); setFDept(''); setFPerfil(''); setFObs('');
   }
 
-  const formValid = fNome.trim() !== '' && fEmail.trim() !== '' && fPerfil !== '';
+  function openCreateDrawer() {
+    setEditingId(null);
+    setFNome(''); setFEmail(''); setFCargo(''); setFDept(''); setFPerfil(''); setFObs('');
+    setDrawerOpen(true);
+  }
+
+  function openEditDrawer(u: UsuarioOSView) {
+    setEditingId(u.id);
+    setFNome(u.nome);
+    setFEmail(u.email);
+    setFCargo('');
+    setFDept('');
+    // No modo edição não trocamos o perfil de acesso — isso é uma
+    // operação de role separada (clinic-role), não parte do update básico.
+    setFPerfil(u.perfil);
+    setFObs('');
+    setDrawerOpen(true);
+  }
+
+  // No modo edição não exigimos perfil (já é fixo) — só nome e email.
+  const formValid = editingId
+    ? fNome.trim() !== '' && fEmail.trim() !== ''
+    : fNome.trim() !== '' && fEmail.trim() !== '' && fPerfil !== '';
 
   async function salvar() {
     if (!formValid) return;
     setSaving(true);
     try {
-      // 1. Criar o usuário
-      const newUser = await usersApi.create({
-        name: fNome.trim(),
-        email: fEmail.trim(),
-        password: `Temp@${Date.now()}`,
-      });
-
-      // 2. Atribuir a role — pega a primeira clinicId do usuário logado
-      const clinicId = authUser?.clinicIds?.[0] ?? authUser?.clinicId ?? '';
-      if (clinicId) {
-        await usersApi.assignRole(newUser.id, {
-          clinicId,
-          role: fPerfil === 'Admin Master' ? 'AdminGlobal' : 'AdminClinica',
+      if (editingId) {
+        // Edição: nome + email. Backend sincroniza email com Cognito e
+        // valida duplicidade (409 se outro usuário já usa o endereço).
+        const updated = await usersApi.update(editingId, {
+          name: fNome.trim(),
+          email: fEmail.trim(),
         });
+        setUsers(prev => prev.map(x => x.id === editingId ? { ...x, ...updated } : x));
+        showToast(`${fNome} atualizado(a) com sucesso!`);
+      } else {
+        // Criação: o backend cria no Cognito com senha temporária e envia
+        // o email de convite nativamente — não enviamos senha nenhuma.
+        const newUser = await usersApi.create({
+          name: fNome.trim(),
+          email: fEmail.trim(),
+        });
+
+        // Atribuir a role — pega a primeira clinicId do usuário logado
+        const clinicId = authUser?.clinicIds?.[0] ?? authUser?.clinicId ?? '';
+        if (clinicId) {
+          await usersApi.assignRole(newUser.id, {
+            clinicId,
+            role: fPerfil === 'Admin Master' ? 'AdminGlobal' : 'AdminClinica',
+          });
+        }
+
+        // Adiciona à lista local
+        setUsers(prev => [...prev, {
+          ...newUser,
+          roles: [{ id: '', userId: newUser.id, clinicId, role: fPerfil === 'Admin Master' ? 'AdminGlobal' : 'AdminClinica', assignedAt: new Date().toISOString() }],
+        }]);
+
+        showToast(`${fNome} criado(a) com sucesso! Um convite foi enviado por e-mail.`);
       }
-
-      // 3. Adiciona à lista local
-      setUsers(prev => [...prev, {
-        ...newUser,
-        roles: [{ id: '', userId: newUser.id, clinicId, role: fPerfil === 'Admin Master' ? 'AdminGlobal' : 'AdminClinica', assignedAt: new Date().toISOString() }],
-      }]);
-
-      showToast(`${fNome} criado(a) com sucesso!`);
       closeDrawer();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      showToast(msg || 'Erro ao criar usuário', true);
+      showToast(msg || (editingId ? 'Erro ao atualizar usuário' : 'Erro ao criar usuário'), true);
     } finally {
       setSaving(false);
     }
@@ -218,8 +257,11 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
       const updated = await usersApi.toggleStatus(u.id);
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, isActive: updated.isActive } : x));
       showToast(willActivate ? `${u.nome} reativado(a)` : `${u.nome} suspenso(a)`);
-    } catch {
-      showToast('Erro ao alterar status', true);
+    } catch (err: unknown) {
+      // Backend bloqueia desativar o único Admin Master ativo com 409 —
+      // mostra a mensagem específica em vez do genérico "Erro ao alterar status".
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Erro ao alterar status', true);
     }
   }
 
@@ -252,7 +294,7 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
             <div className="uos-page-title">Gestão de Usuários</div>
             <div className="uos-page-sub">Controle de acesso e perfis dos colaboradores da OS</div>
           </div>
-          <button className="uos-btn-novo" onClick={() => setDrawerOpen(true)}>
+          <button className="uos-btn-novo" onClick={openCreateDrawer}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Novo usuário
           </button>
@@ -351,6 +393,9 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
                     <td><span className="uos-last-access">{u.ultimo}</span></td>
                     <td className="center">
                       <div className="uos-actions-cell">
+                        <button className="uos-act-btn" title="Editar" onClick={() => openEditDrawer(u)}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                        </button>
                         <button className={`uos-act-btn ${u.status === 'Ativo' ? 'danger' : 'success'}`}
                           title={u.status === 'Ativo' ? 'Suspender' : 'Reativar'}
                           onClick={() => toggleStatus(u)}>
@@ -379,10 +424,10 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
       {/* Overlay */}
       {drawerOpen && <div className="uos-overlay" onClick={closeDrawer} />}
 
-      {/* Drawer Novo Usuário */}
+      {/* Drawer Novo Usuário / Editar Usuário */}
       <div className={`uos-drawer ${drawerOpen ? 'open' : ''}`}>
         <div className="uos-drawer-header">
-          <div className="uos-drawer-title">Novo usuário</div>
+          <div className="uos-drawer-title">{editingId ? 'Editar usuário' : 'Novo usuário'}</div>
           <button className="uos-drawer-close" onClick={closeDrawer}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -414,18 +459,28 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
                   ]}
                 />
               </div>
-              <div className="uos-field">
-                <label>Perfil de acesso *</label>
-                <CustomSelect
-                  value={fPerfil}
-                  onChange={setFPerfil}
-                  options={[
-                    { value: '', label: 'Selecione...' },
-                    ...(isAdminGlobal ? [{ value: 'Admin Master', label: 'Admin Master (24p7)' }] : []),
-                    { value: 'Admin OS', label: 'Admin OS' },
-                  ]}
-                />
-              </div>
+              {editingId ? (
+                // No modo edição o perfil de acesso não é editável por
+                // aqui — troca de role é uma operação separada (clinic-role).
+                // Mostramos como leitura pra não confundir o usuário.
+                <div className="uos-field">
+                  <label>Perfil de acesso</label>
+                  <input type="text" value={fPerfil} disabled />
+                </div>
+              ) : (
+                <div className="uos-field">
+                  <label>Perfil de acesso *</label>
+                  <CustomSelect
+                    value={fPerfil}
+                    onChange={setFPerfil}
+                    options={[
+                      { value: '', label: 'Selecione...' },
+                      ...(isAdminGlobal ? [{ value: 'Admin Master', label: 'Admin Master (24p7)' }] : []),
+                      { value: 'Admin OS', label: 'Admin OS' },
+                    ]}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div className="uos-form-section">
@@ -439,7 +494,7 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
           <button className="uos-btn-cancelar" onClick={closeDrawer}>Cancelar</button>
           <button className="uos-btn-salvar" onClick={salvar} disabled={!formValid || saving}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            {saving ? 'Enviando…' : 'Salvar e enviar convite'}
+            {saving ? 'Salvando…' : editingId ? 'Salvar alterações' : 'Salvar e enviar convite'}
           </button>
         </div>
       </div>
@@ -531,7 +586,7 @@ const USUARIOS_CSS = `
 #adm-root .uos-act-btn.success { background:#dcfce7; color:#22c55e; }
 #adm-root .uos-act-btn.success:hover { background:#22c55e; color:#fff; }
 
-#adm-root .uos-toast { position:fixed; bottom:2rem; right:2rem; background:var(--surface); border:1.5px solid #22c55e; border-radius:12px; padding:.85rem 1.2rem; font-size:.85rem; font-weight:700; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.12); z-index:100; animation:uos-slideIn .3s ease; }
+#adm-root .uos-toast { position:fixed; bottom:2rem; right:2rem; background:var(--surface); border:1.5px solid #22c55e; border-radius:12px; padding:.85rem 1.2rem; font-size:.85rem; font-weight:700; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.12); z-index:200; animation:uos-slideIn .3s ease; }
 #adm-root .uos-toast.error { border-color:#ef4444; color:#ef4444; }
 @keyframes uos-slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 
@@ -555,6 +610,7 @@ const USUARIOS_CSS = `
 #adm-root .uos-field { display:flex; flex-direction:column; gap:.35rem; }
 #adm-root .uos-field label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--muted); }
 #adm-root .uos-field input, #adm-root .uos-field textarea { padding:.7rem .9rem; border:1.5px solid var(--border); border-radius:10px; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:600; color:var(--text); background:var(--bg); outline:none; transition:border-color .2s; }
+#adm-root .uos-field input:disabled { opacity:.6; cursor:not-allowed; }
 #adm-root .uos-field input:focus, #adm-root .uos-field textarea:focus { border-color:#6366f1; background:#fff; }
 #adm-root .uos-field textarea { resize:vertical; }
 #adm-root .uos-select { padding:.7rem .9rem; border:1.5px solid var(--border); border-radius:10px; font-family:'Nunito Sans',sans-serif; font-size:.85rem; font-weight:600; color:var(--text); appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .8rem center; background-color:var(--bg); cursor:pointer; outline:none; transition:border-color .2s; width:100%; }

@@ -253,16 +253,11 @@ describe('<AdminGestores />', () => {
     await user.type(screen.getByPlaceholderText('Ex: Valmir Correia Sousa'), 'Novo Gestor');
     await user.type(screen.getByPlaceholderText('gestor@prefeitura.gov.br'), 'novo@teste.gov.br');
 
-    // Selecionar contrato (2ª opção do CustomSelect — a primeira é "Selecione o contrato...")
+    // Selecionar órgão público (2ª opção do CustomSelect — a primeira pode ser o label)
     const cselect = document.querySelector('.gest-cselect-btn') as HTMLElement;
     await user.click(cselect);
     const opt = document.querySelector('.gest-cselect-option:nth-child(2)') as HTMLElement;
     await user.click(opt);
-
-    // Selecionar pelo menos uma UPA
-    await waitFor(() => screen.getByText('UPA Vila Pereira'));
-    const checkbox = document.querySelector('.gest-clinic-check-item input') as HTMLInputElement;
-    await user.click(checkbox);
 
     // Salvar
     await user.click(screen.getByRole('button', { name: /Salvar e enviar convite/i }));
@@ -294,9 +289,6 @@ describe('<AdminGestores />', () => {
     await user.click(cselect);
     const opt = document.querySelector('.gest-cselect-option:nth-child(2)') as HTMLElement;
     await user.click(opt);
-    await waitFor(() => screen.getByText('UPA Vila Pereira'));
-    const checkbox = document.querySelector('.gest-clinic-check-item input') as HTMLInputElement;
-    await user.click(checkbox);
     await user.click(screen.getByRole('button', { name: /Salvar e enviar convite/i }));
 
     await waitFor(() => {

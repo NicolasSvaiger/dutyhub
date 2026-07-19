@@ -50,7 +50,7 @@ function slaColor(pct: number): string {
 
 function formatMoney(v?: number | null): string {
   if (!v) return '—';
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 }
 
 function formatDate(iso: string): string {
@@ -68,6 +68,28 @@ function maskCnpj(v: string): string {
   if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`;
   if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
   return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
+
+function maskPhone(v: string): string {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+}
+
+function formatCurrencyInput(v: string): string {
+  // Remove tudo que não é dígito
+  const d = v.replace(/\D/g, '');
+  if (!d) return '';
+  // Converte pra centavos (últimos 2 dígitos = decimais)
+  const num = parseInt(d, 10) / 100;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function parseCurrencyInput(formatted: string): number {
+  // Remove formatação e converte de volta pra number
+  return parseFloat(formatted.replace(/\./g, '').replace(',', '.')) || 0;
 }
 
 // ─── CustomSelect ─────────────────────────────────────────────────────────────
@@ -196,11 +218,13 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme, onOpenSideba
       setFOrganDept(contract.publicOrganDepartment || '');
       setFOrganContactName(contract.publicOrganContactName || '');
       setFOrganContactEmail(contract.publicOrganContactEmail || '');
-      setFOrganContactPhone(contract.publicOrganContactPhone || '');
+      // Aplica máscara no telefone vindo do backend (só dígitos -> formatado)
+      setFOrganContactPhone(contract.publicOrganContactPhone ? maskPhone(contract.publicOrganContactPhone) : '');
       setFOrganCity(contract.publicOrganCity || '');
       setFOrganState(contract.publicOrganState || '');
       setFContractNumber(contract.contractNumber);
-      setFMonthlyValue(contract.monthlyValue?.toString() || '');
+      // Aplica máscara no valor vindo do backend (number -> string formatado "15.236,01")
+      setFMonthlyValue(contract.monthlyValue ? formatCurrencyInput((contract.monthlyValue * 100).toString()) : '');
       setFStartDate(contract.startDate.split('T')[0]);
       setFEndDate(contract.endDate.split('T')[0]);
       setFMinSla(contract.minSlaPercent?.toString() || '');
@@ -225,14 +249,14 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme, onOpenSideba
         organDepartment: fOrganDept || null,
         organContactName: fOrganContactName || null,
         organContactEmail: fOrganContactEmail || null,
-        organContactPhone: fOrganContactPhone || null,
+        organContactPhone: fOrganContactPhone.replace(/\D/g, '') || null,
         organCity: fOrganCity || null,
         organState: fOrganState || null,
         contractNumber: fContractNumber.trim(),
-        monthlyValue: fMonthlyValue ? parseFloat(fMonthlyValue) : null,
+        monthlyValue: fMonthlyValue ? parseCurrencyInput(fMonthlyValue) : null,
         startDate: fStartDate,
         endDate: fEndDate,
-        minSlaPercent: fMinSla ? parseInt(fMinSla) : null,
+        minSlaPercent: fMinSla ? parseInt(fMinSla, 10) : null,
         status: fStatus,
         notes: fNotes || null,
       };
@@ -413,10 +437,10 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme, onOpenSideba
           <div className="org-form-section">
             <div className="org-form-section-title">Dados do Órgão Público</div>
             <div className="org-form-row full">
-              <div className="org-field"><label>Nome completo do órgão *</label><input type="text" placeholder="Ex: Prefeitura Municipal de Santo André" value={fOrganName} onChange={e => setFOrganName(e.target.value)} /></div>
+              <div className="org-field"><label>Nome completo do órgão *</label><input type="text" placeholder="Ex: Prefeitura Municipal" value={fOrganName} onChange={e => setFOrganName(e.target.value)} /></div>
             </div>
             <div className="org-form-row">
-              <div className="org-field"><label>Sigla</label><input type="text" placeholder="Ex: PMSA" value={fOrganAcronym} onChange={e => setFOrganAcronym(e.target.value)} /></div>
+              <div className="org-field"><label>Sigla</label><input type="text" placeholder="PM" value={fOrganAcronym} onChange={e => setFOrganAcronym(e.target.value)} /></div>
               <div className="org-field"><label>CNPJ</label><input type="text" placeholder="00.000.000/0000-00" value={fOrganCnpj} onChange={e => setFOrganCnpj(maskCnpj(e.target.value))} maxLength={18} /></div>
             </div>
             <div className="org-form-row full">
@@ -427,8 +451,8 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme, onOpenSideba
               <div className="org-field"><label>E-mail</label><input type="email" placeholder="responsavel@prefeitura.gov.br" value={fOrganContactEmail} onChange={e => setFOrganContactEmail(e.target.value)} /></div>
             </div>
             <div className="org-form-row">
-              <div className="org-field"><label>Telefone</label><input type="text" placeholder="(11) 99999-9999" value={fOrganContactPhone} onChange={e => setFOrganContactPhone(e.target.value)} /></div>
-              <div className="org-field"><label>Cidade</label><input type="text" placeholder="Ex: Santo André" value={fOrganCity} onChange={e => setFOrganCity(e.target.value)} /></div>
+              <div className="org-field"><label>Telefone</label><input type="text" placeholder="(11) 99999-9999" value={fOrganContactPhone} onChange={e => setFOrganContactPhone(maskPhone(e.target.value))} /></div>
+              <div className="org-field"><label>Cidade</label><input type="text" placeholder="Nome da cidade" value={fOrganCity} onChange={e => setFOrganCity(e.target.value)} /></div>
             </div>
             <div className="org-form-row">
               <div className="org-field org-field-uf"><label>UF</label><input type="text" placeholder="SP" value={fOrganState} onChange={e => setFOrganState(e.target.value.toUpperCase().slice(0,2))} maxLength={2} /></div>
@@ -440,14 +464,19 @@ export function AdminOrgaos({ onBack: _onBack, dark, onToggleTheme, onOpenSideba
             <div className="org-form-section-title">Dados do Contrato</div>
             <div className="org-form-row">
               <div className="org-field"><label>Número do contrato *</label><input type="text" placeholder="Ex: CT-2026-0001" value={fContractNumber} onChange={e => setFContractNumber(e.target.value)} /></div>
-              <div className="org-field"><label>Valor mensal (R$)</label><input type="number" placeholder="0" value={fMonthlyValue} onChange={e => setFMonthlyValue(e.target.value)} min={0} /></div>
+              <div className="org-field"><label>Valor mensal (R$)</label><input type="text" placeholder="0,00" value={fMonthlyValue} onChange={e => setFMonthlyValue(formatCurrencyInput(e.target.value))} /></div>
             </div>
             <div className="org-form-row">
               <div className="org-field"><label>Início da vigência</label><input type="date" value={fStartDate} onChange={e => setFStartDate(e.target.value)} /></div>
               <div className="org-field"><label>Fim da vigência</label><input type="date" value={fEndDate} onChange={e => setFEndDate(e.target.value)} /></div>
             </div>
             <div className="org-form-row">
-              <div className="org-field"><label>SLA mínimo (%)</label><input type="number" placeholder="Ex: 90" value={fMinSla} onChange={e => setFMinSla(e.target.value)} min={0} max={100} /></div>
+              <div className="org-field"><label>SLA mínimo (%)</label><input type="number" placeholder="Ex: 90" value={fMinSla} onChange={e => {
+                const val = parseInt(e.target.value, 10);
+                // Clamp 0-100 no onChange — previne digitação acima de 100
+                if (isNaN(val)) setFMinSla('');
+                else setFMinSla(Math.min(100, Math.max(0, val)).toString());
+              }} min={0} max={100} /></div>
               <div className="org-field"><label>Status</label>
                 <CustomSelect value={fStatus} onChange={v => setFStatus(v as ContractStatus)} options={[
                   { value: 'Active', label: 'Ativo' },

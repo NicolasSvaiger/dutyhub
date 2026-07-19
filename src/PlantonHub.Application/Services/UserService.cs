@@ -15,19 +15,22 @@ public class UserService : IUserService
     private readonly ITenantService _tenantService;
     private readonly IPasswordHashService _passwordHashService;
     private readonly ICacheService _cacheService;
+    private readonly ICognitoAuthService _cognitoAuthService;
 
     public UserService(
         IUserRepository userRepository,
         IClinicRepository clinicRepository,
         ITenantService tenantService,
         IPasswordHashService passwordHashService,
-        ICacheService cacheService)
+        ICacheService cacheService,
+        ICognitoAuthService cognitoAuthService)
     {
         _userRepository = userRepository;
         _clinicRepository = clinicRepository;
         _tenantService = tenantService;
         _passwordHashService = passwordHashService;
         _cacheService = cacheService;
+        _cognitoAuthService = cognitoAuthService;
     }
 
     public async Task<IEnumerable<UserResponse>> GetAdminUsersAsync()
@@ -115,6 +118,18 @@ public class UserService : IUserService
         return await GetByIdAsync(userId);
     }
 
+    /// <summary>
+    /// Cria um novo usuário (colaborador da OS, médico ou enfermeiro) e o
+    /// convida via Cognito — mesmo padrão do <see cref="GestorService.CreateAsync"/>
+    /// (Sprint 7E). O <c>Password</c> do request é ignorado: o backend gera
+    /// senha temporária aleatória no Cognito e o próprio Cognito envia o
+    /// email de convite ao usuário, que troca a senha no primeiro login
+    /// (challenge <c>NEW_PASSWORD_REQUIRED</c>).
+    ///
+    /// Pipeline com rollback compensatório: se o Cognito falhar após o
+    /// Postgres já ter persistido o usuário, desfazemos o insert local
+    /// pra não deixar um usuário "fantasma" sem credenciais válidas.
+    /// </summary>
     public async Task<UserResponse> CreateAsync(CreateUserRequest request)
     {
         var roles = _tenantService.GetCurrentRoles();
@@ -126,7 +141,9 @@ public class UserService : IUserService
             throw new ForbiddenException("Only AdminGlobal or AdminClinica can create users.");
         }
 
-        if (await _userRepository.EmailExistsAsync(request.Email))
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        if (await _userRepository.EmailExistsAsync(normalizedEmail))
         {
             throw new ConflictException("A user with this email already exists.");
         }
@@ -134,9 +151,13 @@ public class UserService : IUserService
         var user = new User
         {
             Id = Guid.NewGuid(),
-            Name = request.Name,
-            Email = request.Email,
-            PasswordHash = _passwordHashService.HashPassword(request.Password),
+            Name = request.Name.Trim(),
+            Email = normalizedEmail,
+            // PasswordHash é obrigatório na entidade (legado). Auth real é
+            // via Cognito — geramos um hash "impossível" (bcrypt de string
+            // aleatória) que nunca é usado pra login local. Mesmo padrão do
+            // GestorService.CreateAsync.
+            PasswordHash = "$2a$11$" + Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             ProfessionalType = request.ProfessionalType,
             IsActive = true,
             Cpf = request.Cpf,
@@ -150,6 +171,23 @@ public class UserService : IUserService
         };
 
         await _userRepository.AddAsync(user);
+
+        try
+        {
+            // Cria user no Cognito com senha temporária + envia email de
+            // convite. Idempotente — se já existe, retorna sem erro.
+            await _cognitoAuthService.CreateInvitedUserAsync(user.Email, user.Name);
+        }
+        catch
+        {
+            // Compensação: user já persistido no Postgres mas o Cognito
+            // falhou. Rollback via delete local — o admin pode reexecutar
+            // (o email vai bater no EmailExistsAsync se ainda estiver lá,
+            // ou seguir limpo se o rollback funcionou).
+            try { await _userRepository.DeleteAsync(user); }
+            catch { /* rollback best-effort — a exception original é o que importa */ }
+            throw;
+        }
 
         // Invalidate all user-related cache entries
         await _cacheService.RemoveByPrefixAsync("users:");
@@ -177,6 +215,27 @@ public class UserService : IUserService
 
         var user = await _userRepository.GetByIdAsync(userId);
         if (user is null) return null;
+
+        // Troca de email: valida duplicidade e sincroniza com o Cognito
+        // (que usa email como alias de login — trocar o atributo lá é o
+        // que de fato permite o usuário logar com o novo endereço).
+        // Feito antes de aplicar os outros campos pra falhar rápido sem
+        // deixar updates parciais no meio do caminho.
+        if (request.Email is not null)
+        {
+            var normalizedNewEmail = request.Email.Trim().ToLowerInvariant();
+            if (!string.Equals(normalizedNewEmail, user.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                if (await _userRepository.EmailExistsAsync(normalizedNewEmail))
+                {
+                    throw new ConflictException("A user with this email already exists.");
+                }
+
+                var oldEmail = user.Email;
+                await _cognitoAuthService.UpdateEmailAsync(oldEmail, normalizedNewEmail);
+                user.Email = normalizedNewEmail;
+            }
+        }
 
         // Apply only the fields that were sent. Null means "leave alone" —
         // this lets partial edits work without the client having to resend
@@ -265,6 +324,24 @@ public class UserService : IUserService
         if (user is null)
         {
             return null;
+        }
+
+        // Bloqueia desativar o último AdminGlobal ativo do sistema —
+        // sem isso, um erro de clique deixaria a OS sem nenhum admin
+        // master pra reverter a ação (nem via seed, sem acesso ao DB).
+        var isTargetAdminGlobal = (user.UserClinicRoles ?? new List<UserClinicRole>())
+            .Any(r => r.Role == RoleType.AdminGlobal);
+        if (isTargetAdminGlobal && user.IsActive)
+        {
+            var allUsers = await _userRepository.GetAllAsync();
+            var activeAdminGlobalCount = allUsers.Count(u =>
+                u.IsActive &&
+                (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r => r.Role == RoleType.AdminGlobal));
+
+            if (activeAdminGlobalCount <= 1)
+            {
+                throw new ConflictException("Não é possível desativar o único Admin Master ativo do sistema.");
+            }
         }
 
         user.IsActive = !user.IsActive;

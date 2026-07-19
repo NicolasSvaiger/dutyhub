@@ -163,6 +163,53 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
 
   useEffect(() => { load(); }, []);
 
+  // Fix: sincroniza o formulário quando o drawer abre em modo edição.
+  // Sem isso, salvar() captura valores stale por causa de closure batching.
+  useEffect(() => {
+    if (!drawerOpen || !editingId) return;
+    const clinic = clinics.find(c => c.id === editingId);
+    if (!clinic) return;
+
+    setFName(clinic.name);
+    setFPhone(clinic.phone ? maskPhone(clinic.phone) : '');
+    setFAddress(clinic.address || '');
+    setFNeighborhood(clinic.neighborhood || '');
+    setFCity(clinic.city || '');
+    setFZip(clinic.zipCode ? maskCep(clinic.zipCode) : '');
+    setFCapacity(clinic.capacity?.toString() || '');
+    setFDoctorsPerShift(clinic.doctorsPerShift?.toString() || '');
+    setFRadius(clinic.allowedRadiusMeters?.toString() || '150');
+    setFLat(clinic.latitude?.toString() || '');
+    setFLon(clinic.longitude?.toString() || '');
+    setFHasNursing(clinic.hasNursing);
+    setFIsActive(clinic.isActive);
+    setFContractId(clinic.contractId || '');
+
+    const templates = clinic.shiftTemplates || [];
+    const medTemplates = templates.filter(t => t.professionalType === 'Medico' || (t.professionalType as unknown as number) === 1);
+    const enfTemplates = templates.filter(t => t.professionalType === 'Enfermeiro' || (t.professionalType as unknown as number) === 2);
+    if (medTemplates.length > 0) {
+      setFTurnos(DEFAULT_TURNOS.map(dt => {
+        const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const match = medTemplates.find(t =>
+          normalize(t.name) === normalize(dt.name) ||
+          String(t.startTime).slice(0, 5) === dt.start
+        );
+        return match
+          ? { ...dt, start: String(match.startTime).slice(0, 5), end: String(match.endTime).slice(0, 5), staff: String(match.requiredStaff), enabled: true }
+          : { ...dt, enabled: false };
+      }));
+    } else { setFTurnos(DEFAULT_TURNOS.map(t => ({ ...t, enabled: false }))); }
+    if (enfTemplates.length > 0) {
+      setFTurnosEnf(DEFAULT_TURNOS_ENF.map((dt, i) => {
+        const match = enfTemplates[i];
+        return match
+          ? { ...dt, start: String(match.startTime).slice(0, 5), end: String(match.endTime).slice(0, 5), staff: String(match.requiredStaff), enabled: true }
+          : { ...dt, enabled: false };
+      }));
+    } else { setFTurnosEnf(DEFAULT_TURNOS_ENF.map(t => ({ ...t, enabled: false }))); }
+  }, [drawerOpen, editingId, clinics]);
+
   async function load() {
     try {
       const [clinicData, contractData] = await Promise.all([
@@ -196,48 +243,10 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
   }
 
   function openDrawer(clinic?: Clinic) {
-    setEditingId(clinic?.id ?? null);
     if (clinic) {
-      setFName(clinic.name);
-      setFPhone(clinic.phone ? maskPhone(clinic.phone) : '');
-      setFAddress(clinic.address || '');
-      setFNeighborhood(clinic.neighborhood || '');
-      setFCity(clinic.city || '');
-      setFZip(clinic.zipCode ? maskCep(clinic.zipCode) : '');
-      setFCapacity(clinic.capacity?.toString() || '');
-      setFDoctorsPerShift(clinic.doctorsPerShift?.toString() || '');
-      setFRadius(clinic.allowedRadiusMeters?.toString() || '150');
-      setFLat(clinic.latitude?.toString() || '');
-      setFLon(clinic.longitude?.toString() || '');
-      setFHasNursing(clinic.hasNursing);
-      setFIsActive(clinic.isActive);
-      setFContractId(clinic.contractId ?? '');
-      // Populate shift templates from existing data
-      const templates = clinic.shiftTemplates || [];
-      const medTemplates = templates.filter(t => t.professionalType === 'Medico' || t.professionalType === '1' || (t.professionalType as unknown as number) === 1);
-      const enfTemplates = templates.filter(t => t.professionalType === 'Enfermeiro' || t.professionalType === '2' || (t.professionalType as unknown as number) === 2);
-      if (medTemplates.length > 0) {
-        setFTurnos(DEFAULT_TURNOS.map(dt => {
-          // Match by name ignoring accents/case, or by start time
-          const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-          const match = medTemplates.find(t =>
-            normalize(t.name) === normalize(dt.name) ||
-            String(t.startTime).slice(0, 5) === dt.start
-          );
-          return match
-            ? { ...dt, start: String(match.startTime).slice(0, 5), end: String(match.endTime).slice(0, 5), staff: String(match.requiredStaff), enabled: true }
-            : { ...dt, enabled: false };
-        }));
-      } else { setFTurnos(DEFAULT_TURNOS.map(t => ({ ...t, enabled: false }))); }
-      if (enfTemplates.length > 0) {
-        setFTurnosEnf(DEFAULT_TURNOS_ENF.map((dt, i) => {
-          const match = enfTemplates[i];
-          return match
-            ? { ...dt, start: String(match.startTime).slice(0, 5), end: String(match.endTime).slice(0, 5), staff: String(match.requiredStaff), enabled: true }
-            : { ...dt, enabled: false };
-        }));
-      } else { setFTurnosEnf(DEFAULT_TURNOS_ENF.map(t => ({ ...t, enabled: false }))); }
+      setEditingId(clinic.id);
     } else {
+      setEditingId(null);
       resetForm();
     }
     setDrawerOpen(true);

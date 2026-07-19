@@ -8,6 +8,16 @@ import { gestoresApi, type GestorResponse } from '../../api/gestoresApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Contract } from '../../types';
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function maskPhone(v: string): string {
+  const d = v.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+}
+
 // ─── CustomSelect ─────────────────────────────────────────────────────────────
 
 function CustomSelect({ value, onChange, options }: {
@@ -74,18 +84,29 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [fName, setFName] = useState('');
   const [fEmail, setFEmail] = useState('');
   const [fPhone, setFPhone] = useState('');
   const [fCargo, setFCargo] = useState('');
-  const [fContractId, setFContractId] = useState('');
-  const [fAccessLevel, setFAccessLevel] = useState('Acesso completo');
-  const [fSelectedClinicIds, setFSelectedClinicIds] = useState<string[]>([]);
+  const [fPublicOrganId, setFPublicOrganId] = useState('');
 
-  const availableClinicsForContract = useMemo(() => {
-    if (!fContractId) return [];
-    return contracts.find(c => c.id === fContractId)?.clinics ?? [];
-  }, [contracts, fContractId]);
+  // Lista de órgãos públicos únicos (extraídos dos contratos) — usado
+  // no select do formulário. Um mesmo órgão pode ter N contratos, mas
+  // o gestor é vinculado ao órgão em si, não a um contrato específico.
+  const publicOrgans = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; acronym: string | null }>();
+    contracts.forEach(c => {
+      if (c.publicOrganId && !map.has(c.publicOrganId)) {
+        map.set(c.publicOrganId, {
+          id: c.publicOrganId,
+          name: c.publicOrganName,
+          acronym: c.publicOrganAcronym ?? null,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [contracts]);
 
   // Gestores vindos do backend (UserPublicOrganRole). Recarrega após
   // cada mutação (create, toggle, remove) pra manter a UI consistente
@@ -161,26 +182,20 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
     setTimeout(() => setToast(''), 3500);
   }
 
-  const [saving, setSaving] = useState(false);
-
   function openDrawer() {
     setFName(''); setFEmail(''); setFPhone(''); setFCargo('');
-    setFContractId(contracts[0]?.id ?? '');
-    setFAccessLevel('Acesso completo'); setFSelectedClinicIds([]);
+    setFPublicOrganId(publicOrgans[0]?.id ?? '');
+    setDrawerOpen(false);
     setDrawerOpen(true);
   }
 
   async function salvarGestor() {
-    if (!fName.trim() || !fEmail.trim()) { showToast('Nome e e-mail são obrigatórios.', true); return; }
-    if (!fContractId) { showToast('Selecione um contrato.', true); return; }
-    if (fSelectedClinicIds.length === 0) { showToast('Selecione ao menos uma UPA.', true); return; }
-
-    // Do contrato selecionado, extraímos o publicOrganId — que é o que
-    // o backend vincula ao gestor. UPAs específicas + nível de acesso
-    // são metadata de UI hoje (o backend dá acesso ao organ inteiro).
-    const contract = contracts.find(c => c.id === fContractId);
-    if (!contract?.publicOrganId) {
-      showToast('Contrato sem órgão público vinculado.', true);
+    if (!fName.trim() || !fEmail.trim()) {
+      showToast('Nome e e-mail são obrigatórios.', true);
+      return;
+    }
+    if (!fPublicOrganId) {
+      showToast('Selecione um órgão público.', true);
       return;
     }
 
@@ -189,9 +204,9 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
       await gestoresApi.create({
         name: fName.trim(),
         email: fEmail.trim(),
-        phone: fPhone.trim() || undefined,
+        phone: fPhone.replace(/\D/g, '') || undefined,
         cargo: fCargo.trim() || undefined,
-        publicOrganId: contract.publicOrganId,
+        publicOrganId: fPublicOrganId,
       });
       showToast(`Convite enviado para ${fEmail.trim()}. O gestor receberá senha temporária por e-mail.`);
       setDrawerOpen(false);
@@ -424,79 +439,41 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
             </div>
             <div className="gest-form-row">
               <div className="gest-field"><label>E-mail institucional *</label><input type="email" placeholder="gestor@prefeitura.gov.br" value={fEmail} onChange={e => setFEmail(e.target.value)} /></div>
-              <div className="gest-field"><label>Telefone</label><input type="text" placeholder="(11) 99999-9999" value={fPhone} onChange={e => setFPhone(e.target.value)} /></div>
+              <div className="gest-field"><label>Telefone</label><input type="text" placeholder="(11) 99999-9999" value={fPhone} onChange={e => setFPhone(maskPhone(e.target.value))} /></div>
             </div>
           </div>
 
-          {/* Contrato vinculado */}
+          {/* Órgão público vinculado */}
           <div className="gest-form-section">
-            <div className="gest-form-section-title">Contrato vinculado</div>
+            <div className="gest-form-section-title">Órgão público</div>
             <div className="gest-form-row full">
               <div className="gest-field">
-                <label>Órgão público / Contrato</label>
+                <label>Selecione o órgão público *</label>
                 <CustomSelect
-                  value={fContractId}
-                  onChange={v => { setFContractId(v); setFSelectedClinicIds([]); }}
+                  value={fPublicOrganId}
+                  onChange={v => setFPublicOrganId(v)}
                   options={[
-                    { value: '', label: 'Selecione o contrato...' },
-                    ...contracts.map(c => ({
-                      value: c.id,
-                      label: `${c.publicOrganName} · ${c.contractNumber}`,
+                    { value: '', label: 'Selecione o órgão...' },
+                    ...publicOrgans.map(o => ({
+                      value: o.id,
+                      label: o.acronym ? `${o.name} (${o.acronym})` : o.name,
                     })),
                   ]}
                 />
               </div>
             </div>
-          </div>
-
-          {/* Nível de acesso */}
-          <div className="gest-form-section">
-            <div className="gest-form-section-title">Nível de acesso ao painel do Órgão Público</div>
-            <div className="gest-access-grid">
-              {(['Acesso completo', 'Somente relatórios', 'Dashboard + TV', 'Somente leitura'] as const).map(level => (
-                <div key={level} className={`gest-access-opt ${fAccessLevel === level ? 'selected' : ''}`} onClick={() => setFAccessLevel(level)}>
-                  <div className="gest-access-opt-name">
-                    {level === 'Acesso completo' && '🔍 '}
-                    {level === 'Somente relatórios' && '📊 '}
-                    {level === 'Dashboard + TV' && '📺 '}
-                    {level === 'Somente leitura' && '👁 '}
-                    {level}
-                  </div>
-                  <div className="gest-access-opt-desc">
-                    {level === 'Acesso completo' && 'Visualiza todos os módulos: tempo real, relatórios, escalas e KPIs'}
-                    {level === 'Somente relatórios' && 'Acessa apenas frequência, ausências, atrasos e KPIs'}
-                    {level === 'Dashboard + TV' && 'Tempo real e painel para televisor apenas'}
-                    {level === 'Somente leitura' && 'Acessa o painel mas não pode exportar dados'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* UPAs visíveis */}
-          <div className="gest-form-section">
-            <div className="gest-form-section-title">UPAs visíveis para este gestor</div>
-            {availableClinicsForContract.length === 0 ? (
-              <p style={{ fontSize: '.78rem', color: 'var(--muted)', fontWeight: 600 }}>Selecione um contrato para ver as UPAs disponíveis.</p>
-            ) : (
-              <div className="gest-clinics-check">
-                {availableClinicsForContract.map(c => (
-                  <label key={c.id} className="gest-clinic-check-item">
-                    <input type="checkbox" checked={fSelectedClinicIds.includes(c.id)}
-                      onChange={e => setFSelectedClinicIds(prev => e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} />
-                    <span className="gest-clinic-check-label">{c.name}</span>
-                    {c.address && <span className="gest-clinic-check-sub">{c.address}</span>}
-                  </label>
-                ))}
+            <div className="gest-form-row full">
+              <div style={{ fontSize: '.78rem', color: 'var(--muted)', lineHeight: '1.4' }}>
+                O gestor terá acesso ao painel completo do órgão selecionado, incluindo todas as UPAs e contratos vinculados.
               </div>
-            )}
+            </div>
           </div>
         </div>
         <div className="gest-drawer-footer">
           <button className="gest-btn-cancelar" onClick={() => setDrawerOpen(false)} disabled={saving}>Cancelar</button>
           <button
             className="gest-btn-salvar"
-            disabled={saving || !fName.trim() || !fEmail.trim() || !fContractId || fSelectedClinicIds.length === 0}
+            disabled={saving || !fName.trim() || !fEmail.trim() || !fPublicOrganId}
             onClick={salvarGestor}
           >
             {saving ? 'Enviando…' : 'Salvar e enviar convite'}

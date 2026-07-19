@@ -93,10 +93,12 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Atualizar dados de um usuário existente. Password e Email são imutáveis
-    /// por aqui — troca de senha é fluxo separado via Cognito, e troca de e-mail
-    /// exigiria migração do user pool. AdminClinica só pode editar usuários que
-    /// compartilham pelo menos uma clínica autorizada.
+    /// Atualizar dados de um usuário existente. Password permanece imutável
+    /// por aqui — reset de senha é fluxo separado via Cognito (esqueci minha
+    /// senha). Email pode ser alterado: o backend sincroniza o atributo com
+    /// o Cognito (alias de login) e valida duplicidade antes de aplicar.
+    /// AdminClinica só pode editar usuários que compartilham pelo menos uma
+    /// clínica autorizada.
     /// </summary>
     [Authorize(Policy = "AdminClinica")]
     [HttpPut("{id:guid}")]
@@ -104,6 +106,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateUserRequest request)
     {
         var user = await _userService.UpdateAsync(id, request);

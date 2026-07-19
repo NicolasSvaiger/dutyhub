@@ -50,6 +50,19 @@ public interface ICognitoAuthService
     /// alcançado.
     /// </summary>
     Task DeleteUserAsync(string email);
+
+    /// <summary>
+    /// Atualiza o atributo <c>email</c> de um usuário existente no Cognito.
+    /// O User Pool usa <c>signInAliases: {{ email: true }}</c> — o username
+    /// interno (sub) não muda, só o alias de login, então essa troca não
+    /// afeta sessões já ativas nem exige recriar o usuário.
+    ///
+    /// <paramref name="oldEmail"/> é usado como <c>Username</c> na chamada
+    /// AdminUpdateUserAttributes (é como o Cognito identifica o usuário
+    /// hoje, antes da troca). Idempotente por natureza — se o valor já é o
+    /// mesmo, o Cognito só confirma sem efeito colateral.
+    /// </summary>
+    Task UpdateEmailAsync(string oldEmail, string newEmail);
 }
 
 public record CognitoAuthResult(

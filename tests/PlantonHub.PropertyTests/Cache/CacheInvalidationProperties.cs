@@ -255,12 +255,18 @@ public class CacheInvalidationProperties
                     .Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                     .Returns(Task.CompletedTask);
 
+                var cognitoAuthServiceMock = new Mock<ICognitoAuthService>();
+                cognitoAuthServiceMock
+                    .Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .Returns(Task.CompletedTask);
+
                 var service = new UserService(
                     userRepoMock.Object,
                     clinicRepoMock.Object,
                     tenantServiceMock.Object,
                     passwordHashMock.Object,
-                    cacheServiceMock.Object);
+                    cacheServiceMock.Object,
+                    cognitoAuthServiceMock.Object);
 
                 var request = new CreateUserRequest
                 {
@@ -338,12 +344,18 @@ public class CacheInvalidationProperties
                     .Setup(c => c.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
                     .Returns(Task.CompletedTask);
 
+                var cognitoAuthServiceMock = new Mock<ICognitoAuthService>();
+                cognitoAuthServiceMock
+                    .Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>()))
+                    .Returns(Task.CompletedTask);
+
                 var service = new UserService(
                     userRepoMock.Object,
                     clinicRepoMock.Object,
                     tenantServiceMock.Object,
                     passwordHashMock.Object,
-                    cacheServiceMock.Object);
+                    cacheServiceMock.Object,
+                    cognitoAuthServiceMock.Object);
 
                 var request = new AssignRoleRequest
                 {

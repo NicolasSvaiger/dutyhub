@@ -17,9 +17,10 @@ public class UserServiceTests
     private readonly Mock<ITenantService> _tenant = new();
     private readonly Mock<IPasswordHashService> _hasher = new();
     private readonly Mock<ICacheService> _cache = new();
+    private readonly Mock<ICognitoAuthService> _cognito = new();
 
     private UserService CreateService() =>
-        new(_userRepo.Object, _clinicRepo.Object, _tenant.Object, _hasher.Object, _cache.Object);
+        new(_userRepo.Object, _clinicRepo.Object, _tenant.Object, _hasher.Object, _cache.Object, _cognito.Object);
 
     private static User MakeUser(Guid? id = null, string name = "Usuário Teste", bool isActive = true,
         ProfessionalType? professionalType = null, List<UserClinicRole>? roles = null) => new()
@@ -186,25 +187,46 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_ValidRequest_HashesPasswordAndPersists()
+    public async Task CreateAsync_ValidRequest_CreatesUserInCognitoAndPersists()
     {
         _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
         _tenant.Setup(t => t.GetCurrentRoles()).Returns(new[] { "AdminGlobal" });
         _userRepo.Setup(r => r.EmailExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
-        _hasher.Setup(h => h.HashPassword("Aa123456!")).Returns("hashed-pwd");
         _userRepo.Setup(r => r.AddAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
+        _cognito.Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>())).Returns(Task.CompletedTask);
         _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var result = await CreateService().CreateAsync(new CreateUserRequest
         {
             Name = "Novo Admin",
             Email = "novo@x.com",
-            Password = "Aa123456!",
         });
 
         result.Name.Should().Be("Novo Admin");
         result.IsActive.Should().BeTrue();
-        _userRepo.Verify(r => r.AddAsync(It.Is<User>(u => u.PasswordHash == "hashed-pwd" && u.Name == "Novo Admin")), Times.Once);
+        _userRepo.Verify(r => r.AddAsync(It.Is<User>(u => u.Name == "Novo Admin")), Times.Once);
+        _cognito.Verify(c => c.CreateInvitedUserAsync("novo@x.com", "Novo Admin"), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_CognitoFails_RollsBackUserFromDb()
+    {
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _tenant.Setup(t => t.GetCurrentRoles()).Returns(new[] { "AdminGlobal" });
+        _userRepo.Setup(r => r.EmailExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
+        _userRepo.Setup(r => r.AddAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
+        _cognito.Setup(c => c.CreateInvitedUserAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new Exception("Cognito down"));
+        _userRepo.Setup(r => r.DeleteAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
+
+        var act = () => CreateService().CreateAsync(new CreateUserRequest
+        {
+            Name = "Rollback Test",
+            Email = "test@x.com",
+        });
+
+        await act.Should().ThrowAsync<Exception>().WithMessage("Cognito down");
+        _userRepo.Verify(r => r.DeleteAsync(It.Is<User>(u => u.Email == "test@x.com")), Times.Once);
     }
 
     [Fact]
@@ -324,14 +346,58 @@ public class UserServiceTests
     public async Task ToggleStatusAsync_ActiveUser_BecomesInactive()
     {
         var id = Guid.NewGuid();
+        var user = MakeUser(id, isActive: true);
+        // Usuário sem role AdminGlobal — não precisa do guard de "último admin"
         _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
         _tenant.Setup(t => t.GetCurrentRoles()).Returns(new[] { "AdminGlobal" });
-        _userRepo.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(MakeUser(id, isActive: true));
+        _userRepo.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(user);
         _userRepo.Setup(r => r.UpdateAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
         _cache.Setup(c => c.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         var result = await CreateService().ToggleStatusAsync(id);
+
+        result!.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ToggleStatusAsync_LastActiveAdminGlobal_ThrowsConflict()
+    {
+        var id = Guid.NewGuid();
+        var user = MakeUser(id, isActive: true);
+        user.UserClinicRoles!.Add(MakeRole(user.Id, Guid.NewGuid(), RoleType.AdminGlobal));
+
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _tenant.Setup(t => t.GetCurrentRoles()).Returns(new[] { "AdminGlobal" });
+        _userRepo.Setup(r => r.GetByIdAsync(id)).ReturnsAsync(user);
+        _userRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new[] { user }); // Único AdminGlobal no sistema
+
+        var act = () => CreateService().ToggleStatusAsync(id);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Não é possível desativar o único Admin Master ativo do sistema.");
+    }
+
+    [Fact]
+    public async Task ToggleStatusAsync_NotLastActiveAdminGlobal_AllowsToggle()
+    {
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var user1 = MakeUser(id1, isActive: true);
+        var user2 = MakeUser(id2, isActive: true);
+        var clinicId = Guid.NewGuid();
+        user1.UserClinicRoles!.Add(MakeRole(user1.Id, clinicId, RoleType.AdminGlobal));
+        user2.UserClinicRoles!.Add(MakeRole(user2.Id, clinicId, RoleType.AdminGlobal));
+
+        _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
+        _tenant.Setup(t => t.GetCurrentRoles()).Returns(new[] { "AdminGlobal" });
+        _userRepo.Setup(r => r.GetByIdAsync(id1)).ReturnsAsync(user1);
+        _userRepo.Setup(r => r.GetAllAsync()).ReturnsAsync(new[] { user1, user2 });
+        _userRepo.Setup(r => r.UpdateAsync(It.IsAny<User>())).Returns(Task.CompletedTask);
+        _cache.Setup(c => c.RemoveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _cache.Setup(c => c.RemoveByPrefixAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var result = await CreateService().ToggleStatusAsync(id1);
 
         result!.IsActive.Should().BeFalse();
     }

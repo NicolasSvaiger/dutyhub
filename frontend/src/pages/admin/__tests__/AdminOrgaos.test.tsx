@@ -287,12 +287,12 @@ describe('<AdminOrgaos />', () => {
     await waitFor(() => screen.getByText('Prefeitura Municipal de Santo André'));
     await user.click(document.querySelectorAll('.org-act-btn')[0] as HTMLElement);
     await waitFor(() => {
-      const nomeInput = screen.getByPlaceholderText('Ex: Prefeitura Municipal de Santo André') as HTMLInputElement;
+      const nomeInput = screen.getByPlaceholderText('Ex: Prefeitura Municipal') as HTMLInputElement;
       expect(nomeInput.value).toBe('Prefeitura Municipal de Santo André');
     });
-    const siglaInput = screen.getByPlaceholderText('Ex: PMSA') as HTMLInputElement;
+    const siglaInput = screen.getByPlaceholderText('PM') as HTMLInputElement;
     expect(siglaInput.value).toBe('PMSA');
-    const cidadeInput = screen.getByPlaceholderText('Ex: Santo André') as HTMLInputElement;
+    const cidadeInput = screen.getByPlaceholderText('Nome da cidade') as HTMLInputElement;
     expect(cidadeInput.value).toBe('Santo André');
     const ufInput = screen.getByPlaceholderText('SP') as HTMLInputElement;
     expect(ufInput.value).toBe('SP');
@@ -333,7 +333,7 @@ describe('<AdminOrgaos />', () => {
     const user = userEvent.setup();
     await waitFor(() => screen.getByText('Prefeitura Municipal de Santo André'));
     await user.click(screen.getByRole('button', { name: /Novo contrato/ }));
-    await user.type(screen.getByPlaceholderText('Ex: Prefeitura Municipal de Santo André'), 'Pref Teste');
+    await user.type(screen.getByPlaceholderText('Ex: Prefeitura Municipal'), 'Pref Teste');
     await user.type(screen.getByPlaceholderText('Ex: CT-2026-0001'), 'CT-2026-0099');
     expect(screen.getByText('Salvar contrato')).not.toBeDisabled();
   });
@@ -345,7 +345,7 @@ describe('<AdminOrgaos />', () => {
     const user = userEvent.setup();
     await waitFor(() => screen.getByText('Prefeitura Municipal de Santo André'));
     await user.click(screen.getByRole('button', { name: /Novo contrato/ }));
-    await user.type(screen.getByPlaceholderText('Ex: Prefeitura Municipal de Santo André'), 'Nova Pref');
+    await user.type(screen.getByPlaceholderText('Ex: Prefeitura Municipal'), 'Nova Pref');
     await user.type(screen.getByPlaceholderText('Ex: CT-2026-0001'), 'CT-NEW-001');
     await user.click(screen.getByText('Salvar contrato'));
     await waitFor(() => {
@@ -393,7 +393,7 @@ describe('<AdminOrgaos />', () => {
     const user = userEvent.setup();
     await waitFor(() => screen.getByText('Prefeitura Municipal de Santo André'));
     await user.click(screen.getByRole('button', { name: /Novo contrato/ }));
-    await user.type(screen.getByPlaceholderText('Ex: Prefeitura Municipal de Santo André'), 'Pref X');
+    await user.type(screen.getByPlaceholderText('Ex: Prefeitura Municipal'), 'Pref X');
     await user.type(screen.getByPlaceholderText('Ex: CT-2026-0001'), 'CT-X');
     await user.click(screen.getByText('Salvar contrato'));
     await waitFor(() => expect(screen.getByText('Contrato cadastrado com sucesso!')).toBeInTheDocument());

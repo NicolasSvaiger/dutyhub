@@ -16,8 +16,7 @@ public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
             .EmailAddress().WithMessage("O campo email deve ser um endereço de email válido.")
             .MaximumLength(256).WithMessage("O campo email deve ter no máximo 256 caracteres.");
 
-        RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("O campo senha é obrigatório.")
-            .MinimumLength(8).WithMessage("O campo senha deve ter no mínimo 8 caracteres.");
+        // Password não é mais validado — obsoleto, ver comentário no DTO.
+        // Auth real é via Cognito (senha temporária gerada no backend).
     }
 }
