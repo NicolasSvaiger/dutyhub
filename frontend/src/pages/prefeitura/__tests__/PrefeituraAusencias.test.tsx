@@ -18,16 +18,16 @@ import { prefeituraApi } from '../../../api/prefeituraApi';
 
 const mockAbsences = [
   {
-    id: 'a1', type: 'absence', userId: 'u1', userName: 'Dra. Ana Silva',
+    id: 'a1', type: 'absence', userId: 'u1', userName: 'Dra. Ana Silva', professionalType: 'Medico',
     clinicId: 'c1', clinicName: 'UPA Centro',
     date: '2026-07-15', shiftLabel: 'Noturno', minutesLate: null, justified: false,
-    substituteName: null,
+    substituteName: null, status: 'sem-justificativa',
   },
   {
-    id: 'a2', type: 'absence', userId: 'u2', userName: 'Dr. Bruno Costa',
+    id: 'a2', type: 'absence', userId: 'u2', userName: 'Enf. Bruno Costa', professionalType: 'Enfermeiro',
     clinicId: 'c2', clinicName: 'UPA Norte',
     date: '2026-07-16', shiftLabel: 'Diurno', minutesLate: null, justified: false,
-    substituteName: 'Dr. Carlos Faria',
+    substituteName: 'Dr. Carlos Faria', status: 'resolvido',
   },
 ];
 
@@ -52,7 +52,7 @@ describe('<PrefeituraAusencias />', () => {
   it('renderiza tabela com userName + clinicName', async () => {
     render(<PrefeituraAusencias />);
     await waitFor(() => expect(screen.getByText('Dra. Ana Silva')).toBeInTheDocument());
-    expect(screen.getByText('Dr. Bruno Costa')).toBeInTheDocument();
+    expect(screen.getByText('Enf. Bruno Costa')).toBeInTheDocument();
   });
 
   it('linha sem substituto mostra "Sem substituto"', async () => {
@@ -65,10 +65,80 @@ describe('<PrefeituraAusencias />', () => {
     await waitFor(() => expect(screen.getByText('Dr. Carlos Faria')).toBeInTheDocument());
   });
 
+  it('renderiza badge de tipo profissional por linha', async () => {
+    render(<PrefeituraAusencias />);
+    await waitFor(() => expect(screen.getByText('Dra. Ana Silva')).toBeInTheDocument());
+    // "Médico"/"Enfermeiro(a)" também aparecem como <option> do novo filtro
+    // de tipo — filtrar só o badge (elemento não-OPTION).
+    const medicoBadge = screen.getAllByText('Médico').find((el) => el.tagName !== 'OPTION');
+    const enfermeiroBadge = screen.getAllByText('Enfermeiro(a)').find((el) => el.tagName !== 'OPTION');
+    expect(medicoBadge).toBeInTheDocument();
+    expect(enfermeiroBadge).toBeInTheDocument();
+  });
+
+  it('filtra por tipo de profissional via select', async () => {
+    render(<PrefeituraAusencias />);
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Dra. Ana Silva')).toBeInTheDocument());
+
+    const select = screen.getByLabelText(/Tipo de profissional/i);
+    await user.selectOptions(select, 'Enfermeiro');
+
+    expect(screen.queryByText('Dra. Ana Silva')).not.toBeInTheDocument();
+    expect(screen.getByText('Enf. Bruno Costa')).toBeInTheDocument();
+  });
+
   it('empty state quando não há ausências', async () => {
     (prefeituraApi.getAbsences as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     render(<PrefeituraAusencias />);
     await waitFor(() => expect(screen.getByText(/Sem ausências no período/i)).toBeInTheDocument());
+  });
+
+  // ── KPIs + situação granular ────────────────────────────────────────
+
+  it('renderiza os 5 KPIs de situação', async () => {
+    render(<PrefeituraAusencias />);
+    await waitFor(() => expect(screen.getByText(/Total de ausências/i)).toBeInTheDocument());
+    // "Sem justificativa" aparece no <option> do filtro, no label do KPI e no
+    // badge da linha — usar getAllByText.
+    expect(screen.getAllByText(/^Sem justificativa$/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Reposição pendente/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/^Em análise$/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/^Resolvidos$/i)).toBeInTheDocument();
+  });
+
+  it('renderiza badge de situação por linha', async () => {
+    render(<PrefeituraAusencias />);
+    await waitFor(() => expect(screen.getByText('Dra. Ana Silva')).toBeInTheDocument());
+    // a1 = sem-justificativa, a2 = resolvido
+    expect(screen.getAllByText(/Sem justificativa/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Resolvido/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('mostra alerta destacado quando há ausências sem justificativa', async () => {
+    render(<PrefeituraAusencias />);
+    await waitFor(() => {
+      expect(screen.getByText(/ausência sem justificativa — ação requerida/i)).toBeInTheDocument();
+    });
+  });
+
+  it('não mostra alerta quando não há ausências sem justificativa', async () => {
+    (prefeituraApi.getAbsences as ReturnType<typeof vi.fn>).mockResolvedValue([mockAbsences[1]]);
+    render(<PrefeituraAusencias />);
+    await waitFor(() => expect(screen.getByText('Enf. Bruno Costa')).toBeInTheDocument());
+    expect(screen.queryByText(/ação requerida/i)).not.toBeInTheDocument();
+  });
+
+  it('filtro de situação restringe a tabela', async () => {
+    render(<PrefeituraAusencias />);
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByText('Dra. Ana Silva')).toBeInTheDocument());
+
+    const select = screen.getByLabelText(/Situação/i);
+    await user.selectOptions(select, 'resolvido');
+
+    expect(screen.queryByText('Dra. Ana Silva')).not.toBeInTheDocument();
+    expect(screen.getByText('Enf. Bruno Costa')).toBeInTheDocument();
   });
 
   // ── Modal notifyOs ─────────────────────────────────────────────────

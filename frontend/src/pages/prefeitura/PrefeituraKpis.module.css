@@ -1,7 +1,8 @@
 /*
  * PrefeituraKpis — layout do "Indicadores (KPIs)" baseado no mock op-kpis.html.
- * Filtro de período + card hero de cumprimento global + grid 6 métricas +
- * tabela de breakdown por UPA. Dark mode via [data-theme="dark"].
+ * Filtro de período + hero de 4 cards com trend vs período anterior +
+ * grid meio (ranking UPA + evolução) + grid inferior (rankings de médicos)
+ * + tabela de breakdown por UPA. Dark mode via [data-theme="dark"].
  */
 
 .container {
@@ -91,101 +92,267 @@
   cursor: not-allowed;
 }
 
-/* ── Hero card (cumprimento global) ── */
+/* ── Hero: 4 cards ── */
 .hero {
-  background: linear-gradient(135deg, #2dbfb8 0%, #1a8a85 100%);
-  border-radius: 22px;
-  padding: 2rem 2.4rem;
-  color: #fff;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.heroCard {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  padding: 1.4rem 1.5rem;
   position: relative;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
-.hero::before {
-  content: '';
-  position: absolute;
-  width: 240px;
-  height: 240px;
-  border-radius: 50%;
-  border: 40px solid rgba(255, 255, 255, 0.08);
-  top: -90px;
-  right: -60px;
+.heroCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
-.heroLabel {
-  font-size: 0.82rem;
-  font-weight: 700;
-  opacity: 0.85;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 0.4rem;
-}
-.heroValue {
-  font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 3.5rem;
-  font-weight: 900;
-  line-height: 1;
-}
-.heroSub {
-  font-size: 0.9rem;
-  font-weight: 600;
-  opacity: 0.85;
-  margin-top: 0.6rem;
-}
-.heroPeriod {
-  font-size: 0.78rem;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 0.5rem 0.9rem;
-  position: relative;
-  z-index: 1;
-}
-
-/* ── Grid KPIs ── */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-.card {
-  background: #ffffff;
-  border: 1.5px solid rgba(45, 191, 184, 0.18);
-  border-radius: 16px;
-  padding: 1.1rem 1.3rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-[data-theme='dark'] .card {
+[data-theme='dark'] .heroCard {
   background: #132424;
   border-color: rgba(45, 191, 184, 0.3);
 }
-.cardLabel {
+.heroFeatured {
+  background: linear-gradient(135deg, #2dbfb8 0%, #1a8a85 60%, #f5a623 100%);
+  border: none;
+  color: #fff;
+}
+.heroLabel {
   font-size: 0.65rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #7a9090;
+  margin-bottom: 0.4rem;
 }
-.cardValue {
+.heroFeatured .heroLabel {
+  color: rgba(255, 255, 255, 0.8);
+}
+.heroValue {
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 1.7rem;
+  font-size: 2.4rem;
   font-weight: 900;
   line-height: 1;
+  margin-bottom: 0.3rem;
   color: #2dbfb8;
 }
-[data-theme='dark'] .cardValue {
+[data-theme='dark'] .heroValue {
   color: #7ce6df;
 }
-.cardSub {
+.heroFeatured .heroValue {
+  color: #fff;
+}
+.heroSub {
   font-size: 0.72rem;
   font-weight: 600;
   color: #7a9090;
+}
+.heroFeatured .heroSub {
+  color: rgba(255, 255, 255, 0.75);
+}
+.heroPeriod {
+  align-self: flex-end;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #7a9090;
+}
+
+/* ── Trend badge ── */
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: 10px;
+  margin-top: 0.4rem;
+}
+.trendUp {
+  background: #dcfce7;
+  color: #16a34a;
+}
+.trendDown {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.trendFlat {
+  background: #fef3c7;
+  color: #b45309;
+}
+.heroFeatured .trend {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ── Grid meio: ranking UPA + evolução ── */
+.midGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  overflow: hidden;
+}
+[data-theme='dark'] .card {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.cardHeader {
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.12);
+}
+[data-theme='dark'] .cardHeader {
+  border-bottom-color: rgba(45, 191, 184, 0.25);
+}
+.cardTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .cardTitle {
+  color: #f0f4f4;
+}
+.cardSub {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7a9090;
+  margin-top: 2px;
+}
+.cardBody {
+  padding: 1.2rem 1.4rem;
+}
+.miniEmpty {
+  text-align: center;
+  padding: 1.5rem;
+  color: #7a9090;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* ── Ranking UPA ── */
+.upaRankList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.upaRankItem {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.upaRankPos {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 900;
+  min-width: 22px;
+  text-align: center;
+  color: #7a9090;
+}
+.upaRankBarWrap {
+  flex: 1;
+}
+.upaRankName {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1a2a2a;
+  margin-bottom: 0.35rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+[data-theme='dark'] .upaRankName {
+  color: #f0f4f4;
+}
+.upaRankPct {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+.upaRankBg {
+  height: 10px;
+  border-radius: 10px;
+  background: #f0f4f4;
+  overflow: hidden;
+}
+[data-theme='dark'] .upaRankBg {
+  background: rgba(255, 255, 255, 0.06);
+}
+.upaRankFill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Bottom grid: rankings de médicos ── */
+.bottomGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+@media (max-width: 900px) {
+  .midGrid,
+  .bottomGrid {
+    grid-template-columns: 1fr;
+  }
+}
+.medList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.medItem {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: #f0f4f4;
+}
+[data-theme='dark'] .medItem {
+  background: rgba(255, 255, 255, 0.04);
+}
+.medAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: #fff;
+  flex-shrink: 0;
+}
+.medInfo {
+  flex: 1;
+}
+.medName {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .medName {
+  color: #f0f4f4;
+}
+.medUpa {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #7a9090;
+  margin-top: 1px;
+}
+.medStat {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 /* ── Tabela por UPA ── */
@@ -288,17 +455,10 @@
     width: 100%;
   }
   .hero {
-    padding: 1.5rem 1.4rem;
-    border-radius: 18px;
-  }
-  .heroValue {
-    font-size: 2.8rem;
-  }
-  .grid {
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
   }
-  .cardValue {
-    font-size: 1.5rem;
+  .heroValue {
+    font-size: 1.8rem;
   }
 }

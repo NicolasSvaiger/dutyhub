@@ -53,8 +53,10 @@ test.describe('Portal Prefeitura — fluxos básicos', () => {
     await loginAsPrefeitura(page);
     await page.getByRole('button', { name: /Escalas/i }).first().click();
 
-    // Filtro de UPA (dropdown) aparece — indicador da view Escalas.
-    await expect(page.locator('#escalas-clinic')).toBeVisible({ timeout: 15_000 });
+    // Badge "Somente visualização" + navegação de semana — indicadores da
+    // nova view Escalas (grade semanal UPA x dia x turno).
+    await expect(page.getByText(/Somente visualização/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /^Hoje$/i })).toBeVisible();
   });
 
   test('clicar em "Frequência" carrega a view com botões de export', async ({ page }) => {
@@ -111,13 +113,13 @@ test.describe('Portal Prefeitura — fluxos básicos', () => {
     await expect(page.getByRole('heading', { name: /Acesso negado/i })).toBeVisible({ timeout: 10_000 });
   });
 
-  test('botão "Modo TV" abre /prefeitura/tv em nova aba', async ({ page, context }) => {
+  test('botão "Painel TV" abre /prefeitura/tv em nova aba', async ({ page, context }) => {
     await loginAsPrefeitura(page);
 
-    // "Modo TV" é o único botão com esse label exato (na seção Monitoramento).
+    // "Painel TV" é o único botão com esse label exato (na seção Principal).
     const [tvPage] = await Promise.all([
       context.waitForEvent('page', { timeout: 10_000 }),
-      page.getByRole('button', { name: /^Modo TV$/i }).click(),
+      page.getByRole('button', { name: /^Painel TV$/i }).click(),
     ]);
 
     await tvPage.waitForLoadState('domcontentloaded');

@@ -30,6 +30,7 @@ const mockRealtime = {
   totalExpectedNow: 20,
   totalPresentNow: 17,
   totalAbsentNow: 3,
+  totalLateNow: 1,
   clinics: [
     {
       clinicId: 'c1',
@@ -37,17 +38,37 @@ const mockRealtime = {
       expectedCount: 8,
       presentCount: 8,
       absentCount: 0,
+      lateCount: 0,
       alertLevel: 'green',
       absentUserNames: [],
+      turnoCode: 'manha',
+      shiftStartTime: '07:00:00',
+      shiftEndTime: '19:00:00',
+      doctors: [
+        { userId: 'u1', userName: 'Dra. Jessica Lima', registrationNumber: '1111-SP', professionalType: 'Medico', status: 'present', checkInTime: '2026-07-17T07:02:00Z', expectedTime: '2026-07-17T07:00:00Z' },
+      ],
+      lastEventUserName: 'Dra. Jessica Lima',
+      lastEventType: 'checkin',
+      lastEventTime: '2026-07-17T07:02:00Z',
     },
     {
       clinicId: 'c2',
       name: 'UPA Beta',
       expectedCount: 6,
       presentCount: 5,
-      absentCount: 1,
+      absentCount: 0,
+      lateCount: 1,
       alertLevel: 'yellow',
-      absentUserNames: ['Dra. Ana'],
+      absentUserNames: [],
+      turnoCode: 'manha',
+      shiftStartTime: '07:00:00',
+      shiftEndTime: '19:00:00',
+      doctors: [
+        { userId: 'u2', userName: 'Enf. Mariana Costa', registrationNumber: '2222-SP', professionalType: 'Enfermeiro', status: 'late', checkInTime: '2026-07-17T07:45:00Z', expectedTime: '2026-07-17T07:00:00Z' },
+      ],
+      lastEventUserName: 'Enf. Mariana Costa',
+      lastEventType: 'checkin',
+      lastEventTime: '2026-07-17T07:45:00Z',
     },
     {
       clinicId: 'c3',
@@ -55,10 +76,21 @@ const mockRealtime = {
       expectedCount: 6,
       presentCount: 4,
       absentCount: 2,
+      lateCount: 0,
       alertLevel: 'red',
       absentUserNames: ['Dr. Beto', 'Dra. Carla'],
+      turnoCode: 'manha',
+      shiftStartTime: '07:00:00',
+      shiftEndTime: '19:00:00',
+      doctors: [
+        { userId: 'u3', userName: 'Dr. Diego Faria', registrationNumber: '3333-SP', status: 'present', checkInTime: '2026-07-17T07:01:00Z', expectedTime: '2026-07-17T07:00:00Z' },
+      ],
+      lastEventUserName: 'Dr. Beto',
+      lastEventType: 'absence',
+      lastEventTime: '2026-07-17T08:00:00Z',
     },
   ],
+  recentEvents: [],
 };
 
 function renderTv() {
@@ -92,55 +124,97 @@ describe('<PrefeituraTvMode />', () => {
     expect(screen.getByText(/Monitoramento em tempo real/i)).toBeInTheDocument();
   });
 
+  it('renderiza título e subtítulo do header', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText(/Painel de Monitoramento · Plantões/i)).toBeInTheDocument());
+    expect(screen.getByText(/Secretaria Municipal de Saúde/i)).toBeInTheDocument();
+  });
+
   it('renderiza relógio wall-clock', async () => {
     renderTv();
     await vi.waitFor(() => expect(prefeituraApi.getRealtime).toHaveBeenCalled());
-    // Regex genérica HH:MM (00-23)
     const clockRegex = /\d{2}:\d{2}/;
-    // Múltiplos matches possíveis (data updates etc.) — pelo menos 1
     const matches = screen.getAllByText(clockRegex);
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renderiza totalizadores gigantes', async () => {
-    renderTv();
-    await vi.waitFor(() => expect(screen.getByText('20')).toBeInTheDocument());
-    expect(screen.getByText('17')).toBeInTheDocument();
-    // 3 aparece como totalClinics + absentNow
-    expect(screen.getAllByText('3').length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('renderiza clínicas com nomes', async () => {
+  it('renderiza clínicas com nomes e semáforo por alertLevel', async () => {
     renderTv();
     await vi.waitFor(() => expect(screen.getByText('UPA Alpha')).toBeInTheDocument());
     expect(screen.getByText('UPA Beta')).toBeInTheDocument();
     expect(screen.getByText('UPA Gama')).toBeInTheDocument();
+
+    const cards = document.querySelectorAll('[class*="upaCard_"]');
+    expect(cards.length).toBe(3);
+    const classNames = Array.from(cards).map((c) => c.className).join(' ');
+    expect(classNames).toMatch(/green/);
+    expect(classNames).toMatch(/yellow/);
+    expect(classNames).toMatch(/red/);
   });
 
-  it('aplica classe green/yellow/red por alertLevel', async () => {
+  it('renderiza contador grande de presentes/escalados por UPA', async () => {
     renderTv();
     await vi.waitFor(() => expect(screen.getByText('UPA Alpha')).toBeInTheDocument());
+    // UPA Beta e Gama ambas têm "/ 6" (escalados) — usar getAllByText.
+    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getAllByText('/ 6').length).toBe(2);
+  });
 
-    const cards = document.querySelectorAll('[class*="tvClinic"]');
-    // Filtra apenas os cards, não sub-elementos (name/stats)
-    const clinicCards = Array.from(cards).filter((c) =>
-      c.className.match(/tvClinic\b/) || c.className.match(/tvClinic[_-]/),
-    );
-    const classNames = clinicCards.map((c) => c.className).join(' ');
-    expect(classNames).toMatch(/green/i);
-    expect(classNames).toMatch(/yellow/i);
-    expect(classNames).toMatch(/red/i);
+  it('renderiza dots de médicos por UPA', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText('Dra. Jessica Lima')).toBeInTheDocument());
+    expect(screen.getByText('Enf. Mariana Costa')).toBeInTheDocument();
+    expect(screen.getByText('Dr. Diego Faria')).toBeInTheDocument();
+  });
+
+  it('renderiza badge de tipo profissional nos dots de médicos', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText('Dra. Jessica Lima')).toBeInTheDocument());
+    expect(screen.getByText('Médico')).toBeInTheDocument();
+    expect(screen.getByText('Enfermeiro(a)')).toBeInTheDocument();
+  });
+
+  it('renderiza alerta crítico quando há ausência e alerta positivo quando tudo confirmado', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText(/vaga\(s\) sem cobertura/i)).toBeInTheDocument());
+    expect(screen.getByText(/Todos os profissionais confirmados/i)).toBeInTheDocument();
+  });
+
+  it('renderiza os stats do footer (presentes/escalados/atrasos/ausências)', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText('17')).toBeInTheDocument());
+    expect(screen.getByText('20')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('renderiza o anel de ocupação global com percentual', async () => {
+    renderTv();
+    // 17/20 = 85%
+    await vi.waitFor(() => expect(screen.getByText('85%')).toBeInTheDocument());
+    expect(screen.getByText(/Taxa de Ocupação Global/i)).toBeInTheDocument();
+  });
+
+  it('renderiza countdown de próxima atualização e decrementa', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText('20s')).toBeInTheDocument());
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.waitFor(() => expect(screen.getByText('19s')).toBeInTheDocument());
+  });
+
+  it('renderiza badge "AO VIVO"', async () => {
+    renderTv();
+    await vi.waitFor(() => expect(screen.getByText('AO VIVO')).toBeInTheDocument());
   });
 
   it('polling refetch a cada 20s (mais agressivo que Realtime)', async () => {
     renderTv();
     await vi.waitFor(() => expect(prefeituraApi.getRealtime).toHaveBeenCalledTimes(1));
 
-    // Após 20s deve refetch
     await vi.advanceTimersByTimeAsync(20_000);
     await vi.waitFor(() => expect(prefeituraApi.getRealtime).toHaveBeenCalledTimes(2));
 
-    // Após mais 20s → 3ª chamada
     await vi.advanceTimersByTimeAsync(20_000);
     await vi.waitFor(() => expect(prefeituraApi.getRealtime).toHaveBeenCalledTimes(3));
   });

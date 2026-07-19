@@ -120,6 +120,76 @@ public class PrefeituraControllerTests
     }
 
     // ─────────────────────────────────────────────────────────────
+    // Units Timeline
+    // ─────────────────────────────────────────────────────────────
+
+    // ─────────────────────────────────────────────────────────────
+    // Weekly Schedule
+    // ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetWeeklySchedule_MissingClinicId_ReturnsBadRequest()
+    {
+        var result = await CreateController().GetWeeklySchedule(clinicId: null, weekStart: null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _service.Verify(s => s.GetWeeklyScheduleAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetWeeklySchedule_ValidParams_DelegatesToServiceAndReturnsOk()
+    {
+        var clinicId = Guid.NewGuid();
+        _service.Setup(s => s.GetWeeklyScheduleAsync(clinicId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PrefeituraWeeklyScheduleResponse { ClinicId = clinicId });
+
+        var result = await CreateController().GetWeeklySchedule(clinicId: clinicId, weekStart: null);
+
+        result.Should().BeOfType<OkObjectResult>();
+        _service.Verify(s => s.GetWeeklyScheduleAsync(
+            clinicId, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetUnitTimeline_MissingClinicId_ReturnsBadRequest()
+    {
+        var result = await CreateController().GetUnitTimeline(
+            clinicId: null, from: null, to: null, turno: null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+        _service.Verify(s => s.GetUnitTimelineAsync(
+            It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+            It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetUnitTimeline_InvalidTurno_ReturnsBadRequest()
+    {
+        var result = await CreateController().GetUnitTimeline(
+            clinicId: Guid.NewGuid(), from: null, to: null, turno: "madrugada");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetUnitTimeline_ValidParams_DelegatesToServiceAndReturnsOk()
+    {
+        var clinicId = Guid.NewGuid();
+        _service.Setup(s => s.GetUnitTimelineAsync(clinicId, It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                                                    "manha", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PrefeituraUnitTimelineResponse { ClinicId = clinicId });
+
+        var result = await CreateController().GetUnitTimeline(
+            clinicId: clinicId, from: null, to: null, turno: "manha");
+
+        result.Should().BeOfType<OkObjectResult>();
+        _service.Verify(s => s.GetUnitTimelineAsync(
+            clinicId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), "manha", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Frequency
     // ─────────────────────────────────────────────────────────────
 
@@ -132,6 +202,33 @@ public class PrefeituraControllerTests
             clinicId: null);
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_InvalidRange_ReturnsBadRequest()
+    {
+        var result = await CreateController().GetFrequencyByDoctor(
+            from: DateTime.UtcNow.AddDays(5),
+            to: DateTime.UtcNow.AddDays(-5),
+            clinicId: null);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetFrequencyByDoctor_ValidParams_DelegatesToServiceAndReturnsOk()
+    {
+        var clinicId = Guid.NewGuid();
+        _service.Setup(s => s.GetFrequencyByDoctorAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                                                         clinicId, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Array.Empty<PrefeituraFrequencyByDoctorItem>());
+
+        var result = await CreateController().GetFrequencyByDoctor(from: null, to: null, clinicId: clinicId);
+
+        result.Should().BeOfType<OkObjectResult>();
+        _service.Verify(s => s.GetFrequencyByDoctorAsync(
+            It.IsAny<DateTime>(), It.IsAny<DateTime>(), clinicId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -151,14 +248,14 @@ public class PrefeituraControllerTests
     public async Task GetAbsences_ValidTypeLate_DelegatesWithLowercaseTypeToService()
     {
         _service.Setup(s => s.GetAbsencesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
-                                                "late", It.IsAny<CancellationToken>()))
+                                                "late", It.IsAny<CancellationToken>(), It.IsAny<int?>()))
                 .ReturnsAsync(Array.Empty<PrefeituraAbsenceItem>());
 
         var result = await CreateController().GetAbsences(from: null, to: null, type: "late");
 
         result.Should().BeOfType<OkObjectResult>();
         _service.Verify(s => s.GetAbsencesAsync(
-            It.IsAny<DateTime>(), It.IsAny<DateTime>(), "late", It.IsAny<CancellationToken>()),
+            It.IsAny<DateTime>(), It.IsAny<DateTime>(), "late", It.IsAny<CancellationToken>(), It.IsAny<int?>()),
             Times.Once);
     }
 
@@ -166,12 +263,37 @@ public class PrefeituraControllerTests
     public async Task GetAbsences_NullType_IsAccepted()
     {
         _service.Setup(s => s.GetAbsencesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
-                                                null, It.IsAny<CancellationToken>()))
+                                                null, It.IsAny<CancellationToken>(), It.IsAny<int?>()))
                 .ReturnsAsync(Array.Empty<PrefeituraAbsenceItem>());
 
         var result = await CreateController().GetAbsences(from: null, to: null, type: null);
 
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetAbsences_ToleranceOutOfRange_ReturnsBadRequest()
+    {
+        var result = await CreateController().GetAbsences(from: null, to: null, type: null, toleranceMinutes: 3);
+        result.Should().BeOfType<BadRequestObjectResult>();
+
+        var result2 = await CreateController().GetAbsences(from: null, to: null, type: null, toleranceMinutes: 121);
+        result2.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetAbsences_ToleranceProvided_ForwardsToService()
+    {
+        _service.Setup(s => s.GetAbsencesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                                                It.IsAny<string?>(), It.IsAny<CancellationToken>(), 30))
+                .ReturnsAsync(Array.Empty<PrefeituraAbsenceItem>());
+
+        var result = await CreateController().GetAbsences(from: null, to: null, type: null, toleranceMinutes: 30);
+
+        result.Should().BeOfType<OkObjectResult>();
+        _service.Verify(s => s.GetAbsencesAsync(
+            It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(), 30),
+            Times.Once);
     }
 
     // ─────────────────────────────────────────────────────────────

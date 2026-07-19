@@ -64,85 +64,97 @@ export function PrefeituraPage() {
     setSidebarOpen(false);
   }
 
-  const navItems: Array<{ view: PrefeituraView; key: string; icon: ReactNode }> = [
+  /** Ícone do "Início" — casa. Reaproveitado no item de nav e não muda por seção. */
+  const homeIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+      <polyline points="9 21 9 12 15 12 15 21" />
+    </svg>
+  );
+  const realtimeIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+    </svg>
+  );
+  const frequenciaIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="3" y1="15" x2="21" y2="15" />
+      <line x1="9" y1="9" x2="9" y2="21" />
+    </svg>
+  );
+  const ausenciasIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+  const atrasosIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+  const historicoIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+  const escalasIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+  const kpisIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+    </svg>
+  );
+  const tvIcon = (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  );
+
+  // Estrutura e ordem idênticas ao mock (originais/Prefeitura/op-*.html):
+  // Principal (Início, Tempo Real, Painel TV) → Relatórios (Frequência,
+  // Ausências, Atrasos) → Gestão (Unidades/UPAs, Escalas, Indicadores).
+  const navSections: Array<{
+    label: string;
+    items: Array<{ view: PrefeituraView; key: string; icon: ReactNode }>;
+  }> = [
     {
-      view: 'home',
-      key: 'home',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-          <polyline points="9 21 9 12 15 12 15 21" />
-        </svg>
-      ),
+      label: t('prefeitura.nav.sectionMain'),
+      items: [
+        { view: 'home', key: 'home', icon: homeIcon },
+        { view: 'realtime', key: 'realtime', icon: realtimeIcon },
+      ],
     },
     {
-      view: 'kpis',
-      key: 'kpis',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      ),
+      label: t('prefeitura.nav.sectionReports'),
+      items: [
+        { view: 'frequencia', key: 'frequencia', icon: frequenciaIcon },
+        { view: 'ausencias', key: 'ausencias', icon: ausenciasIcon },
+        { view: 'atrasos', key: 'atrasos', icon: atrasosIcon },
+      ],
     },
     {
-      view: 'escalas',
-      key: 'escalas',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      ),
-    },
-    {
-      view: 'frequencia',
-      key: 'frequencia',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      ),
-    },
-    {
-      view: 'atrasos',
-      key: 'atrasos',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-      ),
-    },
-    {
-      view: 'ausencias',
-      key: 'ausencias',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-      ),
-    },
-    {
-      view: 'historico',
-      key: 'historico',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-      ),
-    },
-    {
-      view: 'realtime',
-      key: 'realtime',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
-      ),
+      label: t('prefeitura.nav.sectionManagement'),
+      items: [
+        { view: 'historico', key: 'historico', icon: historicoIcon },
+        { view: 'escalas', key: 'escalas', icon: escalasIcon },
+        { view: 'kpis', key: 'kpis', icon: kpisIcon },
+      ],
     },
   ];
 
@@ -169,29 +181,31 @@ export function PrefeituraPage() {
           </div>
         </div>
 
-        <div className={styles.navSectionLabel}>{t('prefeitura.nav.sectionMain')}</div>
-        {navItems.map((item) => (
-          <button
-            key={item.view}
-            type="button"
-            className={`${styles.navItem} ${activeView === item.view ? styles.active : ''}`}
-            onClick={() => navigate(item.view)}
-            aria-current={activeView === item.view ? 'page' : undefined}
-          >
-            {item.icon}
-            {t(`prefeitura.nav.items.${item.key}`)}
-          </button>
+        {navSections.map((section, idx) => (
+          <div key={section.label}>
+            <div className={styles.navSectionLabel}>{section.label}</div>
+            {section.items.map((item) => (
+              <button
+                key={item.view}
+                type="button"
+                className={`${styles.navItem} ${activeView === item.view ? styles.active : ''}`}
+                onClick={() => navigate(item.view)}
+                aria-current={activeView === item.view ? 'page' : undefined}
+              >
+                {item.icon}
+                {t(`prefeitura.nav.items.${item.key}`)}
+              </button>
+            ))}
+            {/* "Painel TV" fica na section Principal, depois de Tempo Real —
+                é um <button> comum (abre nova aba), não muda activeView. */}
+            {idx === 0 && (
+              <button type="button" className={styles.navItem} onClick={openTvMode}>
+                {tvIcon}
+                {t('prefeitura.nav.items.tv')}
+              </button>
+            )}
+          </div>
         ))}
-
-        <div className={styles.navSectionLabel}>{t('prefeitura.nav.sectionDisplay')}</div>
-        <button type="button" className={styles.navItem} onClick={openTvMode}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2" />
-            <line x1="8" y1="21" x2="16" y2="21" />
-            <line x1="12" y1="17" x2="12" y2="21" />
-          </svg>
-          {t('prefeitura.nav.items.tv')}
-        </button>
 
         <div className={styles.sidebarActions}>
           <button
@@ -254,7 +268,7 @@ export function PrefeituraPage() {
               </svg>
             </button>
             <div>
-              <div className={styles.topbarTitle}>{t(`prefeitura.nav.items.${activeView}`)}</div>
+              <div className={styles.topbarTitle}>{t(`prefeitura.nav.pageTitles.${activeView}`)}</div>
               <div className={styles.topbarSub}>{dateStr}</div>
             </div>
           </div>

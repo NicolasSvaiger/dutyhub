@@ -35,6 +35,9 @@ public static class CacheKeys
     public static string PrefeituraFrequency(Guid organId, DateTime from, DateTime to, Guid? clinicId) =>
         $"prefeitura:frequency:{organId}:{from:yyyyMMdd}:{to:yyyyMMdd}:{clinicId?.ToString() ?? "all"}";
 
+    public static string PrefeituraFrequencyByDoctor(Guid organId, DateTime from, DateTime to, Guid? clinicId) =>
+        $"prefeitura:frequency-doctor:{organId}:{from:yyyyMMdd}:{to:yyyyMMdd}:{clinicId?.ToString() ?? "all"}";
+
     public static string PrefeituraAbsences(Guid organId, DateTime from, DateTime to, string? type) =>
         $"prefeitura:absences:{organId}:{from:yyyyMMdd}:{to:yyyyMMdd}:{type ?? "all"}";
 

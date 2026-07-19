@@ -180,19 +180,23 @@ public class PrefeituraService : IPrefeituraService
     private static DateTime ShiftStartUtc(Shift s) =>
         DateTime.SpecifyKind(s.Date.Date.Add(s.StartTime), DateTimeKind.Utc);
 
-    private static bool IsLate(Attendance a, Shift s, SystemSettings settings)
+    private static bool IsLate(Attendance a, Shift s, SystemSettings settings, int? forceToleranceMinutes = null)
     {
-        var toleranceMinutes = s.Clinic?.CheckInToleranceMinutes ?? settings.CheckInToleranceMinutes;
+        var toleranceMinutes = forceToleranceMinutes ?? s.Clinic?.CheckInToleranceMinutes ?? settings.CheckInToleranceMinutes;
         return a.CheckInTime > ShiftStartUtc(s).AddMinutes(toleranceMinutes);
     }
 
-    private static int LateMinutes(Attendance a, Shift s, SystemSettings settings)
+    private static int LateMinutes(Attendance a, Shift s, SystemSettings settings, int? forceToleranceMinutes = null)
     {
-        var toleranceMinutes = s.Clinic?.CheckInToleranceMinutes ?? settings.CheckInToleranceMinutes;
+        var toleranceMinutes = forceToleranceMinutes ?? s.Clinic?.CheckInToleranceMinutes ?? settings.CheckInToleranceMinutes;
         var threshold = ShiftStartUtc(s).AddMinutes(toleranceMinutes);
         var diff = (a.CheckInTime - threshold).TotalMinutes;
         return diff <= 0 ? 0 : (int)Math.Round(diff);
     }
+
+    /// <summary>Serializa <c>User.ProfessionalType</c> pro frontend — "Medico" |
+    /// "Enfermeiro" | null (cadastros sem o campo preenchido, ex.: gestores).</summary>
+    private static string? ProfessionalTypeLabel(ProfessionalType? type) => type?.ToString();
 
     private static bool ShiftAlreadyPastAbsenceThreshold(Shift s, DateTime now, SystemSettings settings) =>
         now >= ShiftStartUtc(s).AddMinutes(settings.AbsenceThresholdMinutes);
@@ -236,6 +240,13 @@ public class PrefeituraService : IPrefeituraService
         int totalExpected = 0, totalCovered = 0, totalAbsences = 0, totalLate = 0;
         long totalLateMinutes = 0;
 
+        // Acumuladores por médico — base pros rankings "Maiores ausências" e
+        // "Melhor frequência". ClinicCounts guarda em qual UPA o médico mais
+        // atuou, usada só como UPA "âncora" de exibição (mesma heurística de
+        // GetFrequencyByDoctorAsync).
+        var byDoctor = new Dictionary<Guid, PrefeituraKpiDoctorItem>();
+        var doctorClinicCounts = new Dictionary<Guid, Dictionary<Guid, int>>();
+
         foreach (var s in shifts)
         {
             var row = byClinic.TryGetValue(s.ClinicId, out var existing)
@@ -250,13 +261,30 @@ public class PrefeituraService : IPrefeituraService
             {
                 row.ExpectedShifts++;
                 totalExpected++;
-                var attendance = s.Attendances.FirstOrDefault(a => a.UserId == assignment.UserId);
+
+                var userId = assignment.UserId;
+                if (!byDoctor.TryGetValue(userId, out var docRow))
+                {
+                    docRow = new PrefeituraKpiDoctorItem
+                    {
+                        UserId = userId,
+                        UserName = assignment.User?.Name ?? string.Empty,
+                        RegistrationNumber = assignment.User?.RegistrationNumber,
+                        ProfessionalType = ProfessionalTypeLabel(assignment.User?.ProfessionalType),
+                    };
+                    byDoctor[userId] = docRow;
+                    doctorClinicCounts[userId] = new Dictionary<Guid, int>();
+                }
+                doctorClinicCounts[userId][s.ClinicId] = doctorClinicCounts[userId].GetValueOrDefault(s.ClinicId) + 1;
+
+                var attendance = s.Attendances.FirstOrDefault(a => a.UserId == userId);
                 if (attendance is null)
                 {
                     if (ShiftAlreadyPastAbsenceThreshold(s, DateTime.UtcNow, settings))
                     {
                         row.Absences++;
                         totalAbsences++;
+                        docRow.Absences++;
                     }
                 }
                 else
@@ -280,6 +308,40 @@ public class PrefeituraService : IPrefeituraService
                 : Math.Round(100.0 * row.CoveredShifts / row.ExpectedShifts, 1);
         }
 
+        var kpiClinicNames = shifts
+            .Select(s => (s.ClinicId, Name: s.Clinic?.Name ?? string.Empty))
+            .Distinct()
+            .ToDictionary(x => x.ClinicId, x => x.Name);
+
+        // ComplianceRate por médico = coveredShifts / expectedShifts do
+        // próprio médico (não temos essa contagem no docRow ainda — deriva
+        // dos shifts onde ele foi assignado, contando via clinicCounts sum).
+        foreach (var docRow in byDoctor.Values)
+        {
+            var expectedForDoctor = doctorClinicCounts[docRow.UserId].Values.Sum();
+            docRow.ComplianceRate = expectedForDoctor == 0
+                ? 0.0
+                : Math.Round(100.0 * (expectedForDoctor - docRow.Absences) / expectedForDoctor, 1);
+
+            var anchorClinicId = doctorClinicCounts[docRow.UserId]
+                .OrderByDescending(kv => kv.Value)
+                .First().Key;
+            docRow.ClinicId = anchorClinicId;
+            docRow.ClinicName = kpiClinicNames.GetValueOrDefault(anchorClinicId, string.Empty);
+        }
+
+        var topAbsenceDoctors = byDoctor.Values
+            .Where(d => d.Absences > 0)
+            .OrderByDescending(d => d.Absences)
+            .ThenBy(d => d.UserName)
+            .Take(5)
+            .ToList();
+
+        var perfectAttendanceDoctors = byDoctor.Values
+            .Where(d => d.ComplianceRate >= 100.0 && d.Absences == 0)
+            .OrderBy(d => d.UserName)
+            .ToList();
+
         return new PrefeituraKpisResponse
         {
             From = fromUtc,
@@ -291,7 +353,12 @@ public class PrefeituraService : IPrefeituraService
             TotalLateEvents = totalLate,
             AverageLateMinutes = totalLate == 0 ? 0.0 : Math.Round((double)totalLateMinutes / totalLate, 1),
             SubstitutionRate = totalExpected == 0 ? 0.0 : Math.Round(100.0 * substitutions.Count / totalExpected, 1),
+            TotalActiveDoctors = byDoctor.Count,
+            TotalActiveMedicos = byDoctor.Values.Count(d => d.ProfessionalType == nameof(ProfessionalType.Medico)),
+            TotalActiveEnfermeiros = byDoctor.Values.Count(d => d.ProfessionalType == nameof(ProfessionalType.Enfermeiro)),
             ByClinic = byClinic.Values.OrderBy(c => c.ClinicName).ToList(),
+            TopAbsenceDoctors = topAbsenceDoctors,
+            PerfectAttendanceDoctors = perfectAttendanceDoctors,
         };
     }
 
@@ -385,6 +452,241 @@ public class PrefeituraService : IPrefeituraService
     }
 
     // ─────────────────────────────────────────────────────────────
+    // Weekly Schedule — grade UPA x dia x turno (op-escalas.html). Sem
+    // cache (mesmo motivo do Shifts: dado muda com edições no Admin OS).
+    // ─────────────────────────────────────────────────────────────
+
+    public async Task<PrefeituraWeeklyScheduleResponse> GetWeeklyScheduleAsync(
+        Guid clinicId,
+        DateTime weekStart,
+        CancellationToken ct = default)
+    {
+        var scope = await ResolveScopeAsync(ct);
+        if (!scope.ClinicIds.Contains(clinicId))
+        {
+            throw new NotFoundException($"Clinic {clinicId} not found in scope.");
+        }
+
+        // Normaliza pro domingo da semana que contém weekStart.
+        var anchor = DateTime.SpecifyKind(weekStart.Date, DateTimeKind.Utc);
+        var dow = (int)anchor.DayOfWeek;
+        var sunday = anchor.AddDays(-dow);
+        var days = Enumerable.Range(0, 7).Select(i => sunday.AddDays(i)).ToList();
+        var weekEndExclusive = sunday.AddDays(7);
+
+        var settings = await _settingsRepo.GetAsync();
+        var now = DateTime.UtcNow;
+
+        var shifts = (await _shiftRepo.GetInPeriodWithDetailsAsync(sunday, weekEndExclusive))
+            .Where(s => s.ClinicId == clinicId)
+            .ToList();
+
+        var clinicName = shifts.FirstOrDefault()?.Clinic?.Name ?? string.Empty;
+        int? doctorsPerShiftTarget = shifts.FirstOrDefault()?.Clinic?.DoctorsPerShift;
+        if (clinicName == string.Empty || doctorsPerShiftTarget is null)
+        {
+            var clinic = (await _clinicRepo.GetByIdsAsync(new[] { clinicId })).FirstOrDefault();
+            if (clinicName == string.Empty) clinicName = clinic?.Name ?? string.Empty;
+            doctorsPerShiftTarget ??= clinic?.DoctorsPerShift;
+        }
+
+        // Agrupa por (StartTime, EndTime) — cada combinação distinta é uma
+        // "linha" de turno na grade. Dentro de cada turno, agrupa por dia.
+        var rows = shifts
+            .GroupBy(s => (s.StartTime, s.EndTime))
+            .OrderBy(g => g.Key.StartTime)
+            .Select(turnoGroup =>
+            {
+                var cells = days.Select(day =>
+                {
+                    var dayShift = turnoGroup.FirstOrDefault(s => s.Date.Date == day.Date);
+                    var assignments = new List<PrefeituraScheduleAssignment>();
+                    if (dayShift is not null)
+                    {
+                        var shiftStartUtc = ShiftStartUtc(dayShift);
+                        var isFutureShift = shiftStartUtc > now;
+                        foreach (var a in dayShift.ShiftAssignments)
+                        {
+                            // Heurística documentada no DTO: assignment com
+                            // menos de 48h de idade em turno futuro = pendente.
+                            var isPending = isFutureShift && (now - a.AssignedAt) < TimeSpan.FromHours(48);
+                            assignments.Add(new PrefeituraScheduleAssignment
+                            {
+                                UserId = a.UserId,
+                                UserName = a.User?.Name ?? string.Empty,
+                                ProfessionalType = ProfessionalTypeLabel(a.User?.ProfessionalType),
+                                Status = isPending ? "pendente" : "confirmado",
+                            });
+                        }
+                    }
+
+                    // "Sem cobertura" só se aplica quando existe de fato um
+                    // Shift agendado pra esse dia+turno — dias sem Shift
+                    // simplesmente não têm plantão previsto ali, não é uma
+                    // vaga em aberto.
+                    var target = doctorsPerShiftTarget ?? 0;
+                    var uncovered = dayShift is null ? 0 : Math.Max(0, target - assignments.Count);
+
+                    return new PrefeituraScheduleCell
+                    {
+                        Date = day,
+                        Assignments = assignments,
+                        UncoveredCount = uncovered,
+                    };
+                }).ToList();
+
+                return new PrefeituraScheduleRow
+                {
+                    Turno = DeriveTurno(turnoGroup.Key.StartTime),
+                    StartTime = turnoGroup.Key.StartTime,
+                    EndTime = turnoGroup.Key.EndTime,
+                    Cells = cells,
+                };
+            })
+            .ToList();
+
+        var totalConfirmed = rows.Sum(r => r.Cells.Sum(c => c.Assignments.Count(a => a.Status == "confirmado")));
+        var totalPending = rows.Sum(r => r.Cells.Sum(c => c.Assignments.Count(a => a.Status == "pendente")));
+        var totalUncovered = rows.Sum(r => r.Cells.Sum(c => c.UncoveredCount));
+        var totalShiftSlots = rows.Sum(r => r.Cells.Count);
+        var totalDoctors = rows
+            .SelectMany(r => r.Cells)
+            .SelectMany(c => c.Assignments)
+            .Select(a => a.UserId)
+            .Distinct()
+            .Count();
+
+        return new PrefeituraWeeklyScheduleResponse
+        {
+            ClinicId = clinicId,
+            ClinicName = clinicName,
+            DoctorsPerShiftTarget = doctorsPerShiftTarget,
+            WeekStart = sunday,
+            WeekEnd = sunday.AddDays(6),
+            Days = days,
+            TotalShiftSlots = totalShiftSlots,
+            TotalConfirmed = totalConfirmed,
+            TotalPending = totalPending,
+            TotalUncovered = totalUncovered,
+            TotalDoctors = totalDoctors,
+            Rows = rows,
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Unit Timeline — plantões de UMA UPA (op-historico.html). Sem cache
+    // (mesmo motivo do Shifts: dado muda com edições no Admin OS).
+    // ─────────────────────────────────────────────────────────────
+
+    public async Task<PrefeituraUnitTimelineResponse> GetUnitTimelineAsync(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? turno = null,
+        CancellationToken ct = default)
+    {
+        var scope = await ResolveScopeAsync(ct);
+        if (!scope.ClinicIds.Contains(clinicId))
+        {
+            // NotFoundException (não Forbidden) — não vaza existência de
+            // clínicas fora do escopo do gestor, mesmo padrão de NotifyOs.
+            throw new NotFoundException($"Clinic {clinicId} not found in scope.");
+        }
+
+        var (fromUtc, toUtc) = NormalizePeriod(from, to);
+        var settings = await _settingsRepo.GetAsync();
+        var now = DateTime.UtcNow;
+
+        var shifts = (await _shiftRepo.GetInPeriodWithDetailsAsync(fromUtc, toUtc))
+            .Where(s => s.ClinicId == clinicId)
+            .ToList();
+
+        var clinicName = shifts.FirstOrDefault()?.Clinic?.Name
+            ?? (await _clinicRepo.GetByIdsAsync(new[] { clinicId })).FirstOrDefault()?.Name
+            ?? string.Empty;
+
+        var normalizedTurno = string.IsNullOrWhiteSpace(turno) ? null : turno.Trim().ToLowerInvariant();
+
+        var items = new List<PrefeituraUnitTimelineItem>();
+        foreach (var s in shifts)
+        {
+            var shiftTurno = DeriveTurno(s.StartTime);
+            if (normalizedTurno is not null && shiftTurno != normalizedTurno) continue;
+
+            foreach (var assignment in s.ShiftAssignments)
+            {
+                var attendance = s.Attendances.FirstOrDefault(a => a.UserId == assignment.UserId);
+                if (attendance is null)
+                {
+                    if (!ShiftAlreadyPastAbsenceThreshold(s, now, settings)) continue;
+                    items.Add(new PrefeituraUnitTimelineItem
+                    {
+                        ShiftId = s.Id,
+                        UserId = assignment.UserId,
+                        UserName = assignment.User?.Name ?? string.Empty,
+                        ProfessionalType = ProfessionalTypeLabel(assignment.User?.ProfessionalType),
+                        Date = s.Date,
+                        Turno = shiftTurno,
+                        ExpectedTime = s.StartTime,
+                        CheckInTime = null,
+                        CheckOutTime = null,
+                        Type = "absent",
+                        MinutesLate = null,
+                    });
+                }
+                else
+                {
+                    var late = IsLate(attendance, s, settings);
+                    items.Add(new PrefeituraUnitTimelineItem
+                    {
+                        ShiftId = s.Id,
+                        UserId = assignment.UserId,
+                        UserName = assignment.User?.Name ?? string.Empty,
+                        ProfessionalType = ProfessionalTypeLabel(assignment.User?.ProfessionalType),
+                        Date = s.Date,
+                        Turno = shiftTurno,
+                        ExpectedTime = s.StartTime,
+                        CheckInTime = attendance.CheckInTime,
+                        CheckOutTime = attendance.CheckOutTime,
+                        Type = late ? "late" : "in",
+                        MinutesLate = late ? LateMinutes(attendance, s, settings) : null,
+                    });
+                }
+            }
+        }
+
+        items = items.OrderByDescending(i => i.Date).ThenBy(i => i.UserName).ToList();
+
+        return new PrefeituraUnitTimelineResponse
+        {
+            ClinicId = clinicId,
+            ClinicName = clinicName,
+            From = fromUtc,
+            To = toUtc,
+            TotalShifts = items.Count,
+            Entradas = items.Count(i => i.Type is "in" or "late"),
+            Saidas = items.Count(i => i.CheckOutTime.HasValue),
+            Atrasos = items.Count(i => i.Type == "late"),
+            Ausencias = items.Count(i => i.Type == "absent"),
+            Items = items,
+        };
+    }
+
+    /// <summary>
+    /// Deriva o "turno" a partir do horário de início — não existe esse
+    /// conceito no domínio (Shift só tem StartTime/EndTime). Heurística:
+    /// 05:00-12:59 manhã, 13:00-18:59 tarde, resto noite. Ver op-historico.html
+    /// que usa "Manhã (07h–19h)" / "Noite (19h–07h)" como rótulos no filtro.
+    /// </summary>
+    private static string DeriveTurno(TimeSpan startTime)
+    {
+        var hour = startTime.Hours;
+        if (hour is >= 5 and < 13) return "manha";
+        if (hour is >= 13 and < 19) return "tarde";
+        return "noite";
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Frequency — previsto x realizado por (UPA, dia). TTL 60s.
     // ─────────────────────────────────────────────────────────────
 
@@ -449,6 +751,110 @@ public class PrefeituraService : IPrefeituraService
     }
 
     // ─────────────────────────────────────────────────────────────
+    // Frequency by doctor — tabela "Frequência por Médico". TTL 60s.
+    // ─────────────────────────────────────────────────────────────
+
+    public async Task<IReadOnlyList<PrefeituraFrequencyByDoctorItem>> GetFrequencyByDoctorAsync(
+        DateTime from,
+        DateTime to,
+        Guid? clinicId = null,
+        CancellationToken ct = default)
+    {
+        var scope = await ResolveScopeAsync(ct);
+        var (fromUtc, toUtc) = NormalizePeriod(from, to);
+
+        var cached = await _cache.GetOrSetAsync(
+            CacheKeys.PrefeituraFrequencyByDoctor(scope.OrganId, fromUtc, toUtc, clinicId),
+            () => BuildFrequencyByDoctorAsync(scope, fromUtc, toUtc, clinicId),
+            TimeSpan.FromSeconds(60),
+            ct);
+
+        return cached ?? await BuildFrequencyByDoctorAsync(scope, fromUtc, toUtc, clinicId);
+    }
+
+    private async Task<IReadOnlyList<PrefeituraFrequencyByDoctorItem>> BuildFrequencyByDoctorAsync(
+        PrefeituraScope scope,
+        DateTime fromUtc,
+        DateTime toUtc,
+        Guid? clinicId)
+    {
+        var targetClinicIds = clinicId.HasValue
+            ? (scope.ClinicIds.Contains(clinicId.Value) ? new[] { clinicId.Value } : Array.Empty<Guid>())
+            : scope.ClinicIds.ToArray();
+
+        if (targetClinicIds.Length == 0) return Array.Empty<PrefeituraFrequencyByDoctorItem>();
+
+        var settings = await _settingsRepo.GetAsync();
+        var now = DateTime.UtcNow;
+
+        var shifts = (await _shiftRepo.GetInPeriodWithDetailsAsync(fromUtc, toUtc))
+            .Where(s => targetClinicIds.Contains(s.ClinicId))
+            .ToList();
+
+        // Acumuladores por médico. ClinicCounts rastreia em qual UPA o
+        // médico apareceu mais vezes — usado só pra exibir uma UPA "âncora"
+        // na tabela quando o profissional atua em múltiplas unidades.
+        var byDoctor = new Dictionary<Guid, PrefeituraFrequencyByDoctorItem>();
+        var clinicCounts = new Dictionary<Guid, Dictionary<Guid, int>>();
+
+        foreach (var s in shifts)
+        {
+            foreach (var assignment in s.ShiftAssignments)
+            {
+                var userId = assignment.UserId;
+                if (!byDoctor.TryGetValue(userId, out var row))
+                {
+                    row = new PrefeituraFrequencyByDoctorItem
+                    {
+                        UserId = userId,
+                        UserName = assignment.User?.Name ?? string.Empty,
+                        RegistrationNumber = assignment.User?.RegistrationNumber,
+                        ProfessionalType = ProfessionalTypeLabel(assignment.User?.ProfessionalType),
+                    };
+                    byDoctor[userId] = row;
+                    clinicCounts[userId] = new Dictionary<Guid, int>();
+                }
+
+                row.ExpectedShifts++;
+                clinicCounts[userId][s.ClinicId] = clinicCounts[userId].GetValueOrDefault(s.ClinicId) + 1;
+
+                var attendance = s.Attendances.FirstOrDefault(a => a.UserId == userId);
+                if (attendance is null)
+                {
+                    if (ShiftAlreadyPastAbsenceThreshold(s, now, settings)) row.Absences++;
+                }
+                else
+                {
+                    row.CompletedShifts++;
+                    if (IsLate(attendance, s, settings)) row.LateEvents++;
+                }
+            }
+        }
+
+        var clinicNames = shifts
+            .Select(s => (s.ClinicId, Name: s.Clinic?.Name ?? string.Empty))
+            .Distinct()
+            .ToDictionary(x => x.ClinicId, x => x.Name);
+
+        foreach (var row in byDoctor.Values)
+        {
+            row.ComplianceRate = row.ExpectedShifts == 0
+                ? 0.0
+                : Math.Round(100.0 * row.CompletedShifts / row.ExpectedShifts, 1);
+
+            var anchorClinicId = clinicCounts[row.UserId]
+                .OrderByDescending(kv => kv.Value)
+                .First().Key;
+            row.ClinicId = anchorClinicId;
+            row.ClinicName = clinicNames.GetValueOrDefault(anchorClinicId, string.Empty);
+        }
+
+        return byDoctor.Values
+            .OrderBy(r => r.UserName)
+            .ToList();
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // Absences — ausências + atrasos. Filtro type: "late" | "absence" | null. TTL 60s.
     // ─────────────────────────────────────────────────────────────
 
@@ -456,26 +862,35 @@ public class PrefeituraService : IPrefeituraService
         DateTime from,
         DateTime to,
         string? type = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? toleranceOverrideMinutes = null)
     {
         var scope = await ResolveScopeAsync(ct);
         var (fromUtc, toUtc) = NormalizePeriod(from, to);
         var normalizedType = string.IsNullOrWhiteSpace(type) ? null : type.Trim().ToLowerInvariant();
 
+        // Override de tolerância (slider da tela Atrasos) não passa pelo
+        // cache — é uma simulação ad-hoc, não o dado "real" da clínica.
+        if (toleranceOverrideMinutes.HasValue)
+        {
+            return await BuildAbsencesAsync(scope, fromUtc, toUtc, normalizedType, toleranceOverrideMinutes);
+        }
+
         var cached = await _cache.GetOrSetAsync(
             CacheKeys.PrefeituraAbsences(scope.OrganId, fromUtc, toUtc, normalizedType),
-            () => BuildAbsencesAsync(scope, fromUtc, toUtc, normalizedType),
+            () => BuildAbsencesAsync(scope, fromUtc, toUtc, normalizedType, null),
             TimeSpan.FromSeconds(60),
             ct);
 
-        return cached ?? await BuildAbsencesAsync(scope, fromUtc, toUtc, normalizedType);
+        return cached ?? await BuildAbsencesAsync(scope, fromUtc, toUtc, normalizedType, null);
     }
 
     private async Task<IReadOnlyList<PrefeituraAbsenceItem>> BuildAbsencesAsync(
         PrefeituraScope scope,
         DateTime fromUtc,
         DateTime toUtc,
-        string? type)
+        string? type,
+        int? toleranceOverrideMinutes)
     {
         if (scope.ClinicIds.Count == 0) return Array.Empty<PrefeituraAbsenceItem>();
         var settings = await _settingsRepo.GetAsync();
@@ -486,10 +901,15 @@ public class PrefeituraService : IPrefeituraService
             .Where(s => s.ShiftDate >= fromUtc.Date && s.ShiftDate < toUtc.Date)
             .ToList();
 
-        // Justificativas aceitas neutralizam a linha (Justified = true).
-        var justifications = (await _justificationRepo.GetByClinicIdsAsync(scope.ClinicIds))
-            .Where(j => j.ShiftDate >= fromUtc.Date && j.ShiftDate < toUtc.Date
-                     && j.Status == JustificationStatus.Approved)
+        // Todas as justificativas do período (não só aprovadas) — a versão
+        // "aprovada apenas" (usada pra Justified abaixo) fica calculada
+        // separadamente; aqui pegamos o conjunto completo pra derivar a
+        // situação granular (sem-justificativa/pendente/em-análise/resolvido).
+        var allJustifications = (await _justificationRepo.GetByClinicIdsAsync(scope.ClinicIds))
+            .Where(j => j.ShiftDate >= fromUtc.Date && j.ShiftDate < toUtc.Date)
+            .ToList();
+        var justifications = allJustifications
+            .Where(j => j.Status == JustificationStatus.Approved)
             .ToList();
 
         var shifts = (await _shiftRepo.GetInPeriodWithDetailsAsync(fromUtc, toUtc))
@@ -517,13 +937,18 @@ public class PrefeituraService : IPrefeituraService
                 {
                     if (!ShiftAlreadyPastAbsenceThreshold(s, now, settings)) continue;
                     if (type == "late") continue;
-                    items.Add(BuildAbsenceItem(assignment, s, "absence", null, justified, relatedSub));
+                    var relatedJustification = allJustifications.FirstOrDefault(j =>
+                        j.ClinicId == s.ClinicId &&
+                        j.ShiftDate.Date == s.Date.Date &&
+                        j.AbsentUserId == assignment.UserId);
+                    var status = DeriveAbsenceStatus(relatedJustification, relatedSub);
+                    items.Add(BuildAbsenceItem(assignment, s, "absence", null, justified, relatedSub, status));
                 }
-                else if (IsLate(attendance, s, settings))
+                else if (IsLate(attendance, s, settings, toleranceOverrideMinutes))
                 {
                     if (type == "absence") continue;
                     items.Add(BuildAbsenceItem(assignment, s, "late",
-                        LateMinutes(attendance, s, settings), justified, relatedSub));
+                        LateMinutes(attendance, s, settings, toleranceOverrideMinutes), justified, relatedSub, null));
                 }
             }
         }
@@ -534,13 +959,41 @@ public class PrefeituraService : IPrefeituraService
             .ToList();
     }
 
+    /// <summary>
+    /// Deriva a situação granular do mock op-ausencias.html a partir do
+    /// estado real de Justification/Substitution — nenhum campo novo de
+    /// domínio, só uma leitura combinada do que já existe:
+    ///   - Justification Approved/Rejected → "resolvido" (OS já decidiu).
+    ///   - Substitution Confirmed (sem justification decisiva) → "resolvido".
+    ///   - Justification Pending/UnderAnalysis → "em-analise".
+    ///   - Substitution Pending (sem justification) → "pendente".
+    ///   - Nada registrado → "sem-justificativa".
+    /// </summary>
+    private static string DeriveAbsenceStatus(Justification? justification, Substitution? substitution)
+    {
+        if (justification is not null)
+        {
+            return justification.Status is JustificationStatus.Approved or JustificationStatus.Rejected
+                ? "resolvido"
+                : "em-analise";
+        }
+
+        if (substitution is not null)
+        {
+            return substitution.Status == SubstitutionStatus.Confirmed ? "resolvido" : "pendente";
+        }
+
+        return "sem-justificativa";
+    }
+
     private static PrefeituraAbsenceItem BuildAbsenceItem(
         ShiftAssignment assignment,
         Shift shift,
         string type,
         int? lateMinutes,
         bool justified,
-        Substitution? relatedSub) => new()
+        Substitution? relatedSub,
+        string? status) => new()
         {
             // Chave estável: hash de (shiftId, userId, type). Facilita
             // reconciliação no frontend sem persistir a "ausência" como entity.
@@ -548,6 +1001,7 @@ public class PrefeituraService : IPrefeituraService
             Type = type,
             UserId = assignment.UserId,
             UserName = assignment.User?.Name ?? string.Empty,
+            ProfessionalType = ProfessionalTypeLabel(assignment.User?.ProfessionalType),
             ClinicId = shift.ClinicId,
             ClinicName = shift.Clinic?.Name ?? string.Empty,
             Date = shift.Date,
@@ -555,6 +1009,7 @@ public class PrefeituraService : IPrefeituraService
             MinutesLate = lateMinutes,
             Justified = justified,
             SubstituteName = relatedSub?.SubstituteUser?.Name,
+            Status = status,
         };
 
     private static Guid DeriveAbsenceId(Guid shiftId, Guid userId, string type)
@@ -727,9 +1182,12 @@ public class PrefeituraService : IPrefeituraService
         var startOfDay = DateTime.SpecifyKind(now.Date, DateTimeKind.Utc);
         var endOfDay = startOfDay.AddDays(1);
 
-        // Shifts em andamento agora: começam entre início do dia e agora,
-        // terminam depois do agora. Overnight simplificado — não considera
-        // wrap 23:00→05:00 aqui (débito documentado; sprint futura otimiza).
+        // Shifts de hoje no escopo. O filtro "em andamento agora" (inWindow)
+        // é aplicado por-shift abaixo pra popular os cards por-UPA; já o
+        // feed de eventos recentes considera TODOS os shifts de hoje (não só
+        // os em andamento), pra também mostrar check-ins de turnos que já
+        // terminaram — overnight simplificado, mesmo débito documentado nos
+        // outros métodos deste service.
         var todaysShifts = (await _shiftRepo.GetInPeriodWithDetailsAsync(startOfDay, endOfDay))
             .Where(s => scope.ClinicIds.Contains(s.ClinicId))
             .ToList();
@@ -741,6 +1199,8 @@ public class PrefeituraService : IPrefeituraService
             Name = c.Name,
         });
 
+        var recentEvents = new List<PrefeituraRealtimeEvent>();
+
         foreach (var s in todaysShifts)
         {
             if (!byClinic.TryGetValue(s.ClinicId, out var card)) continue;
@@ -748,25 +1208,114 @@ public class PrefeituraService : IPrefeituraService
             var shiftEnd = shiftStart.Add(s.EndTime - s.StartTime);
             if (shiftEnd <= shiftStart) shiftEnd = shiftEnd.AddDays(1); // overnight
 
+            // Feed de eventos — independe da janela "em andamento".
+            foreach (var assignment in s.ShiftAssignments)
+            {
+                var attendance = s.Attendances.FirstOrDefault(a => a.UserId == assignment.UserId);
+                var userName = assignment.User?.Name;
+                if (attendance is not null)
+                {
+                    var late = IsLate(attendance, s, settings);
+                    recentEvents.Add(new PrefeituraRealtimeEvent
+                    {
+                        Timestamp = attendance.CheckInTime,
+                        Type = late ? "late" : "checkin",
+                        UserId = assignment.UserId,
+                        UserName = userName,
+                        ClinicName = s.Clinic?.Name,
+                        MinutesLate = late ? LateMinutes(attendance, s, settings) : null,
+                    });
+                    if (attendance.CheckOutTime.HasValue)
+                    {
+                        recentEvents.Add(new PrefeituraRealtimeEvent
+                        {
+                            Timestamp = attendance.CheckOutTime.Value,
+                            Type = "checkout",
+                            UserId = assignment.UserId,
+                            UserName = userName,
+                            ClinicName = s.Clinic?.Name,
+                        });
+                    }
+                }
+                else if (ShiftAlreadyPastAbsenceThreshold(s, now, settings))
+                {
+                    recentEvents.Add(new PrefeituraRealtimeEvent
+                    {
+                        Timestamp = shiftStart.AddMinutes(settings.AbsenceThresholdMinutes),
+                        Type = "absence",
+                        UserId = assignment.UserId,
+                        UserName = userName,
+                        ClinicName = s.Clinic?.Name,
+                    });
+                }
+            }
+
             var inWindow = now >= shiftStart && now < shiftEnd;
             if (!inWindow) continue;
+
+            card.TurnoCode ??= DeriveTurno(s.StartTime);
+            card.ShiftStartTime ??= s.StartTime;
+            card.ShiftEndTime ??= s.EndTime;
 
             foreach (var assignment in s.ShiftAssignments)
             {
                 card.ExpectedCount++;
                 var attendance = s.Attendances.FirstOrDefault(a => a.UserId == assignment.UserId);
+                var doctor = new PrefeituraRealtimeDoctor
+                {
+                    UserId = assignment.UserId,
+                    UserName = assignment.User?.Name ?? string.Empty,
+                    RegistrationNumber = assignment.User?.RegistrationNumber,
+                    ProfessionalType = ProfessionalTypeLabel(assignment.User?.ProfessionalType),
+                    ExpectedTime = shiftStart,
+                };
+
                 if (attendance is { CheckOutTime: null })
                 {
                     card.PresentCount++;
+                    var late = IsLate(attendance, s, settings);
+                    doctor.Status = late ? "late" : "present";
+                    doctor.CheckInTime = attendance.CheckInTime;
+                    if (late) card.LateCount++;
+
+                    if (card.LastEventTime is null || attendance.CheckInTime > card.LastEventTime)
+                    {
+                        card.LastEventUserName = doctor.UserName;
+                        card.LastEventType = "checkin";
+                        card.LastEventTime = attendance.CheckInTime;
+                    }
                 }
                 else if (attendance is null && ShiftAlreadyPastAbsenceThreshold(s, now, settings))
                 {
                     card.AbsentCount++;
+                    doctor.Status = "absent";
                     if (assignment.User is not null)
                     {
                         card.AbsentUserNames.Add(assignment.User.Name);
                     }
+
+                    var absenceTime = shiftStart.AddMinutes(settings.AbsenceThresholdMinutes);
+                    if (card.LastEventTime is null || absenceTime > card.LastEventTime)
+                    {
+                        card.LastEventUserName = doctor.UserName;
+                        card.LastEventType = "absence";
+                        card.LastEventTime = absenceTime;
+                    }
                 }
+                else if (attendance is not null)
+                {
+                    // Check-out já feito dentro da janela do turno em andamento
+                    // (raro, mas possível pra turnos curtos) — conta como presente.
+                    card.PresentCount++;
+                    doctor.Status = IsLate(attendance, s, settings) ? "late" : "present";
+                    doctor.CheckInTime = attendance.CheckInTime;
+                }
+                else
+                {
+                    doctor.Status = "upcoming";
+                }
+
+                card.Doctors.Add(doctor);
             }
         }
 
@@ -786,6 +1335,11 @@ public class PrefeituraService : IPrefeituraService
         response.TotalExpectedNow = response.Clinics.Sum(c => c.ExpectedCount);
         response.TotalPresentNow = response.Clinics.Sum(c => c.PresentCount);
         response.TotalAbsentNow = response.Clinics.Sum(c => c.AbsentCount);
+        response.TotalLateNow = response.Clinics.Sum(c => c.LateCount);
+        response.RecentEvents = recentEvents
+            .OrderByDescending(e => e.Timestamp)
+            .Take(20)
+            .ToList();
 
         return response;
     }

@@ -73,12 +73,45 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 // ----- Database -----
+// Connection string resolution: prefer a literal ConnectionStrings__DefaultConnection
+// env var when present (docker-compose.yml / local dev set this directly).
+// In production (App Runner), that single env var isn't set — instead
+// api-stack.ts passes the pieces separately: DB_HOST/DB_PORT/DB_NAME/
+// DB_USERNAME as plain env vars, and DB_PASSWORD via App Runner's native
+// RuntimeEnvironmentSecrets (masked, resolved from the RDS instance's own
+// generated-credentials secret at container start — never a hand-copied
+// value that can go stale). We assemble the Npgsql connection string from
+// those pieces here so the masking App Runner provides for DB_PASSWORD
+// isn't undone by baking it into a single combined env var upstream.
+var defaultConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrEmpty(defaultConnectionString))
+{
+    var dbHost = builder.Configuration["DB_HOST"];
+    var dbPort = builder.Configuration["DB_PORT"];
+    var dbName = builder.Configuration["DB_NAME"];
+    var dbUsername = builder.Configuration["DB_USERNAME"];
+    var dbPassword = builder.Configuration["DB_PASSWORD"];
+
+    if (!string.IsNullOrEmpty(dbHost) && !string.IsNullOrEmpty(dbPassword))
+    {
+        defaultConnectionString =
+            $"Host={dbHost};Port={dbPort};Database={dbName};Username={dbUsername};Password={dbPassword}";
+
+        // Write the assembled string back into ConnectionStrings:DefaultConnection
+        // so every other call site that resolves it from IConfiguration at
+        // runtime (the /health/ready Npgsql check below, and any future
+        // code doing the same) sees the same value, instead of needing to
+        // duplicate this DB_HOST/DB_PASSWORD assembly logic per call site.
+        builder.Configuration["ConnectionStrings:DefaultConnection"] = defaultConnectionString;
+    }
+}
+
 // Interceptor is resolved from the DbContext-scoped service provider so it
 // can read the current HttpContext to attribute mutations to the caller.
 builder.Services.AddScoped<AuditSaveChangesInterceptor>();
 builder.Services.AddDbContext<AppDbContext>((sp, options) =>
     options
-        .UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+        .UseNpgsql(defaultConnectionString)
         .AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>()));
 
 // ----- Repositories -----

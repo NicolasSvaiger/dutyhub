@@ -110,7 +110,30 @@ public class PrefeituraController : ControllerBase
         return Ok(response);
     }
 
-    /// <summary>Ausências e/ou atrasos. Filtro <c>type</c>: "late" | "absence".</summary>
+    /// <summary>Frequência agregada por médico — escalados/realizados/ausências/atrasos/% cumprimento.</summary>
+    [HttpGet("frequency/by-doctor")]
+    [ProducesResponseType(typeof(IReadOnlyList<PrefeituraFrequencyByDoctorItem>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetFrequencyByDoctor(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? clinicId,
+        CancellationToken ct = default)
+    {
+        var (fromResolved, toResolved) = ResolveDefaultPeriod(from, to, defaultDays: 30);
+        if (fromResolved > toResolved) return BadRequest(new { message = "from > to" });
+
+        var response = await _service.GetFrequencyByDoctorAsync(fromResolved, toResolved, clinicId, ct);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Ausências e/ou atrasos. Filtro <c>type</c>: "late" | "absence".
+    /// <c>toleranceMinutes</c> (5-120) simula uma tolerância diferente da
+    /// configurada — usado pelo slider da tela Atrasos. Não persiste nada.
+    /// </summary>
     [HttpGet("absences")]
     [ProducesResponseType(typeof(IReadOnlyList<PrefeituraAbsenceItem>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -120,13 +143,65 @@ public class PrefeituraController : ControllerBase
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] string? type,
+        [FromQuery] int? toleranceMinutes = null,
         CancellationToken ct = default)
     {
         var (fromResolved, toResolved) = ResolveDefaultPeriod(from, to, defaultDays: 30);
         if (fromResolved > toResolved) return BadRequest(new { message = "from > to" });
         if (!IsValidAbsenceType(type)) return BadRequest(new { message = "type inválido" });
+        if (toleranceMinutes is < 5 or > 120) return BadRequest(new { message = "toleranceMinutes deve estar entre 5 e 120" });
 
-        var response = await _service.GetAbsencesAsync(fromResolved, toResolved, type, ct);
+        var response = await _service.GetAbsencesAsync(fromResolved, toResolved, type, ct, toleranceMinutes);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Grade semanal de escalas (UPA x dia x turno). <c>weekStart</c> pode
+    /// ser qualquer data dentro da semana desejada — normalizado pro domingo
+    /// internamente. <c>clinicId</c> obrigatório.
+    /// </summary>
+    [HttpGet("schedule/weekly")]
+    [ProducesResponseType(typeof(PrefeituraWeeklyScheduleResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetWeeklySchedule(
+        [FromQuery] Guid? clinicId,
+        [FromQuery] DateTime? weekStart,
+        CancellationToken ct = default)
+    {
+        if (clinicId is null || clinicId == Guid.Empty) return BadRequest(new { message = "clinicId obrigatório" });
+        var anchor = weekStart ?? DateTime.UtcNow.Date;
+
+        var response = await _service.GetWeeklyScheduleAsync(clinicId.Value, anchor, ct);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// Timeline de plantões de uma UPA específica (check-in/check-out/
+    /// atraso/ausência) com KPIs agregados. Filtro opcional de turno:
+    /// "manha" | "tarde" | "noite". <c>clinicId</c> é obrigatório.
+    /// </summary>
+    [HttpGet("units/timeline")]
+    [ProducesResponseType(typeof(PrefeituraUnitTimelineResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUnitTimeline(
+        [FromQuery] Guid? clinicId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] string? turno,
+        CancellationToken ct = default)
+    {
+        if (clinicId is null || clinicId == Guid.Empty) return BadRequest(new { message = "clinicId obrigatório" });
+        var (fromResolved, toResolved) = ResolveDefaultPeriod(from, to, defaultDays: 10);
+        if (fromResolved > toResolved) return BadRequest(new { message = "from > to" });
+        if (!IsValidTurno(turno)) return BadRequest(new { message = "turno inválido" });
+
+        var response = await _service.GetUnitTimelineAsync(clinicId.Value, fromResolved, toResolved, turno, ct);
         return Ok(response);
     }
 
@@ -281,4 +356,7 @@ public class PrefeituraController : ControllerBase
     private static bool IsValidHistoryType(string? type) =>
         string.IsNullOrWhiteSpace(type) ||
         type is "checkin" or "substitution" or "justification" or "alert";
+
+    private static bool IsValidTurno(string? turno) =>
+        string.IsNullOrWhiteSpace(turno) || turno is "manha" or "tarde" or "noite";
 }

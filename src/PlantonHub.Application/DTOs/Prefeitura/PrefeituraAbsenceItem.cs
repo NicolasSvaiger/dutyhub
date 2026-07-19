@@ -17,6 +17,9 @@ public class PrefeituraAbsenceItem
     public Guid UserId { get; set; }
     public string UserName { get; set; } = string.Empty;
 
+    /// <summary>"Medico" | "Enfermeiro" — de <c>User.ProfessionalType</c>.</summary>
+    public string? ProfessionalType { get; set; }
+
     public Guid ClinicId { get; set; }
     public string ClinicName { get; set; } = string.Empty;
 
@@ -36,4 +39,18 @@ public class PrefeituraAbsenceItem
     /// Usado pelo mockup para mostrar "coberto por X".
     /// </summary>
     public string? SubstituteName { get; set; }
+
+    /// <summary>
+    /// Situação granular no estilo op-ausencias.html — só preenchida quando
+    /// <c>Type == "absence"</c> (o mock só classifica ausências, não atrasos):
+    ///   - "sem-justificativa": nenhuma Justification nem Substitution aberta.
+    ///   - "pendente": há Substitution com Status == Pending (reposição não
+    ///     confirmada ainda).
+    ///   - "em-analise": há Justification com Status Pending/UnderAnalysis
+    ///     (OS ainda não decidiu).
+    ///   - "resolvido": Justification Approved/Rejected (OS já decidiu) OU
+    ///     Substitution Confirmed (reposição já coberta).
+    /// Null para itens Type == "late" (o mock trata atrasos em tela própria).
+    /// </summary>
+    public string? Status { get; set; }
 }

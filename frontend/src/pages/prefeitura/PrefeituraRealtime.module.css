@@ -1,12 +1,14 @@
 /*
- * PrefeituraRealtime — visão tempo real com totalizadores + grid de UPAs
- * colorizadas por alertLevel. Auto-refresh a cada 30s.
+ * PrefeituraRealtime — dashboard ao vivo baseado no mock op-realtime.html.
+ * KPIs no topo + grid de cards de UPA (semáforo, barra de progresso,
+ * lista de médicos por status, último evento) + feed de eventos recentes.
+ * Auto-refresh a cada 30s (ver PrefeituraRealtime.tsx).
  */
 
 .container {
   display: flex;
   flex-direction: column;
-  gap: 1.4rem;
+  gap: 1.6rem;
   animation: fadeUp 0.35s ease;
 }
 @keyframes fadeUp {
@@ -53,125 +55,381 @@
   50% { opacity: 0.5; transform: scale(1.3); }
 }
 
-.totalGrid {
+/* ── KPIs ── */
+.kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
 }
-.totalCard {
+@media (max-width: 900px) {
+  .kpiGrid { grid-template-columns: 1fr 1fr; }
+}
+.kpiCard {
   background: #ffffff;
+  border-radius: 18px;
+  padding: 1.2rem 1.4rem;
   border: 1.5px solid rgba(45, 191, 184, 0.18);
-  border-radius: 16px;
-  padding: 1.1rem 1.3rem;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  position: relative;
+  overflow: hidden;
+  border-left-width: 4px;
 }
-[data-theme='dark'] .totalCard {
+[data-theme='dark'] .kpiCard {
   background: #132424;
   border-color: rgba(45, 191, 184, 0.3);
 }
-.totalLabel {
-  font-size: 0.65rem;
+.kpiCard.teal { border-left-color: #2dbfb8; }
+.kpiCard.green { border-left-color: #22c55e; }
+.kpiCard.yellow { border-left-color: #f59e0b; }
+.kpiCard.red { border-left-color: #ef4444; }
+.kpiLabel {
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #7a9090;
 }
-.totalValue {
+.kpiValue {
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 1.9rem;
+  font-size: 2rem;
   font-weight: 900;
   line-height: 1;
-  color: #2dbfb8;
 }
-.totalValue.warn { color: #f5a623; }
-.totalValue.bad { color: #e05555; }
+.kpiCard.teal .kpiValue { color: #2dbfb8; }
+.kpiCard.green .kpiValue { color: #22c55e; }
+.kpiCard.yellow .kpiValue { color: #f59e0b; }
+.kpiCard.red .kpiValue { color: #ef4444; }
+.kpiSub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a9090;
+}
 
-.clinicGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
-}
-.clinicCard {
-  background: #ffffff;
-  border: 1.5px solid rgba(45, 191, 184, 0.18);
-  border-left-width: 5px;
-  border-radius: 16px;
-  padding: 1.1rem 1.2rem;
+/* ── Section header ── */
+.sectionHeader {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
-[data-theme='dark'] .clinicCard {
+.sectionTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .sectionTitle {
+  color: #f0f4f4;
+}
+.sectionSub {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a9090;
+  margin-top: 1px;
+}
+.legend {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #7a9090;
+}
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* ── UPA grid ── */
+.upaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.2rem;
+}
+@media (max-width: 900px) {
+  .upaGrid { grid-template-columns: 1fr; }
+}
+.upaCard {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+[data-theme='dark'] .upaCard {
   background: #132424;
   border-color: rgba(45, 191, 184, 0.3);
 }
-.clinicCard.green {
-  border-left-color: #2dbfb8;
+.upaCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
-.clinicCard.yellow {
-  border-left-color: #f5a623;
+
+.upaCardHeader {
+  padding: 1.1rem 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
-.clinicCard.red {
-  border-left-color: #e05555;
+.upaCard.green .upaCardHeader { background: #dcfce7; }
+.upaCard.yellow .upaCardHeader { background: #fef3c7; }
+.upaCard.red .upaCardHeader { background: #fee2e2; }
+[data-theme='dark'] .upaCard.green .upaCardHeader { background: rgba(34, 197, 94, 0.15); }
+[data-theme='dark'] .upaCard.yellow .upaCardHeader { background: rgba(245, 158, 11, 0.15); }
+[data-theme='dark'] .upaCard.red .upaCardHeader { background: rgba(239, 68, 68, 0.15); }
+
+.upaHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 }
-.clinicName {
+.semaforo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 5px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 30px;
+  flex-shrink: 0;
+}
+.semaforoLight {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.12);
+}
+.upaCard.green .semaforoLight:nth-child(1) { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.upaCard.yellow .semaforoLight:nth-child(2) { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+.upaCard.red .semaforoLight:nth-child(3) { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+
+.upaName {
   font-family: 'Nunito', system-ui, sans-serif;
   font-size: 0.95rem;
   font-weight: 900;
   color: #1a2a2a;
 }
-[data-theme='dark'] .clinicName {
-  color: #f0f4f4;
+[data-theme='dark'] .upaName { color: #f0f4f4; }
+.upaTurno {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #7a9090;
+  margin-top: 2px;
 }
-.clinicStats {
-  display: flex;
-  gap: 1rem;
-}
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-.statLabel {
-  font-size: 0.6rem;
+.statusPill {
+  font-size: 0.68rem;
   font-weight: 800;
-  text-transform: uppercase;
+  padding: 0.28rem 0.75rem;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.upaCard.green .statusPill { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.upaCard.yellow .statusPill { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+.upaCard.red .statusPill { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+
+.upaCardBody {
+  padding: 1.1rem 1.4rem;
+}
+.progRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+.progLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
   color: #7a9090;
 }
-.statValue {
+.progCount {
   font-family: 'Nunito', system-ui, sans-serif;
-  font-size: 1.2rem;
+  font-size: 0.9rem;
   font-weight: 900;
   color: #1a2a2a;
 }
-[data-theme='dark'] .statValue {
-  color: #f0f4f4;
+[data-theme='dark'] .progCount { color: #f0f4f4; }
+.progBarBg {
+  height: 7px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.06);
+  margin-bottom: 1rem;
+  overflow: hidden;
 }
-.statValue.present { color: #2dbfb8; }
-.statValue.absent { color: #e05555; }
+[data-theme='dark'] .progBarBg { background: rgba(255, 255, 255, 0.08); }
+.progBarFill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.6s ease;
+}
+.upaCard.green .progBarFill { background: #22c55e; }
+.upaCard.yellow .progBarFill { background: #f59e0b; }
+.upaCard.red .progBarFill { background: #ef4444; }
 
-.absentList {
-  padding-top: 0.4rem;
-  border-top: 1px dashed rgba(45, 191, 184, 0.2);
+.medicosList {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.9rem;
 }
-[data-theme='dark'] .absentList {
-  border-top-color: rgba(45, 191, 184, 0.3);
+.medicoItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.7rem;
+  background: #f0f4f4;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  gap: 0.5rem;
 }
-.absentName {
-  font-size: 0.72rem;
+[data-theme='dark'] .medicoItem { background: rgba(255, 255, 255, 0.04); }
+.medicoLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.medicoDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.medicoDot.present { background: #22c55e; }
+.medicoDot.late { background: #f59e0b; }
+.medicoDot.absent { background: #ef4444; }
+.medicoDot.upcoming { background: #7a9090; }
+.medicoName {
   font-weight: 700;
-  padding: 0.15rem 0.55rem;
-  border-radius: 8px;
-  background: rgba(224, 85, 85, 0.15);
-  color: #c73838;
+  color: #1a2a2a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-[data-theme='dark'] .absentName {
-  color: #f0a0a0;
+[data-theme='dark'] .medicoName { color: #f0f4f4; }
+.medicoCrm {
+  font-weight: 600;
+  color: #7a9090;
+  white-space: nowrap;
+}
+.medicoBadge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.medicoBadge.present { background: #dcfce7; color: #16a34a; }
+.medicoBadge.late { background: #fef3c7; color: #b45309; }
+.medicoBadge.absent { background: #fee2e2; color: #dc2626; }
+.medicoBadge.upcoming { background: #f1f5f9; color: #7a9090; }
+[data-theme='dark'] .medicoBadge.present { background: rgba(34, 197, 94, 0.18); color: #86efac; }
+[data-theme='dark'] .medicoBadge.late { background: rgba(245, 158, 11, 0.18); color: #fde68a; }
+[data-theme='dark'] .medicoBadge.absent { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+[data-theme='dark'] .medicoBadge.upcoming { background: rgba(255, 255, 255, 0.06); color: #b0c0c0; }
+
+.noShift {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7a9090;
+  padding: 0.6rem 0;
+}
+
+.upaLastEvent {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #7a9090;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+[data-theme='dark'] .upaLastEvent { border-top-color: rgba(255, 255, 255, 0.06); }
+
+/* ── Eventos recentes ── */
+.eventsCard {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1.5px solid rgba(45, 191, 184, 0.18);
+  overflow: hidden;
+}
+[data-theme='dark'] .eventsCard {
+  background: #132424;
+  border-color: rgba(45, 191, 184, 0.3);
+}
+.eventsHeader {
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid rgba(45, 191, 184, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+[data-theme='dark'] .eventsHeader { border-bottom-color: rgba(45, 191, 184, 0.3); }
+.eventsTitle {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .eventsTitle { color: #f0f4f4; }
+.eventsList {
+  max-height: 320px;
+  overflow-y: auto;
+}
+.eventItem {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem 1.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+[data-theme='dark'] .eventItem { border-bottom-color: rgba(255, 255, 255, 0.06); }
+.eventItem:last-child { border-bottom: none; }
+.eventIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.eventIcon.checkin { background: #dcfce7; color: #16a34a; }
+.eventIcon.checkout { background: #fff4e2; color: #f5a623; }
+.eventIcon.absence { background: #fee2e2; color: #ef4444; }
+.eventIcon.late { background: #fef3c7; color: #f59e0b; }
+[data-theme='dark'] .eventIcon.checkin { background: rgba(34, 197, 94, 0.18); }
+[data-theme='dark'] .eventIcon.checkout { background: rgba(245, 166, 35, 0.18); }
+[data-theme='dark'] .eventIcon.absence { background: rgba(239, 68, 68, 0.18); }
+[data-theme='dark'] .eventIcon.late { background: rgba(245, 158, 11, 0.18); }
+.eventBody { flex: 1; min-width: 0; }
+.eventName {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #1a2a2a;
+}
+[data-theme='dark'] .eventName { color: #f0f4f4; }
+.eventDesc {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #7a9090;
+  margin-top: 1px;
+}
+.eventTime {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #7a9090;
+  white-space: nowrap;
 }
 
 .loading,
@@ -193,8 +451,3 @@
   border-color: rgba(45, 191, 184, 0.3);
 }
 .error { color: #e05555; }
-
-@media (max-width: 780px) {
-  .totalGrid { grid-template-columns: 1fr 1fr; }
-  .clinicGrid { grid-template-columns: 1fr; }
-}

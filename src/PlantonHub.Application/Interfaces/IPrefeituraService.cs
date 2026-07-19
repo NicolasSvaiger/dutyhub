@@ -28,6 +28,17 @@ public interface IPrefeituraService
         Guid? clinicId = null,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// Grade semanal (UPA x dia x turno) — mock <c>op-escalas.html</c>.
+    /// <paramref name="weekStart"/> é normalizado internamente pro início
+    /// (domingo) da semana que contém a data informada. <paramref name="clinicId"/>
+    /// obrigatório — 404 se fora do escopo do gestor.
+    /// </summary>
+    Task<PrefeituraWeeklyScheduleResponse> GetWeeklyScheduleAsync(
+        Guid clinicId,
+        DateTime weekStart,
+        CancellationToken ct = default);
+
     /// <summary>Frequência previsto x realizado, uma linha por (UPA, dia).</summary>
     Task<IReadOnlyList<PrefeituraFrequencyItem>> GetFrequencyAsync(
         DateTime from,
@@ -35,11 +46,42 @@ public interface IPrefeituraService
         Guid? clinicId = null,
         CancellationToken ct = default);
 
-    /// <summary>Ausências e/ou atrasos no período. Filtro opcional pelo tipo.</summary>
+    /// <summary>
+    /// Frequência agregada por profissional — uma linha por médico com
+    /// escalados/realizados/ausências/atrasos/% cumprimento no período.
+    /// Ver <c>op-frequencia.html</c> § tabela "Frequência por Médico".
+    /// </summary>
+    Task<IReadOnlyList<PrefeituraFrequencyByDoctorItem>> GetFrequencyByDoctorAsync(
+        DateTime from,
+        DateTime to,
+        Guid? clinicId = null,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Ausências e/ou atrasos no período. Filtro opcional pelo tipo.
+    /// <paramref name="toleranceOverrideMinutes"/> permite o gestor simular
+    /// uma tolerância diferente da configurada (slider da tela Atrasos) sem
+    /// alterar a configuração real da clínica — só afeta o cálculo de
+    /// "late" desta chamada. Ignorado quando null (usa a tolerância real).
+    /// </summary>
     Task<IReadOnlyList<PrefeituraAbsenceItem>> GetAbsencesAsync(
         DateTime from,
         DateTime to,
         string? type = null,
+        CancellationToken ct = default,
+        int? toleranceOverrideMinutes = null);
+
+    /// <summary>
+    /// Timeline de plantões de uma UPA específica com KPIs agregados
+    /// (total/entradas/saídas/atrasos/ausências) e filtro opcional de turno.
+    /// Ver <c>op-historico.html</c> § "Unidades (UPAs)". <paramref name="clinicId"/>
+    /// obrigatório — 400 se ausente ou fora do escopo do gestor.
+    /// </summary>
+    Task<PrefeituraUnitTimelineResponse> GetUnitTimelineAsync(
+        Guid clinicId,
+        DateTime from,
+        DateTime to,
+        string? turno = null,
         CancellationToken ct = default);
 
     /// <summary>Timeline paginada de eventos no escopo.</summary>

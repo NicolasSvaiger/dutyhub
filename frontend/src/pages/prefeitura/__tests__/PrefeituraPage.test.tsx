@@ -17,8 +17,11 @@ vi.mock('../../../api/prefeituraApi', () => ({
     getShifts: vi.fn(),
     getClinics: vi.fn(),
     getFrequency: vi.fn(),
+    getFrequencyByDoctor: vi.fn(),
     getAbsences: vi.fn(),
     getHistory: vi.fn(),
+    getUnitTimeline: vi.fn(),
+    getWeeklySchedule: vi.fn(),
     getRealtime: vi.fn(),
   },
 }));
@@ -87,14 +90,33 @@ describe('<PrefeituraPage />', () => {
       totalLateEvents: 5,
       averageLateMinutes: 12.5,
       substitutionRate: 8,
+      totalActiveDoctors: 6,
       byClinic: [],
+      topAbsenceDoctors: [],
+      perfectAttendanceDoctors: [],
     });
     (prefeituraApi.getShifts as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prefeituraApi.getClinics as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prefeituraApi.getFrequency as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (prefeituraApi.getFrequencyByDoctor as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prefeituraApi.getAbsences as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     (prefeituraApi.getHistory as ReturnType<typeof vi.fn>).mockResolvedValue({
       items: [], page: 1, pageSize: 30, totalCount: 0, totalPages: 0,
+    });
+    (prefeituraApi.getUnitTimeline as ReturnType<typeof vi.fn>).mockResolvedValue({
+      clinicId: '', clinicName: '', from: '2026-06-17', to: '2026-07-17',
+      totalShifts: 0, totalCheckIns: 0, totalCheckOuts: 0, totalLate: 0, totalAbsences: 0,
+      entries: [],
+    });
+    (prefeituraApi.getWeeklySchedule as ReturnType<typeof vi.fn>).mockResolvedValue({
+      clinicId: '', clinicName: '', doctorsPerShiftTarget: null,
+      weekStart: '2026-07-12T00:00:00Z', weekEnd: '2026-07-18T00:00:00Z',
+      days: [
+        '2026-07-12T00:00:00Z', '2026-07-13T00:00:00Z', '2026-07-14T00:00:00Z',
+        '2026-07-15T00:00:00Z', '2026-07-16T00:00:00Z', '2026-07-17T00:00:00Z', '2026-07-18T00:00:00Z',
+      ],
+      totalShiftSlots: 0, totalConfirmed: 0, totalPending: 0, totalUncovered: 0, totalDoctors: 0,
+      rows: [],
     });
     (prefeituraApi.getRealtime as ReturnType<typeof vi.fn>).mockResolvedValue({
       asOf: '2026-07-17T14:00:00Z',
@@ -114,12 +136,15 @@ describe('<PrefeituraPage />', () => {
     expect(screen.getByText(/Portal Prefeitura/i)).toBeInTheDocument();
   });
 
-  it('renderiza 8 nav items da section "Principal"', () => {
+  it('renderiza os 8 nav items distribuídos nas 3 sections (Principal/Relatórios/Gestão)', () => {
     renderPage();
-    const labels = ['Início', 'Indicadores', 'Escalas', 'Frequência', 'Atrasos', 'Ausências', 'Histórico', 'Tempo Real'];
+    const labels = ['Início', 'Tempo Real', 'Frequência', 'Ausências', 'Atrasos', 'Unidades (UPAs)', 'Escalas', 'Indicadores (KPIs)'];
     for (const label of labels) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
+    expect(screen.getByText('Principal')).toBeInTheDocument();
+    expect(screen.getByText('Relatórios')).toBeInTheDocument();
+    expect(screen.getByText('Gestão')).toBeInTheDocument();
   });
 
   it('nav item "Início" começa ativo (aria-current="page")', () => {
@@ -130,7 +155,7 @@ describe('<PrefeituraPage />', () => {
 
   // ── activeView switching ──────────────────────────────────────────
 
-  it('clicar em "Indicadores" muda activeView e renderiza PrefeituraKpis', async () => {
+  it('clicar em "Indicadores (KPIs)" muda activeView e renderiza PrefeituraKpis', async () => {
     renderPage();
     const user = userEvent.setup();
     // Aguarda o Welcome renderizar primeiro (fetch inicial)
@@ -138,7 +163,7 @@ describe('<PrefeituraPage />', () => {
       expect(prefeituraApi.getDashboard).toHaveBeenCalled();
     });
 
-    // Clica no botão "Indicadores" da sidebar
+    // Clica no botão "Indicadores (KPIs)" da sidebar
     const navBtns = screen.getAllByRole('button', { name: /Indicadores/i });
     await user.click(navBtns[0]);
 
@@ -149,7 +174,7 @@ describe('<PrefeituraPage />', () => {
     expect(screen.getByRole('button', { name: /Aplicar/i })).toBeInTheDocument();
   });
 
-  it('clicar em "Escalas" renderiza a sub-view Escalas (empty state)', async () => {
+  it('clicar em "Escalas" renderiza a sub-view Escalas (empty state sem UPA)', async () => {
     renderPage();
     const user = userEvent.setup();
     await waitFor(() => {
@@ -159,11 +184,13 @@ describe('<PrefeituraPage />', () => {
     const escalasBtn = screen.getAllByRole('button', { name: /Escalas/i })[0];
     await user.click(escalasBtn);
 
-    // Escalas chama getShifts. Mock retorna [], então mostra empty state.
+    // Escalas chama getClinics. Mock retorna [], então nenhuma UPA é
+    // auto-selecionada e o empty state "selecione uma UPA" é mostrado.
     await waitFor(() => {
-      expect(prefeituraApi.getShifts).toHaveBeenCalled();
+      expect(prefeituraApi.getClinics).toHaveBeenCalled();
     });
-    expect(screen.getByText(/Sem plantões no período/i)).toBeInTheDocument();
+    expect(screen.getByText(/Selecione uma UPA/i)).toBeInTheDocument();
+    expect(prefeituraApi.getWeeklySchedule).not.toHaveBeenCalled();
   });
 
   it('nav item ativo muda de "Início" para "Indicadores" ao clicar', async () => {
@@ -277,16 +304,15 @@ describe('<PrefeituraPage />', () => {
     expect(screen.queryByRole('button', { name: /Fechar menu/i })).not.toBeInTheDocument();
   });
 
-  // ── Modo TV ────────────────────────────────────────────────────────
+  // ── Painel TV ──────────────────────────────────────────────────────
 
-  it('clicar em "Modo TV" abre nova aba em /prefeitura/tv', async () => {
+  it('clicar em "Painel TV" abre nova aba em /prefeitura/tv', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     renderPage();
     const user = userEvent.setup();
 
-    // "Modo TV" está na seção "Monitoramento" (não conflita com "Modo TV" no
-    // topbar porque a section aparece separada)
-    const tvBtn = screen.getByRole('button', { name: /^Modo TV$/i });
+    // "Painel TV" fica na section "Principal", junto de Início/Tempo Real.
+    const tvBtn = screen.getByRole('button', { name: /^Painel TV$/i });
     await user.click(tvBtn);
 
     expect(openSpy).toHaveBeenCalledWith('/prefeitura/tv', '_blank', 'noopener,noreferrer');
