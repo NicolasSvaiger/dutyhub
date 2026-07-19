@@ -13,6 +13,7 @@ const DIAS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const TURNOS_DEFAULT = [
   { key: 'manha', label: 'Manhã', horario: '07h–19h', startTime: '07:00:00', endTime: '19:00:00' },
+  { key: 'tarde', label: 'Tarde', horario: '13h–01h', startTime: '13:00:00', endTime: '01:00:00' },
   { key: 'noite', label: 'Noite', horario: '19h–07h', startTime: '19:00:00', endTime: '07:00:00' },
 ];
 const CORES = ['#6366f1', '#2DBFB8', '#22c55e', '#f97316', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#0f766e', '#7c3aed'];
@@ -154,16 +155,18 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
   async function confirmAddDoctor() {
     if (!modalContext || !modalSelectedDoc || !selectedClinic) return;
     try {
-      const { turno, date } = modalContext;
-      const turnoObj = turnos.find(t => t.key === turno) || turnos[0];
+      const { turno, date, profType } = modalContext;
+      const turnosDoTipo = profType === 'Enfermeiro' ? turnosEnfermeiros : turnosMedicos;
+      const turnoObj = turnosDoTipo.find(t => t.key === turno) || turnosDoTipo[0];
       const startTime = turnoObj?.startTime || '07:00:00';
       const endTime = turnoObj?.endTime || '19:00:00';
       const dateISO = date + 'T00:00:00Z';
+      const titlePrefix = profType === 'Enfermeiro' ? 'Plantão Enfermagem' : 'Plantão';
 
       // Create shift
       const newShift = await shiftsApi.create({
         clinicId: selectedClinic,
-        title: `Plantão ${turnoObj?.label || turno} - ${modalTipo}`,
+        title: `${titlePrefix} ${turnoObj?.label || turno} - ${modalTipo}`,
         date: dateISO,
         startTime,
         endTime,
@@ -177,9 +180,9 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
       setShifts(Array.isArray(refreshed) ? refreshed : []);
 
       setModalOpen(false);
-      showToast('Médico adicionado ao turno!');
+      showToast(profType === 'Enfermeiro' ? 'Enfermeiro adicionado ao turno!' : 'Médico adicionado ao turno!');
     } catch {
-      showToast('Erro ao adicionar médico ao turno.');
+      showToast('Erro ao adicionar profissional ao turno.');
     }
   }
 
@@ -549,7 +552,10 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
                 const isAssigned = modalContext ? weekShifts.some(s => {
                   const sd = (s.date || '').split('T')[0];
                   if (sd !== modalContext.date) return false;
-                  const turnoObj = turnos.find(t => t.key === modalContext.turno);
+                  const isEnfShift = s.title.toLowerCase().includes('enferm');
+                  if ((modalContext.profType === 'Enfermeiro') !== isEnfShift) return false;
+                  const turnosDoTipo = modalContext.profType === 'Enfermeiro' ? turnosEnfermeiros : turnosMedicos;
+                  const turnoObj = turnosDoTipo.find(t => t.key === modalContext.turno);
                   const turnoStart = turnoObj?.startTime?.slice(0, 2) || '';
                   const st = s.startTime || '';
                   const matchesTurno = st.startsWith(turnoStart) || s.title.toLowerCase().includes(turnoObj?.label?.toLowerCase() || '');

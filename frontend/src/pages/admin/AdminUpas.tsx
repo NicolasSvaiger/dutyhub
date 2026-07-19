@@ -119,6 +119,7 @@ const DEFAULT_TURNOS: TurnoForm[] = [
 ];
 const DEFAULT_TURNOS_ENF: TurnoForm[] = [
   { id: 'enf-manha', name: 'Manhã (Enf.)', start: '07:00', end: '19:00', staff: '2', profType: 2, enabled: false },
+  { id: 'enf-tarde', name: 'Tarde (Enf.)', start: '13:00', end: '01:00', staff: '2', profType: 2, enabled: false },
   { id: 'enf-noite', name: 'Noite (Enf.)', start: '19:00', end: '07:00', staff: '2', profType: 2, enabled: false },
 ];
 
@@ -201,8 +202,12 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
       }));
     } else { setFTurnos(DEFAULT_TURNOS.map(t => ({ ...t, enabled: false }))); }
     if (enfTemplates.length > 0) {
-      setFTurnosEnf(DEFAULT_TURNOS_ENF.map((dt, i) => {
-        const match = enfTemplates[i];
+      setFTurnosEnf(DEFAULT_TURNOS_ENF.map(dt => {
+        const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const match = enfTemplates.find(t =>
+          normalize(t.name) === normalize(dt.name) ||
+          String(t.startTime).slice(0, 5) === dt.start
+        );
         return match
           ? { ...dt, start: String(match.startTime).slice(0, 5), end: String(match.endTime).slice(0, 5), staff: String(match.requiredStaff), enabled: true }
           : { ...dt, enabled: false };
