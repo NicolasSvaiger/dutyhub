@@ -325,7 +325,13 @@ public class PrefeituraServiceTests
     public async Task GetKpis_ComputesTopAbsenceDoctorsAndPerfectAttendanceDoctors()
     {
         SetupHealthyScope(ClinicA);
-        var day = DateTime.UtcNow.Date.AddDays(-1);
+        // AddDays(-2): shift2 (day.AddDays(1)) precisa cair estritamente no
+        // passado pra ShiftAlreadyPastAbsenceThreshold() ser true independente
+        // da hora em que o teste roda. Com AddDays(-1), shift2 caía "hoje
+        // 07h", e o threshold de ausência (07h+60min) só passava depois das
+        // 08h UTC — antes disso a 2ª ausência não era contabilizada e o
+        // teste falhava (flaky por horário, não por lógica).
+        var day = DateTime.UtcNow.Date.AddDays(-2);
         var uPerfect = Guid.NewGuid();
         var uAbsent = Guid.NewGuid();
 
