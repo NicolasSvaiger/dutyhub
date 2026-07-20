@@ -45,6 +45,36 @@ interface ApiStackProps extends cdk.StackProps {
    * docker-compose.yml does for local dev Redis.
    */
   redisConnectionString: string;
+  /**
+   * Comma-separated list of allowed CORS origins, read by Program.cs via
+   * `Cors:AllowedOrigins` (env var Cors__AllowedOrigins). Confirmed via
+   * `aws apprunner describe-service` that this was already set on the live
+   * service to the real frontend origins — it was just never captured in
+   * this file. Without it here, deploying this stack would fall back to
+   * Program.cs's localhost-only default and CORS-block every request from
+   * the real frontend (https://app.laulab.com.br), which is what caused
+   * the "tudo esta me retornando 403" incident earlier in this project.
+   */
+  corsAllowedOrigins: string;
+  /**
+   * ARN of the plaintext (non-JSON) secret shared between this backend and
+   * CognitoStack's CreateAuthChallenge Lambda — see the long comment atop
+   * CognitoAuthService.cs. Read via `Cognito:CustomAuthSecret`
+   * (Cognito__CustomAuthSecret), which CognitoAuthService's constructor
+   * requires unconditionally (throws InvalidOperationException if unset).
+   * This is NOT optional: face-login (CUSTOM_AUTH flow) computes
+   * HMAC-SHA256(nonce, this secret) to answer Cognito's custom challenge —
+   * omitting it doesn't just disable face-login, it throws the moment
+   * CognitoAuthService is constructed.
+   *
+   * Routed through RuntimeEnvironmentSecrets (masked), NOT a plain env var,
+   * despite the live service currently having it as plain text — anyone
+   * who can read this value can compute a valid HMAC answer and forge the
+   * custom-auth challenge response, i.e. it's a genuine authentication
+   * bypass secret, not inert data. The live config's plain-text exposure
+   * is treated as pre-existing drift to fix, not a pattern to preserve.
+   */
+  customAuthSecretArn: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -234,42 +264,50 @@ export class ApiStack extends cdk.Stack {
       "Allow App Runner to access RDS"
     );
 
-    // App Runner's RuntimeEnvironmentSecrets can only reference ONE secret
-    // field per entry (`secretArn:jsonKey::` syntax) — it cannot assemble a
-    // full "Host=...;Password=..." connection string the way
-    // Fn::Join/SecretValue concatenation can. And doing that concatenation
-    // as a PLAIN runtimeEnvironmentVariable (an earlier version of this
-    // fix tried exactly that) doesn't actually protect the password: even
-    // though the value looks like a masked dynamic reference in the
-    // synthesized template, CloudFormation resolves it to plaintext before
-    // calling the App Runner API, so `aws apprunner describe-service`
-    // would return the real password in cleartext right back — normal env
-    // vars get no masking at all, only RuntimeEnvironmentSecrets does.
+    // DB connection string assembled as a SINGLE value whose password is a
+    // CloudFormation dynamic reference ({{resolve:secretsmanager:...}}),
+    // resolved by CloudFormation at DEPLOY time — deliberately NOT App
+    // Runner's RuntimeEnvironmentSecrets, whose runtime resolution of the DB
+    // password kept returning empty and caused the "Host can't be null"
+    // startup crash loop that ate hours of this project.
     //
-    // host/port/dbname/username are NOT sensitive on their own (the fixed
-    // "dutyhub_admin" username or the RDS hostname grant nothing without
-    // the password), so they're passed as plain literals/tokens rather
-    // than routed through the secret at all — one less thing depending on
-    // dynamic-reference resolution behavior inside a CfnService property
-    // that hasn't been explicitly verified to support it:
-    //   - host: props.dbEndpoint, the same Fn::ImportValue-backed token
-    //     the ORIGINAL (pre-Cognito-fix) working config used for this
-    //     exact field, so it's already proven to resolve correctly here.
-    //   - port/dbname/username: static literals matching DatabaseStack's
-    //     `databaseName: "dutyhub"` and
-    //     `Credentials.fromGeneratedSecret("dutyhub_admin", ...)`.
-    // ONLY the password goes through RuntimeEnvironmentSecrets, pointing
-    // at the "password" field of props.dbSecret — the same Secret object
-    // DatabaseStack's RDS instance was created with, so it can never drift
-    // from the instance's actual current password the way the previous
-    // hand-copied `dutyhub/db-connection-string` secret did. Program.cs
-    // assembles the final Npgsql connection string from these pieces at
-    // startup (see DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD
-    // handling added there).
-    const dbHost = props.dbEndpoint;
-    const dbPort = "5432";
-    const dbName = "dutyhub";
-    const dbUsername = "dutyhub_admin";
+    // CRITICAL detail on why the ARN and host are hardcoded literals here
+    // instead of the cross-stack tokens (props.dbSecret.secretArn /
+    // props.dbEndpoint): a dynamic reference is only reliably resolved by
+    // CloudFormation when the complete "{{resolve:...}}" string sits inside
+    // a single string LITERAL. Feeding a token makes CDK emit an Fn::Join
+    // that SPLITS the "{{resolve:...}}" across segments, and CloudFormation
+    // does not resolve a split reference (per the AWS dynamic-references
+    // docs) — App Runner would then receive the raw "{{resolve:...}}" text
+    // as the password. Using literals keeps the whole connection string one
+    // plain literal with the reference embedded intact. RDS has
+    // RemovalPolicy.RETAIN and the secret ARN is fixed, so these are stable;
+    // if RDS is ever replaced, update these two constants.
+    //
+    // Tradeoff, stated plainly: CloudFormation resolves the reference before
+    // calling App Runner, so the password IS visible via `aws apprunner
+    // describe-service` — identical to the exposure the last known-healthy
+    // config already had, acceptable versus keeping production down. The
+    // referenced secret (dutyhub/rds-credentials) had its value corrected to
+    // match the live database password, so it is now the single source of
+    // truth — no more stale hand-copied secrets (`dutyhub/db-connection-string`,
+    // the pre-correction rds-credentials) that caused earlier "password
+    // authentication failed" errors.
+    const dbSecretArnLiteral =
+      "arn:aws:secretsmanager:us-east-1:569206841715:secret:dutyhub/rds-credentials-u85crk";
+    const dbHostLiteral =
+      "dutyhub-database-dutyhubdba5bebf39-lxrt00nukbew.c8pie6accox0.us-east-1.rds.amazonaws.com";
+    const dbPasswordRef = cdk.SecretValue.secretsManager(dbSecretArnLiteral, {
+      jsonField: "password",
+    }).unsafeUnwrap();
+    const dbConnectionString = `Host=${dbHostLiteral};Port=5432;Database=dutyhub;Username=dutyhub_admin;Password=${dbPasswordRef}`;
+
+    // Face-login CUSTOM_AUTH HMAC secret (see CognitoAuthService.cs), same
+    // deploy-time dynamic-reference mechanism. props.customAuthSecretArn is
+    // already a literal string, so the reference stays intact as one literal
+    // (verified in cdk diff). The last known-healthy config also carried
+    // this as a plain env var, so this matches proven behavior.
+    const customAuthSecretRef = cdk.SecretValue.secretsManager(props.customAuthSecretArn).unsafeUnwrap();
 
     // App Runner Service
     const service = new apprunner.CfnService(this, "ApiService", {
@@ -284,19 +322,17 @@ export class ApiStack extends cdk.Stack {
           imageRepositoryType: "ECR",
           imageConfiguration: {
             port: "5000",
-            // Program.cs assembles ConnectionStrings:DefaultConnection from
-            // DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD at startup
-            // (falls back to a literal ConnectionStrings__DefaultConnection
-            // env var if one is set directly, which is what
-            // docker-compose.yml does for local dev). Program.cs also
-            // reads ConnectionStrings:Redis (cache, token blacklist,
-            // distributed lock, biometric proof, health checks) — both are
-            // required for the API to function, not optional. The live App
-            // Runner service already had both connectivity paths working
-            // before this fix, just via a stale secret and a "localhost"
-            // Redis placeholder respectively (confirmed via `cdk diff` and
-            // application logs) — without setting them here, deploying
-            // this stack would take down DB + cache connectivity entirely.
+            // All values are plain env vars. Program.cs reads
+            // ConnectionStrings:DefaultConnection (DB), ConnectionStrings:Redis
+            // (cache, token blacklist, distributed lock, biometric proof,
+            // health checks), Cors:AllowedOrigins (else it CORS-blocks the
+            // real frontend), and Cognito:CustomAuthSecret (else
+            // CognitoAuthService throws on construction, breaking face-login).
+            // The two secret-derived values (DB password inside the
+            // connection string, and the custom-auth secret) are CloudFormation
+            // dynamic references resolved at deploy time — see the block
+            // above. No runtimeEnvironmentSecrets: App Runner's runtime secret
+            // resolution was the failing mechanism, so nothing relies on it.
             runtimeEnvironmentVariables: [
               { name: "ASPNETCORE_ENVIRONMENT", value: "Production" },
               { name: "ASPNETCORE_URLS", value: "http://+:5000" },
@@ -304,21 +340,10 @@ export class ApiStack extends cdk.Stack {
               { name: "Cognito__UserPoolId", value: props.cognitoUserPoolId },
               { name: "Cognito__ClientId", value: props.cognitoClientId },
               { name: "Cognito__BackendClientId", value: props.cognitoBackendClientId },
+              { name: "Cognito__CustomAuthSecret", value: customAuthSecretRef },
+              { name: "ConnectionStrings__DefaultConnection", value: dbConnectionString },
               { name: "ConnectionStrings__Redis", value: props.redisConnectionString },
-              { name: "DB_HOST", value: dbHost },
-              { name: "DB_PORT", value: dbPort },
-              { name: "DB_NAME", value: dbName },
-              { name: "DB_USERNAME", value: dbUsername },
-            ],
-            // The ONLY field that goes through App Runner's native secret
-            // mechanism — resolved by the running container reading from
-            // Secrets Manager via the instance role's
-            // secretsmanager:GetSecretValue grant (already present above).
-            // Unlike the plain vars, this one is genuinely never visible
-            // in cleartext through the CloudFormation template, the
-            // console, or `describe-service`.
-            runtimeEnvironmentSecrets: [
-              { name: "DB_PASSWORD", value: `${props.dbSecret.secretArn}:password::` },
+              { name: "Cors__AllowedOrigins", value: props.corsAllowedOrigins },
             ],
           },
         },
