@@ -9,6 +9,10 @@ obj/
 # Node
 node_modules/
 dist/
+coverage/
+
+# Logs
+*.log
 
 # IDE
 .vscode/

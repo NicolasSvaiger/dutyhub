@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Esboço - Email de convite 24p7</title>
+    <style>
+      /* Fundo da PÁGINA de preview (não faz parte do email) */
+      body {
+        margin: 0;
+        background: #eceff3;
+        font-family: Arial, Helvetica, sans-serif;
+        padding: 40px 16px;
+      }
+      .preview-note {
+        max-width: 600px;
+        margin: 0 auto 20px;
+        font-size: 13px;
+        color: #6b7280;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-note">
+      Esboço do email de convite (primeiro acesso) - assim ele aparece no cliente de email.
+      Os campos <strong>Login</strong> e <strong>Senha temporaria</strong> sao preenchidos
+      automaticamente pelo Cognito ({username} e {####}).
+    </div>
+
+    <!-- ================= INICIO DO EMAIL ================= -->
+    <table
+      role="presentation"
+      cellpadding="0"
+      cellspacing="0"
+      width="100%"
+      style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 24px rgba(20,10,50,0.08);"
+    >
+      <!-- ===== HEADER com gradiente ===== -->
+      <tr>
+        <td
+          align="center"
+          style="background-color: #7e14ff; background-image: linear-gradient(135deg, #6d10e8 0%, #863bff 55%, #9d5bff 100%); padding: 40px 24px 34px;"
+        >
+          <!-- Logo (pin) do 24p7 - PNG hospedado, identico ao email real -->
+          <img
+            src="https://app.laulab.com.br/email/pin-24p7.png"
+            width="84"
+            height="84"
+            alt="24p7"
+            style="display: block; border: 0; outline: none;"
+          />
+
+          <!-- Wordmark -->
+          <div style="margin-top: 16px; font-size: 30px; font-weight: 800; letter-spacing: 0.5px; color: #ffffff; font-family: Arial, Helvetica, sans-serif;">
+            24p7
+          </div>
+          <div style="margin-top: 4px; font-size: 13px; color: rgba(255,255,255,0.82);">
+            Tecnologia para quem nao para
+          </div>
+        </td>
+      </tr>
+
+      <!-- ===== CORPO ===== -->
+      <tr>
+        <td style="padding: 36px 40px 8px; color: #1a1a2e;">
+          <h1 style="margin: 0 0 14px; font-size: 21px; font-weight: 800; color: #1a1a2e;">
+            Bem-vindo ao 24p7
+          </h1>
+          <p style="margin: 0 0 22px; font-size: 15px; line-height: 1.6; color: #4b4b63;">
+            Uma conta de acesso foi criada para voce. Use as credenciais abaixo
+            para entrar pela primeira vez.
+          </p>
+
+          <!-- Card de credenciais -->
+          <table
+            role="presentation"
+            cellpadding="0"
+            cellspacing="0"
+            width="100%"
+            style="background: #f5f3ff; border: 1px solid #ece7ff; border-radius: 10px; margin: 0 0 22px;"
+          >
+            <tr>
+              <td style="padding: 18px 20px;">
+                <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: #8a7fb0; margin: 0 0 4px;">
+                  Login
+                </div>
+                <div style="font-size: 15px; font-weight: 700; color: #2a1a4a; margin: 0 0 16px; word-break: break-all;">
+                  gestor@prefeitura.gov.br
+                </div>
+                <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: #8a7fb0; margin: 0 0 4px;">
+                  Senha temporaria
+                </div>
+                <div style="font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #7e14ff; font-family: 'Courier New', monospace;">
+                  Xy7&#36;kL2m
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin: 0 0 26px; font-size: 14px; line-height: 1.6; color: #4b4b63;">
+            No primeiro acesso voce precisara definir uma nova senha.
+          </p>
+
+          <!-- Botao -->
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td align="center">
+                <a
+                  href="https://app.laulab.com.br/login"
+                  style="display: inline-block; background: #7e14ff; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 40px; border-radius: 9px;"
+                >
+                  Acessar o 24p7
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- ===== RODAPE ===== -->
+      <tr>
+        <td style="padding: 26px 40px 30px;">
+          <div style="border-top: 1px solid #eee; padding-top: 18px;">
+            <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #9a9ab0;">
+              Se voce nao esperava este e-mail, pode ignora-lo com seguranca.
+            </p>
+            <p style="margin: 8px 0 0; font-size: 12px; color: #b6b6c8;">
+              &copy; 2026 24p7
+            </p>
+          </div>
+        </td>
+      </tr>
+    </table>
+    <!-- ================= FIM DO EMAIL ================= -->
+  </body>
+</html>
