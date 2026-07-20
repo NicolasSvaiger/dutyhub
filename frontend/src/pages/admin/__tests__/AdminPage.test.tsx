@@ -68,6 +68,7 @@ function createAuthValue(overrides: Partial<AuthContextType> = {}): AuthContextT
     logout: vi.fn(),
     pendingChallenge: null,
     challengeUser: null,
+    completeNewPassword: vi.fn(),
     clearChallenge: vi.fn(),
     ...overrides,
   };

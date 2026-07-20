@@ -15,7 +15,7 @@ import styles from './LoginPage.module.css';
  */
 export function LoginPage() {
   const { t } = useTranslation();
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user, pendingChallenge, completeNewPassword } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
@@ -24,6 +24,14 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Primeiro acesso: usuário convidado por admin recebe senha temporária e o
+  // Cognito devolve o challenge NEW_PASSWORD_REQUIRED. Enquanto ele estiver
+  // pendente, trocamos o formulário de login pela etapa "defina sua senha".
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const needsNewPassword = pendingChallenge === 'NEW_PASSWORD_REQUIRED';
 
   // Redirect quando já autenticado — em effect (nunca durante render).
   // A rota destino depende do role: profissional cai direto no /doctor;
@@ -57,6 +65,50 @@ export function LoginPage() {
         setError(t('login.errorNotConfirmed'));
       } else {
         setError(raw || t('login.errorGeneric'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Regras espelham a passwordPolicy do User Pool (cognito-stack.ts):
+    // mínimo 8, maiúscula, minúscula e dígito (símbolo não é exigido).
+    if (newPassword.length < 8) {
+      setError(t('login.errorPasswordTooShort'));
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword)) {
+      setError(t('login.errorPasswordNeedsUpper'));
+      return;
+    }
+    if (!/[a-z]/.test(newPassword)) {
+      setError(t('login.errorPasswordNeedsLower'));
+      return;
+    }
+    if (!/\d/.test(newPassword)) {
+      setError(t('login.errorPasswordNeedsNumber'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError(t('login.errorPasswordMismatch'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await completeNewPassword(newPassword);
+      // Sucesso: o AuthContext popula `user` e o useEffect de redirect acima
+      // leva o usuário para a home da sua role (getHomeRouteFor).
+    } catch (err: unknown) {
+      const raw = err instanceof Error ? err.message : '';
+      if (raw.includes('InvalidPasswordException')) {
+        setError(t('login.passwordRules'));
+      } else {
+        setError(raw || t('login.errorSetPassword'));
       }
     } finally {
       setLoading(false);
@@ -257,10 +309,157 @@ export function LoginPage() {
               </svg>
               {t('login.eyebrow')}
             </div>
-            <h1 className={styles.formTitle}>{t('login.title')}</h1>
-            <div className={styles.formSub}>{t('login.subtitle')}</div>
+            <h1 className={styles.formTitle}>
+              {needsNewPassword ? t('login.setPasswordTitle') : t('login.title')}
+            </h1>
+            <div className={styles.formSub}>
+              {needsNewPassword ? t('login.setPasswordSubtitle') : t('login.subtitle')}
+            </div>
           </div>
 
+          {needsNewPassword ? (
+            <form onSubmit={handleSetPassword} noValidate>
+              <div className={styles.field}>
+                <label htmlFor="newPassword" className={styles.fieldLabel}>
+                  {t('login.newPasswordLabel')}
+                </label>
+                <div className={styles.inputWrap}>
+                  <span className={styles.inputIcon}>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </span>
+                  <input
+                    id="newPassword"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className={`${styles.input} ${styles.inputPassword}`}
+                    placeholder={t('login.passwordPlaceholder')}
+                    autoComplete="new-password"
+                    required
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className={styles.eyeBtn}
+                    onClick={() => setShowNewPassword((v) => !v)}
+                    aria-label={showNewPassword ? t('login.hidePassword') : t('login.showPassword')}
+                    aria-pressed={showNewPassword}
+                    tabIndex={0}
+                  >
+                    {showNewPassword ? (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M17.94 17.94A10.06 10.06 0 0 1 12 20c-7 0-11-8-11-8a19.77 19.77 0 0 1 4.22-5.06" />
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a19.86 19.86 0 0 1-2.16 3.19" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="confirmPassword" className={styles.fieldLabel}>
+                  {t('login.confirmPasswordLabel')}
+                </label>
+                <div className={styles.inputWrap}>
+                  <span className={styles.inputIcon}>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </span>
+                  <input
+                    id="confirmPassword"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={styles.input}
+                    placeholder={t('login.passwordPlaceholder')}
+                    autoComplete="new-password"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <p style={{ fontSize: 13, opacity: 0.7, margin: '0 0 16px' }}>
+                {t('login.passwordRules')}
+              </p>
+
+              {error && (
+                <div className={styles.errorBox} role="alert">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button type="submit" className={styles.btnPrimary} disabled={loading}>
+                {loading ? t('login.setPasswordSubmitting') : t('login.setPasswordSubmit')}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} noValidate>
             <div className={styles.field}>
               <label htmlFor="email" className={styles.fieldLabel}>
@@ -409,6 +608,7 @@ export function LoginPage() {
               {loading ? t('login.submitting') : t('login.submit')}
             </button>
           </form>
+          )}
 
           <div className={styles.formFooter}>
             © {new Date().getFullYear()} {BRAND.name}

@@ -23,6 +23,7 @@ function renderLogin() {
     logout: vi.fn(),
     pendingChallenge: null,
     challengeUser: null,
+    completeNewPassword: vi.fn().mockResolvedValue(undefined),
     clearChallenge: vi.fn(),
   };
 

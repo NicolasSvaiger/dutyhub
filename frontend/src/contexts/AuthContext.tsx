@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import {
   cognitoLogin,
+  cognitoCompleteNewPassword,
   cognitoGetCurrentSession,
   cognitoLogout,
   type CognitoAuthUser,
@@ -38,6 +39,12 @@ export interface AuthContextType {
   pendingChallenge: AuthChallenge | null;
   /** The CognitoUser handle needed to complete a challenge */
   challengeUser: CognitoUser | null;
+  /**
+   * Complete the NEW_PASSWORD_REQUIRED challenge (first login after an admin
+   * invite). On success the user is fully authenticated, exactly as if
+   * login() had succeeded, so the caller's post-login redirect fires.
+   */
+  completeNewPassword: (newPassword: string) => Promise<void>;
   /** Clear a pending challenge (e.g. after completing it) */
   clearChallenge: () => void;
 }
@@ -153,6 +160,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearAuth();
   }, [clearAuth]);
 
+  const completeNewPassword = useCallback(
+    async (newPassword: string) => {
+      if (!challengeUser) {
+        throw new Error('Nenhuma troca de senha pendente. Faça login novamente.');
+      }
+      const result = await cognitoCompleteNewPassword(challengeUser, newPassword);
+      // Fully authenticated now — mirror the success branch of login() so the
+      // caller's redirect (getHomeRouteFor) fires just like a normal sign-in.
+      setAuthFromCognito(result.tokens, result.user);
+      setPendingChallenge(null);
+      setChallengeUser(null);
+    },
+    [challengeUser, setAuthFromCognito],
+  );
+
   const clearChallenge = useCallback(() => {
     setPendingChallenge(null);
     setChallengeUser(null);
@@ -167,6 +189,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     pendingChallenge,
     challengeUser,
+    completeNewPassword,
     clearChallenge,
   };
 
