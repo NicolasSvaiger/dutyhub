@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { auditApi } from '../../api/auditApi';
 import type { AuditLogEntry, AuditLogPage, AuditSummaryResponse, AuditQuery } from '../../api/auditApi';
+import { formatLongDateBR, formatShortDateBR } from '../../utils/dateTimeBR';
 
 interface Props {
   onBack: () => void;
@@ -50,14 +51,11 @@ function prettyDate(dateStr: string): string {
 }
 
 function todayLabel() {
-  const d = new Date();
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  return formatShortDateBR(new Date());
 }
 
 function yesterdayLabel() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  return formatShortDateBR(new Date(Date.now() - 24 * 60 * 60 * 1000));
 }
 
 export function AdminAuditoria({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar }: Props) {
@@ -161,7 +159,7 @@ export function AdminAuditoria({ onBack: _onBack, dark, onToggleTheme, onOpenSid
 
   const todayStr = todayLabel();
   const yestStr = yesterdayLabel();
-  const topbarDate = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const topbarDate = formatLongDateBR(now);
 
   // Deriva lista de módulos e usuários únicos dos filtros a partir do que já
   // veio no summary (para popular os selects)

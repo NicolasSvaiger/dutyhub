@@ -1,4 +1,5 @@
 import { useAuth } from '../../hooks/useAuth';
+import { formatHmCompactBR } from '../../utils/dateTimeBR';
 import styles from './AdminDashboard.module.css';
 
 interface Props {
@@ -7,8 +8,7 @@ interface Props {
 
 export function AdminDashboard({ onNavigate }: Props) {
   const { user } = useAuth();
-  const now = new Date();
-  const timeStr = `${String(now.getHours()).padStart(2, '0')}h${String(now.getMinutes()).padStart(2, '0')}`;
+  const timeStr = formatHmCompactBR(new Date());
 
   const displayName = user?.name ?? user?.email ?? 'Admin';
 

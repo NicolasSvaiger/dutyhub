@@ -12,6 +12,7 @@ import { PrefeituraAtrasos } from './PrefeituraAtrasos';
 import { PrefeituraAusencias } from './PrefeituraAusencias';
 import { PrefeituraHistorico } from './PrefeituraHistorico';
 import { PrefeituraRealtime } from './PrefeituraRealtime';
+import { formatLongDateBR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraPage.module.css';
 
 /**
@@ -40,12 +41,7 @@ export function PrefeituraPage() {
   const isDark = theme === 'dark';
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
+  const dateStr = formatLongDateBR(now);
 
   function navigate(view: PrefeituraView) {
     setActiveView(view);

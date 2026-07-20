@@ -23,6 +23,7 @@ import { AdminOrgaos } from './AdminOrgaos';
 import { AdminGestores } from './AdminGestores';
 import { AdminUsuariosOS } from './AdminUsuariosOS';
 import { AdminConfiguracoes } from './AdminConfiguracoes';
+import { formatHmBR, formatLongDateBR } from '../../utils/dateTimeBR';
 
 type AdminView = 'home' | 'tempo-real' | 'alertas' | 'medicos' | 'escalas' | 'substituicoes' | 'disponibilidade' | 'justificativas' | 'gerencial' | 'faturamento' | 'auditoria' | 'upas' | 'orgaos' | 'gestores' | 'usuarios' | 'configuracoes';
 
@@ -37,9 +38,8 @@ export function AdminPage() {
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([]);
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  const h = String(now.getHours()).padStart(2, '0');
-  const m = String(now.getMinutes()).padStart(2, '0');
+  const dateStr = formatLongDateBR(now);
+  const [h, m] = formatHmBR(now).split(':');
 
   useEffect(() => {
     let cancelled = false;

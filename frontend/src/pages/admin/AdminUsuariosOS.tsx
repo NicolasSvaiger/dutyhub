@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { usersApi } from '../../api/usersApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { User } from '../../types';
+import { formatDayMonthBR, formatHmCompactBR, isTodayBR, isYesterdayBR } from '../../utils/dateTimeBR';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -40,14 +41,10 @@ function roleToPerfil(roles: { role: string }[]): PerfilBadge {
 
 function formatLastAccess(iso?: string | null): string {
   if (!iso) return 'Nunca acessou';
-  const date = new Date(iso);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
-  if (isToday) return `Hoje, ${time}`;
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return `Ontem, ${time}`;
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + `, ${time}`;
+  const time = formatHmCompactBR(iso);
+  if (isTodayBR(iso)) return `Hoje, ${time}`;
+  if (isYesterdayBR(iso)) return `Ontem, ${time}`;
+  return formatDayMonthBR(iso) + `, ${time}`;
 }
 
 // ─── CustomSelect ─────────────────────────────────────────────────────────

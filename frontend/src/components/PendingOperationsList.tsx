@@ -1,4 +1,5 @@
 import type { OfflineAttendanceEvent } from '../types/offlineEvent';
+import { formatDateTimeBR } from '../utils/dateTimeBR';
 
 interface PendingOperationsListProps {
   events: OfflineAttendanceEvent[];
@@ -19,12 +20,7 @@ function getStatusBadge(status: string): { label: string; color: string; bg: str
 
 function formatDateTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDateTimeBR(iso, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch {
     return iso;
   }

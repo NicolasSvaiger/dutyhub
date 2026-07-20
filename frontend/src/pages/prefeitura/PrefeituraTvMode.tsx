@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { prefeituraApi, type PrefeituraRealtimeResponse } from '../../api/prefeituraApi';
 import { BRAND } from '../../config/brand';
 import { ProfessionalTypeBadge } from './ProfessionalTypeBadge';
+import { formatHmsBR, formatLongDateBR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraTvMode.module.css';
 
 const REFRESH_SEC = 20; // cadência do polling real (não é só cosmético)
@@ -68,13 +69,8 @@ export function PrefeituraTvMode() {
     };
   }, [t]);
 
-  const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const dateStr = now.toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  });
+  const timeStr = formatHmsBR(now);
+  const dateStr = formatLongDateBR(now);
 
   const ringOffset = RING_CIRCUMFERENCE * (1 - secondsLeft / REFRESH_SEC);
 

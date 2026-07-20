@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { prefeituraApi, type PrefeituraAbsenceItem } from '../../api/prefeituraApi';
 import { ProfessionalTypeBadge } from './ProfessionalTypeBadge';
+import { formatShortDate2BR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraShared.module.css';
 
 type StatusFilter = '' | 'sem-justificativa' | 'pendente' | 'em-analise' | 'resolvido';
@@ -412,8 +413,7 @@ export function PrefeituraAusencias() {
 
 function formatDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    return formatShortDate2BR(iso);
   } catch {
     return iso;
   }

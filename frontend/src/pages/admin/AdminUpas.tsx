@@ -8,6 +8,7 @@ import { clinicsApi } from '../../api/clinicsApi';
 import { contractsApi } from '../../api/contractsApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Clinic, CreateClinicRequest, UpdateClinicRequest, Contract } from '../../types';
+import { formatShortDateBR } from '../../utils/dateTimeBR';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -471,7 +472,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
 
                   <div className="upa-card-footer">
                     <div className="upa-footer-info">
-                      {clinic.createdAt ? `Cadastrada em ${new Date(clinic.createdAt).toLocaleDateString('pt-BR')}` : ''}
+                      {clinic.createdAt ? `Cadastrada em ${formatShortDateBR(clinic.createdAt)}` : ''}
                     </div>
                     <div className="upa-card-actions">
                       <button className="upa-act-btn" title="Editar" onClick={() => openDrawer(clinic)}>

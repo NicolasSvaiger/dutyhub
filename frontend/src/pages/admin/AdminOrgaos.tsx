@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { contractsApi } from '../../api/contractsApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Contract, ContractStatus, CreateContractRequest } from '../../types';
+import { formatMonthYearBR } from '../../utils/dateTimeBR';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ function formatMoney(v?: number | null): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+  return formatMonthYearBR(iso);
 }
 
 function daysUntil(iso: string): number {

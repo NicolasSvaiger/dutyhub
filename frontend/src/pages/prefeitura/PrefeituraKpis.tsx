@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { prefeituraApi, type PrefeituraKpisResponse } from '../../api/prefeituraApi';
 import { ProfessionalTypeBadge } from './ProfessionalTypeBadge';
+import { formatDayMonthBR, formatShortDateBR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraKpis.module.css';
 
 const UPA_RANK_COLORS = ['#22c55e', '#2dbfb8', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6'];
@@ -354,8 +355,7 @@ function rateClass(rate: number): string {
 /** Formata ISO date string pra pt-BR curta (dd/MM/yyyy). */
 function formatDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return formatShortDateBR(iso);
   } catch {
     return iso;
   }
@@ -364,8 +364,7 @@ function formatDate(iso: string): string {
 /** Formata ISO date string pra label curta de eixo (dd/MM). */
 function formatShortDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return formatDayMonthBR(iso);
   } catch {
     return iso;
   }

@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { alertsApi } from '../../api/alertsApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Alert, AlertLevel, AlertsSummary, AlertType } from '../../types';
+import { formatHmCompactBR, formatLongDateBR, formatShortDateBR } from '../../utils/dateTimeBR';
 
 interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
 
@@ -42,12 +43,11 @@ function fmtRelative(iso: string) {
   const d = Math.round(h / 24);
   if (d === 1) return 'Ontem';
   if (d < 7) return `${d}d atrás`;
-  return new Date(iso).toLocaleDateString('pt-BR');
+  return formatShortDateBR(iso);
 }
 
 function fmtTimeShort(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(':', 'h');
+  return formatHmCompactBR(iso);
 }
 
 // Renderiza descrição com <strong> escapando o resto (defesa contra XSS)
@@ -174,7 +174,7 @@ export function AdminAlertas({ dark, onToggleTheme, onOpenSidebar }: Props) {
       .slice(0, 6);
   }, [alerts]);
 
-  const dateStr = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const dateStr = formatLongDateBR(new Date());
   const ThemeIcon = dark
     ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
     : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;

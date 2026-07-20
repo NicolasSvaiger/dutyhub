@@ -8,6 +8,7 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { useOfflineQuery } from '../../hooks/useOfflineQuery';
 import { formatShiftTime } from './dateFormat';
 import { ModalClinicPicker } from './ModalClinicPicker';
+import { formatHmCompactBR } from '../../utils/dateTimeBR';
 
 export type AttendanceMode = 'checkin' | 'checkout';
 
@@ -18,12 +19,9 @@ interface AttendanceConfirmModalProps {
   onConfirm: (shiftId: string) => Promise<void>;
 }
 
-/** Formats an ISO datetime into "HHhMM". */
+/** Formats an ISO datetime into "HHhMM", sempre no horário de Brasília. */
 function formatCheckInTime(iso: string): string {
-  const d = new Date(iso);
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  return `${h}h${m}`;
+  return formatHmCompactBR(iso);
 }
 
 /**

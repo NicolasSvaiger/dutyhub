@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { managementReportApi } from '../../api/managementReportApi';
 import type { ManagementReportResponse, TrendDirection } from '../../api/managementReportApi';
+import { formatLongDateBR, formatMonthYearBR } from '../../utils/dateTimeBR';
 
 interface Props {
   onBack: () => void;
@@ -107,7 +108,7 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
     setTimeout(() => setToast(''), 3000);
   }
 
-  const topbarDate = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const topbarDate = formatLongDateBR(now);
 
   return (
     <>
@@ -217,7 +218,7 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
                         <div className="ger-csl-nome">{c.publicOrganName}</div>
                         <div className="ger-csl-contrato">
                           {c.contractNumber}
-                          {c.startDate && c.endDate && ` · ${new Date(c.startDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}–${new Date(c.endDate).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}`}
+                          {c.startDate && c.endDate && ` · ${formatMonthYearBR(c.startDate)}–${formatMonthYearBR(c.endDate)}`}
                         </div>
                       </div>
                       <span className={badgeClassFor(c.status)}>{c.status === 'ok' ? '✓ Na meta' : c.status === 'warn' ? '⚠ Abaixo da meta' : '● Crítico'}</span>

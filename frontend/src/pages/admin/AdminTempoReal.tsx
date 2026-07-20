@@ -7,6 +7,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { attendanceApi } from '../../api/attendanceApi';
 import type { LiveClinic, LiveStatusResponse } from '../../api/attendanceApi';
+import { formatHmBR, formatHmsBR, formatLongDateBR } from '../../utils/dateTimeBR';
 
 interface Props {
   onBack: () => void;
@@ -39,8 +40,7 @@ function profStatusMeta(status: string): { cls: string; icon: string } {
 
 function formatHm(iso: string | null): string {
   if (!iso) return '—';
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return formatHmBR(iso);
 }
 
 function fmtTimeSpan(t: string): string {
@@ -118,8 +118,8 @@ export function AdminTempoReal({ onBack: _onBack, dark, onToggleTheme, onOpenSid
     return clinics.filter(c => (c.contractId ?? 'sem-contrato') === filterContrato);
   }, [clinics, filterContrato]);
 
-  const dateStr = clock.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  const timeStr = clock.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = formatLongDateBR(clock);
+  const timeStr = formatHmsBR(clock);
 
   const overallStatus = useMemo(() => {
     if (clinics.some(c => c.status === 'Critico')) return { emoji: '⚠', label: 'Atenção requerida' };

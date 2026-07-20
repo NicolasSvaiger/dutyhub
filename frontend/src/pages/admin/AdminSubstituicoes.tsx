@@ -9,6 +9,7 @@ import { clinicsApi } from '../../api/clinicsApi';
 import { usersApi } from '../../api/usersApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Clinic, User, Substitution, SubstitutionReasonType } from '../../types';
+import { formatShortDateBR } from '../../utils/dateTimeBR';
 
 // ─── CustomSelect ─────────────────────────────────────────────────────────────
 
@@ -77,8 +78,7 @@ function colorFor(id: string) {
 }
 
 function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  return formatShortDateBR(iso);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

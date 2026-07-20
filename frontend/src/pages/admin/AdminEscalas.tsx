@@ -8,6 +8,7 @@ import { shiftsApi } from '../../api/shiftsApi';
 import { clinicsApi } from '../../api/clinicsApi';
 import { usersApi } from '../../api/usersApi';
 import type { Shift, Clinic, User } from '../../types';
+import { formatLongDateBR } from '../../utils/dateTimeBR';
 
 const DIAS_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const MESES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -274,7 +275,7 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
     showToast(`Escala gerada! ${count} turno${count !== 1 ? 's' : ''} preenchido${count !== 1 ? 's' : ''}.`);
   }
 
-  const dateStr = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const dateStr = formatLongDateBR(new Date());
 
   return (
     <>

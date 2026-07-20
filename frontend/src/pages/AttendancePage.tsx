@@ -9,6 +9,7 @@ import { PendingOperationsList } from '../components/PendingOperationsList';
 import axiosInstance from '../api/axiosInstance';
 import type { Attendance, Shift } from '../types';
 import { isNetworkError } from '../utils/networkError';
+import { formatDateTimeBR } from '../utils/dateTimeBR';
 
 export function AttendancePage() {
   const { getCurrentPosition, loading: geoLoading, error: geoError } = useGeolocation();
@@ -270,9 +271,9 @@ export function AttendancePage() {
             {history.map((a) => (
               <tr key={a.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: 8 }}>{a.shiftId}</td>
-                <td style={{ padding: 8 }}>{new Date(a.checkInTime).toLocaleString()}</td>
+                <td style={{ padding: 8 }}>{formatDateTimeBR(a.checkInTime)}</td>
                 <td style={{ padding: 8 }}>
-                  {a.checkOutTime ? new Date(a.checkOutTime).toLocaleString() : '—'}
+                  {a.checkOutTime ? formatDateTimeBR(a.checkOutTime) : '—'}
                 </td>
               </tr>
             ))}

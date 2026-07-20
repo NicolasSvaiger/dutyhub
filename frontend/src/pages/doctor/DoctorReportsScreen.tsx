@@ -7,8 +7,7 @@ import { DateField } from './DateField';
 import { useReportStats } from './useReportStats';
 import { useClinic } from '../../hooks/useClinic';
 import { attendanceApi } from '../../api/attendanceApi';
-import { formatDate } from './dateFormat';
-import { formatTime } from './useClock';
+import { formatShortDateBR, formatHmBR } from '../../utils/dateTimeBR';
 import type { Attendance } from '../../types/index';
 
 /**
@@ -189,10 +188,10 @@ export function DoctorReportsScreen() {
                   return (
                     <div key={record.id} className={styles.recItem}>
                       <div className={styles.recLeft}>
-                        <div className={styles.recDate}>{formatDate(checkInDate)}</div>
+                        <div className={styles.recDate}>{formatShortDateBR(checkInDate)}</div>
                         <div className={styles.recSub}>
-                          {t('doctor.reports.entry')}: {formatTime(checkInDate)}
-                          {hasCheckOut && ` • ${t('doctor.reports.exit')}: ${formatTime(new Date(record.checkOutTime!))}`}
+                          {t('doctor.reports.entry')}: {formatHmBR(checkInDate)}
+                          {hasCheckOut && ` • ${t('doctor.reports.exit')}: ${formatHmBR(record.checkOutTime!)}`}
                         </div>
                       </div>
                       <span

@@ -8,6 +8,7 @@ import { justificationsApi } from '../../api/justificationsApi';
 import { clinicsApi } from '../../api/clinicsApi';
 import { useAuth } from '../../hooks/useAuth';
 import type { Clinic, Justification, JustificationStatus } from '../../types';
+import { formatDateTimeBR, formatDayMonthBR, formatShortDateBR } from '../../utils/dateTimeBR';
 
 // ─── CustomSelect ─────────────────────────────────────────────────────────────
 
@@ -61,13 +62,11 @@ function colorFor(id: string) {
 }
 
 function formatDateShort(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+  return formatDayMonthBR(iso);
 }
 
 function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  return formatShortDateBR(iso);
 }
 
 const STATUS_TO_BADGE_CLASS: Record<JustificationStatus, string> = {
@@ -366,7 +365,7 @@ export function AdminJustificativas({ onBack: _onBack, dark, onToggleTheme, onOp
                   {modalTarget.respondedByUserName && (
                     <div style={{ fontSize: '.68rem', fontWeight: 600, color: 'var(--muted)', marginTop: '.5rem' }}>
                       Respondido por {modalTarget.respondedByUserName}
-                      {modalTarget.respondedAt && ` em ${new Date(modalTarget.respondedAt).toLocaleString('pt-BR')}`}
+                      {modalTarget.respondedAt && ` em ${formatDateTimeBR(modalTarget.respondedAt)}`}
                     </div>
                   )}
                 </div>

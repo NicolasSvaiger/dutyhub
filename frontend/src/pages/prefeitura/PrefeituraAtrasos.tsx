@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from
 import { useTranslation } from 'react-i18next';
 import { prefeituraApi, type PrefeituraAbsenceItem, type PrefeituraClinicItem } from '../../api/prefeituraApi';
 import { ProfessionalTypeBadge } from './ProfessionalTypeBadge';
+import { formatShortDate2BR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraAtrasos.module.css';
 
 const CLINIC_COLORS = ['#2dbfb8', '#f5a623', '#8b5cf6', '#ef4444', '#3b82f6', '#22c55e'];
@@ -510,8 +511,7 @@ function initials(name: string): string {
 
 function formatDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    return formatShortDate2BR(iso);
   } catch {
     return iso;
   }

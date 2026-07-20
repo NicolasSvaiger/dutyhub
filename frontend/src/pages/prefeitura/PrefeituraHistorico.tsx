@@ -7,6 +7,7 @@ import {
   type PrefeituraUnitTimelineResponse,
 } from '../../api/prefeituraApi';
 import { ProfessionalTypeBadge } from './ProfessionalTypeBadge';
+import { formatHmBR, formatShortDateBR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraHistorico.module.css';
 
 type ViewMode = 'timeline' | 'tabela';
@@ -411,8 +412,7 @@ function initials(name: string): string {
 
 function formatDate(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return formatShortDateBR(iso);
   } catch {
     return iso;
   }
@@ -420,8 +420,7 @@ function formatDate(iso: string): string {
 
 function formatDateTime(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return formatHmBR(iso);
   } catch {
     return iso;
   }

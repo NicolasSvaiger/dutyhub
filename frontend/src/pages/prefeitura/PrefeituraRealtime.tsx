@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { prefeituraApi, type PrefeituraRealtimeResponse } from '../../api/prefeituraApi';
 import { ProfessionalTypeBadge } from './ProfessionalTypeBadge';
+import { formatHmsBR } from '../../utils/dateTimeBR';
 import styles from './PrefeituraRealtime.module.css';
 
 /**
@@ -331,8 +332,7 @@ function turnoLabel(turno: string, t: (key: string) => string): string {
 
 function formatTime(iso: string): string {
   try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return formatHmsBR(iso);
   } catch {
     return iso;
   }
