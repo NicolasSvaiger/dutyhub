@@ -93,7 +93,8 @@ public class AuditServiceTests
         entry.OperationLabel.Should().Be("Edição");
         entry.Module.Should().Be("Configurações");
         entry.DateLabel.Should().Be("11/05/2026");
-        entry.TimeLabel.Should().Be("11:23:14");
+        // 11:23:14 UTC convertido para o horario de Brasilia (UTC-3) = 08:23:14.
+        entry.TimeLabel.Should().Be("08:23:14");
         entry.BeforeValue.Should().Be("10 min");
         entry.AfterValue.Should().Be("15 min");
         entry.Action.Should().Be("Tolerância global alterada de 10 min para 15 min");
@@ -238,21 +239,26 @@ public class AuditServiceTests
     {
         _tenant.Setup(t => t.IsAdminGlobal()).Returns(true);
         var uid = Guid.NewGuid();
-        var today = DateTime.UtcNow.Date;
+        // A serie de 7 dias agrupa por dia-calendario de Brasilia (UTC-3).
+        // Ancoramos nos instantes reais (UtcNow) e derivamos o "hoje" de
+        // Brasilia com o mesmo offset que o servico usa, para o teste nao
+        // depender do fuso da maquina que roda os testes.
+        var nowUtc = DateTime.UtcNow;
+        var brToday = nowUtc.AddHours(-3).Date;
 
         _repo.Setup(r => r.GetInPeriodAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>()))
             .ReturnsAsync(new List<AuditLog>
             {
-                MakeLog(uid, "A", "Login", "User", timestamp: today),
-                MakeLog(uid, "A", "Login", "User", timestamp: today),
-                MakeLog(uid, "A", "Login", "User", timestamp: today.AddDays(-3)),
+                MakeLog(uid, "A", "Login", "User", timestamp: nowUtc),
+                MakeLog(uid, "A", "Login", "User", timestamp: nowUtc),
+                MakeLog(uid, "A", "Login", "User", timestamp: nowUtc.AddDays(-3)),
             });
 
         var result = await CreateService().GetSummaryAsync();
 
         result.Last7Days.Should().HaveCount(7);
-        result.Last7Days.First().Date.Should().Be(today.AddDays(-6));
-        result.Last7Days.Last().Date.Should().Be(today);
+        result.Last7Days.First().Date.Should().Be(brToday.AddDays(-6));
+        result.Last7Days.Last().Date.Should().Be(brToday);
         result.Last7Days.Last().Count.Should().Be(2); // dois eventos hoje
         result.Last7Days[3].Count.Should().Be(1); // -3 dias
     }

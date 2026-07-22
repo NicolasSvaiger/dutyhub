@@ -44,6 +44,21 @@ public class AuditService : IAuditService
         ["System"] = "Sistema",
     };
 
+    /// <summary>
+    /// Offset fixo de Brasília (America/Sao_Paulo). Todos os timestamps são
+    /// gravados em UTC (DateTime.UtcNow); a tela precisa exibir no horário de
+    /// Brasília. Usamos offset fixo de -3h em vez de
+    /// TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo") porque o
+    /// Brasil não adota horário de verão desde 2019 (sem ambiguidade de DST) e
+    /// porque a imagem base dotnet/aspnet não inclui o pacote tzdata — a busca
+    /// por timezone lançaria TimeZoneNotFoundException no container.
+    /// </summary>
+    private static readonly TimeSpan BRASILIA_OFFSET = TimeSpan.FromHours(-3);
+
+    /// <summary>Converte um timestamp UTC para o relógio de parede de Brasília (para exibição).</summary>
+    private static DateTime ToBrasilia(DateTime utcTimestamp)
+        => DateTime.SpecifyKind(utcTimestamp, DateTimeKind.Utc).Add(BRASILIA_OFFSET);
+
     public AuditService(IAuditLogRepository repo, ITenantService tenantService)
     {
         _repo = repo;
@@ -166,14 +181,15 @@ public class AuditService : IAuditService
             .Take(5)
             .ToList();
 
-        // Últimos 7 dias (ordem crescente por data)
+        // Últimos 7 dias (ordem crescente por data), agrupados por dia-calendário
+        // de Brasília para bater com o "hoje" que o usuário enxerga.
         var days = new List<DailyCount>();
-        var today = now.Date;
+        var today = ToBrasilia(now).Date;
         var brCulture = new CultureInfo("pt-BR");
         for (int i = 6; i >= 0; i--)
         {
             var d = today.AddDays(-i);
-            var count = logs.Count(l => l.Timestamp.Date == d);
+            var count = logs.Count(l => ToBrasilia(l.Timestamp).Date == d);
             var dayName = d.ToString("ddd", brCulture);
             days.Add(new DailyCount
             {
@@ -207,12 +223,15 @@ public class AuditService : IAuditService
     {
         var brCulture = new CultureInfo("pt-BR");
         var userName = log.User?.Name ?? "Sistema";
+        // Timestamp e gravado em UTC; converte para Brasilia para os rotulos
+        // exibidos (data/hora da timeline e do painel de detalhes).
+        var brTimestamp = ToBrasilia(log.Timestamp);
         return new AuditLogEntry
         {
             Id = log.Id,
             Timestamp = log.Timestamp,
-            DateLabel = log.Timestamp.ToString("dd/MM/yyyy", brCulture),
-            TimeLabel = log.Timestamp.ToString("HH:mm:ss", brCulture),
+            DateLabel = brTimestamp.ToString("dd/MM/yyyy", brCulture),
+            TimeLabel = brTimestamp.ToString("HH:mm:ss", brCulture),
             UserId = log.UserId,
             UserName = userName,
             UserInitials = Initials(userName),
