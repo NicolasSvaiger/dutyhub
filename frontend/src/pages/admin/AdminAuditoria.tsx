@@ -65,6 +65,7 @@ export function AdminAuditoria({ onBack: _onBack, dark, onToggleTheme, onOpenSid
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [toast, setToast] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   // Filtros
   const [fFrom, setFFrom] = useState('');
@@ -144,6 +145,27 @@ export function AdminAuditoria({ onBack: _onBack, dark, onToggleTheme, onOpenSid
     setTimeout(() => setToast(''), 3000);
   }
 
+  async function exportar(format: 'pdf' | 'xlsx') {
+    if (exporting) return;
+    setExporting(true);
+    showToast(format === 'pdf' ? 'Gerando PDF…' : 'Gerando Excel…');
+    try {
+      await auditApi.downloadReport(format, {
+        from: fFrom || undefined,
+        to: fTo || undefined,
+        userId: fUser || undefined,
+        module: fModule || undefined,
+        operation: fOperation || undefined,
+        search: fSearch || undefined,
+      });
+      showToast(format === 'pdf' ? 'Logs exportados em PDF com sucesso!' : 'Logs exportados em Excel com sucesso!');
+    } catch {
+      showToast('Falha ao exportar os logs. Tente novamente.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const selected = page?.items.find(x => x.id === selectedId) || null;
 
   // Agrupamento por data para a timeline
@@ -181,11 +203,11 @@ export function AdminAuditoria({ onBack: _onBack, dark, onToggleTheme, onOpenSid
           </div>
         </div>
         <div className="aud-topbar-right">
-          <button className="aud-btn-export aud-btn-xlsx" onClick={() => showToast('Logs exportados em Excel com sucesso!')} aria-label="Exportar Excel">
+          <button className="aud-btn-export aud-btn-xlsx" onClick={() => exportar('xlsx')} disabled={exporting} aria-label="Exportar Excel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="9" x2="9" y2="21" /></svg>
             <span className="aud-btn-label">Exportar Excel</span>
           </button>
-          <button className="aud-btn-export aud-btn-pdf" onClick={() => showToast('Logs exportados em PDF com sucesso!')} aria-label="Exportar PDF">
+          <button className="aud-btn-export aud-btn-pdf" onClick={() => exportar('pdf')} disabled={exporting} aria-label="Exportar PDF">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
             <span className="aud-btn-label">Exportar PDF</span>
           </button>

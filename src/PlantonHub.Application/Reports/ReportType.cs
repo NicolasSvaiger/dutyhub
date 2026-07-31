@@ -19,4 +19,10 @@ public enum ReportType
     // GenerateFromPayloadAsync). Gerencial só tem PDF; Faturamento PDF+Excel.
     ManagementReport = 6,
     Billing = 7,
+
+    // Apresentação do Gerencial (PDF em modo slides, paisagem) — mesmo payload
+    // do ManagementReport. Auditoria de logs (PDF + Excel) — payload é a lista
+    // de AuditLogEntry filtrada.
+    ManagementPresentation = 8,
+    AuditLog = 9,
 }

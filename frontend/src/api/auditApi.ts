@@ -110,6 +110,39 @@ export const auditApi = {
     const { data } = await axiosInstance.get<AuditSummaryResponse>('/audit/summary');
     return data;
   },
+
+  /**
+   * Exporta a timeline de auditoria em PDF ou Excel aplicando os mesmos
+   * filtros da tela. responseType=blob (o <a href> direto não leva o token);
+   * preserva o filename do Content-Disposition e dispara o download.
+   */
+  downloadReport: async (format: 'pdf' | 'xlsx', query: AuditQuery = {}): Promise<void> => {
+    const params: Record<string, string | number> = { format };
+    if (query.from) params.from = query.from;
+    if (query.to) params.to = query.to;
+    if (query.userId) params.userId = query.userId;
+    if (query.module) params.module = query.module;
+    if (query.operation) params.operation = query.operation;
+    if (query.search) params.search = query.search;
+
+    const response = await axiosInstance.get<Blob>('/audit/logs/export', {
+      params,
+      responseType: 'blob',
+    });
+
+    const disposition = response.headers['content-disposition'] ?? '';
+    const filename =
+      /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? `auditoria.${format}`;
+
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 };
 
 export default auditApi;

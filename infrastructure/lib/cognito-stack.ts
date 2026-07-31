@@ -35,6 +35,23 @@ export class CognitoStack extends cdk.Stack {
         requireSymbols: false,
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+
+      // ⚠️ SES cutover — DESCOMENTE SOMENTE após a produção do SES ser
+      // aprovada. Confirme antes:
+      //   aws sesv2 get-account --region us-east-1 --query "ProductionAccessEnabled"
+      // Precisa ser `true`. Enquanto o SES estiver em sandbox, ativar isto
+      // QUEBRA o envio de convite pra usuário novo (sandbox só entrega a
+      // endereços verificados). Domínio 24p7.med.br já verificado (DKIM).
+      // Depois de descomentar:
+      //   cd infrastructure && npx cdk deploy DutyHub-Cognito --exclusively --require-approval never
+      // Guia completo: docs/ses-cognito-cutover.md
+      // email: cognito.UserPoolEmail.withSES({
+      //   fromEmail: "no-reply@24p7.med.br",
+      //   fromName: "24p7",
+      //   sesRegion: "us-east-1",
+      //   sesVerifiedDomain: "24p7.med.br",
+      // }),
+
       // Invite email sent by AdminCreateUser (see CognitoAuthService.
       // CreateInvitedUserAsync). Without this, Cognito falls back to its
       // default English, unstyled "Your temporary password" template. The

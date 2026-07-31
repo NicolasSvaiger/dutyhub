@@ -125,15 +125,41 @@ export const managementReportApi = {
     const filename =
       /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? 'relatorio-gerencial.pdf';
 
-    const url = URL.createObjectURL(response.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    triggerDownload(response.data, filename);
+  },
+
+  /**
+   * Baixa o relatório gerencial em modo apresentação (PDF paisagem, estilo
+   * slides). Mesmo padrão blob do downloadReport.
+   */
+  downloadPresentation: async (year?: number, month?: number): Promise<void> => {
+    const params: Record<string, number> = {};
+    if (year != null) params.year = year;
+    if (month != null) params.month = month;
+
+    const response = await axiosInstance.get<Blob>('/management-report/export/presentation', {
+      params,
+      responseType: 'blob',
+    });
+
+    const disposition = response.headers['content-disposition'] ?? '';
+    const filename =
+      /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? 'apresentacao-gerencial.pdf';
+
+    triggerDownload(response.data, filename);
   },
 };
+
+/** Dispara o download de um Blob via <a download> temporário. */
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export default managementReportApi;

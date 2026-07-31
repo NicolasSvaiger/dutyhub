@@ -12,6 +12,7 @@ vi.mock('../../../api/managementReportApi', () => ({
   managementReportApi: {
     getReport: vi.fn(),
     downloadReport: vi.fn(),
+    downloadPresentation: vi.fn(),
   },
 }));
 
@@ -120,6 +121,7 @@ describe('<AdminGerencial />', () => {
     vi.clearAllMocks();
     (managementReportApi.getReport as ReturnType<typeof vi.fn>).mockResolvedValue(mockReport);
     (managementReportApi.downloadReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (managementReportApi.downloadPresentation as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
   it('exibe título e subtítulo', async () => {
@@ -247,14 +249,17 @@ describe('<AdminGerencial />', () => {
     });
   });
 
-  it('mostra toast ao clicar em Apresentação', async () => {
+  it('baixa a apresentação e mostra toast de sucesso ao clicar em Apresentação', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport();
 
     const btn = screen.getByRole('button', { name: /Apresentação/i });
     await user.click(btn);
-    expect(screen.getByText(/Apresentação gerada/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(managementReportApi.downloadPresentation).toHaveBeenCalledWith(expect.any(Number), expect.any(Number));
+      expect(screen.getByText(/Apresentação gerada/i)).toBeInTheDocument();
+    });
   });
 
   it('chama onToggleTheme ao clicar no botão de tema', async () => {
