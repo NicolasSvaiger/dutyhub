@@ -42,6 +42,7 @@ export function AdminFaturamento({ onBack: _onBack, dark, onToggleTheme, onOpenS
   const [filterContract, setFilterContract] = useState('');
   const [filterClinic, setFilterClinic] = useState('');
   const [toast, setToast] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -89,9 +90,19 @@ export function AdminFaturamento({ onBack: _onBack, dark, onToggleTheme, onOpenS
     setTimeout(() => setToast(''), 3000);
   }
 
-  function exportar(tipo: 'PDF' | 'Excel') {
-    // Placeholder: geração real do arquivo é backend/lib; aqui mostramos feedback
-    showToast(`${tipo} gerado com sucesso!`);
+  async function exportar(tipo: 'PDF' | 'Excel') {
+    if (exporting) return;
+    const format = tipo === 'PDF' ? 'pdf' : 'xlsx';
+    setExporting(true);
+    showToast(`Gerando ${tipo}…`);
+    try {
+      await billingApi.downloadReport(format, year, month);
+      showToast(`${tipo} gerado com sucesso!`);
+    } catch {
+      showToast(`Falha ao gerar ${tipo}. Tente novamente.`);
+    } finally {
+      setExporting(false);
+    }
   }
 
   // ── Canvas de horas por UPA ───────────────────────────────────────────
@@ -180,11 +191,11 @@ export function AdminFaturamento({ onBack: _onBack, dark, onToggleTheme, onOpenS
           </div>
         </div>
         <div className="fat-topbar-right">
-          <button className="fat-btn-export fat-btn-pdf" onClick={() => exportar('PDF')}>
+          <button className="fat-btn-export fat-btn-pdf" onClick={() => exportar('PDF')} disabled={exporting}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             Exportar PDF
           </button>
-          <button className="fat-btn-export fat-btn-xlsx" onClick={() => exportar('Excel')}>
+          <button className="fat-btn-export fat-btn-xlsx" onClick={() => exportar('Excel')} disabled={exporting}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/></svg>
             Exportar Excel
           </button>

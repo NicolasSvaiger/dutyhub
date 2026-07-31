@@ -31,12 +31,10 @@ public class ReportService : IReportService
 
     public async Task<GeneratedReport> GenerateAsync(ReportRequest request, CancellationToken ct = default)
     {
-        // 1) Encontra o generator. Se não existe pra (type, format), 400 —
-        //    o controller ainda valida antes de chegar aqui, mas o service
-        //    tem sua própria garantia (útil pra testes e chamadas internas).
-        var generator = _generators.FirstOrDefault(g => g.Type == request.Type && g.Format == request.Format)
-            ?? throw new BadRequestException(
-                $"Não há relatório {request.Type} disponível no formato {request.Format}.");
+        // 1) Encontra o generator ANTES de buscar o payload — fail-fast: se
+        //    não existe pra (type, format), 400 sem gastar query. O controller
+        //    ainda valida antes, mas o service tem sua própria garantia.
+        var generator = SelectGenerator(request);
 
         // 2) Busca o payload agregado — mesma pipeline dos endpoints read.
         //    Cada report type consome o DTO correspondente.
@@ -55,10 +53,32 @@ public class ReportService : IReportService
             _ => throw new BadRequestException($"Tipo de relatório não suportado: {request.Type}"),
         };
 
-        // 3) Gera os bytes.
+        // 3) Gera + guarda de tamanho + filename.
+        return Finish(generator, payload, request);
+    }
+
+    public Task<GeneratedReport> GenerateFromPayloadAsync(
+        ReportRequest request, object payload, CancellationToken ct = default)
+    {
+        // Payload já vem pronto do chamador (Admin/OS: management/billing).
+        // Só selecionamos o gerador certo e reusamos a mesma finalização.
+        ct.ThrowIfCancellationRequested();
+        var generator = SelectGenerator(request);
+        return Task.FromResult(Finish(generator, payload, request));
+    }
+
+    /// <summary>Seleciona o gerador para (type, format) ou 400 se não houver.</summary>
+    private IReportGenerator SelectGenerator(ReportRequest request) =>
+        _generators.FirstOrDefault(g => g.Type == request.Type && g.Format == request.Format)
+            ?? throw new BadRequestException(
+                $"Não há relatório {request.Type} disponível no formato {request.Format}.");
+
+    /// <summary>Gera os bytes, aplica a guarda de tamanho e monta o filename.</summary>
+    private GeneratedReport Finish(IReportGenerator generator, object payload, ReportRequest request)
+    {
         var bytes = generator.Generate(payload, request);
 
-        // 4) Guarda de tamanho — evita transferir binário fora de controle.
+        // Guarda de tamanho — evita transferir binário fora de controle.
         if (bytes.Length > MaxOutputBytes)
         {
             throw new PayloadTooLargeException(

@@ -11,6 +11,7 @@ import { AdminFaturamento } from '../AdminFaturamento';
 vi.mock('../../../api/billingApi', () => ({
   billingApi: {
     getReport: vi.fn(),
+    downloadReport: vi.fn(),
   },
 }));
 
@@ -101,6 +102,7 @@ describe('<AdminFaturamento />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (billingApi.getReport as ReturnType<typeof vi.fn>).mockResolvedValue(mockReport);
+    (billingApi.downloadReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
   it('renderiza título e subtítulo', async () => {
@@ -196,25 +198,39 @@ describe('<AdminFaturamento />', () => {
     });
   });
 
-  it('mostra toast ao clicar em Exportar PDF', async () => {
+  it('baixa o PDF e mostra toast de sucesso ao clicar em Exportar PDF', async () => {
+    renderFat();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Dra. Jessica Lima'));
+    await user.click(screen.getByText('Exportar PDF'));
+    await waitFor(() => {
+      expect(billingApi.downloadReport).toHaveBeenCalledWith('pdf', expect.any(Number), expect.any(Number));
+      const toast = document.querySelector('.fat-toast') as HTMLElement;
+      expect(toast.textContent).toContain('PDF gerado com sucesso');
+    });
+  });
+
+  it('baixa o Excel e mostra toast de sucesso ao clicar em Exportar Excel', async () => {
+    renderFat();
+    const user = userEvent.setup();
+    await waitFor(() => screen.getByText('Dra. Jessica Lima'));
+    await user.click(screen.getByText('Exportar Excel'));
+    await waitFor(() => {
+      expect(billingApi.downloadReport).toHaveBeenCalledWith('xlsx', expect.any(Number), expect.any(Number));
+      const toast = document.querySelector('.fat-toast') as HTMLElement;
+      expect(toast.textContent).toContain('Excel gerado com sucesso');
+    });
+  });
+
+  it('mostra toast de falha se a exportação der erro', async () => {
+    (billingApi.downloadReport as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('boom'));
     renderFat();
     const user = userEvent.setup();
     await waitFor(() => screen.getByText('Dra. Jessica Lima'));
     await user.click(screen.getByText('Exportar PDF'));
     await waitFor(() => {
       const toast = document.querySelector('.fat-toast') as HTMLElement;
-      expect(toast.textContent).toContain('PDF gerado com sucesso');
-    });
-  });
-
-  it('mostra toast ao clicar em Exportar Excel', async () => {
-    renderFat();
-    const user = userEvent.setup();
-    await waitFor(() => screen.getByText('Dra. Jessica Lima'));
-    await user.click(screen.getByText('Exportar Excel'));
-    await waitFor(() => {
-      const toast = document.querySelector('.fat-toast') as HTMLElement;
-      expect(toast.textContent).toContain('Excel gerado com sucesso');
+      expect(toast.textContent).toContain('Falha ao gerar PDF');
     });
   });
 

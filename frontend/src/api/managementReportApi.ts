@@ -105,6 +105,35 @@ export const managementReportApi = {
     const { data } = await axiosInstance.get<ManagementReportResponse>('/management-report', { params });
     return data;
   },
+
+  /**
+   * Baixa o relatório gerencial em PDF. Usa responseType=blob porque um
+   * <a href> direto não carrega o Bearer token. Preserva o filename do
+   * Content-Disposition e dispara o download via <a download>.
+   */
+  downloadReport: async (year?: number, month?: number): Promise<void> => {
+    const params: Record<string, number | string> = { format: 'pdf' };
+    if (year != null) params.year = year;
+    if (month != null) params.month = month;
+
+    const response = await axiosInstance.get<Blob>('/management-report/export', {
+      params,
+      responseType: 'blob',
+    });
+
+    const disposition = response.headers['content-disposition'] ?? '';
+    const filename =
+      /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? 'relatorio-gerencial.pdf';
+
+    const url = URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
 };
 
 export default managementReportApi;

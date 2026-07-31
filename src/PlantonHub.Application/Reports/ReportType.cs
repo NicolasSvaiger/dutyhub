@@ -13,4 +13,10 @@ public enum ReportType
     Atrasos = 3,
     Ausencias = 4,
     History = 5,
+
+    // Relatórios do Admin/OS (payload vem de IManagementReportService /
+    // IBillingService, não do PrefeituraService — ver ReportService.
+    // GenerateFromPayloadAsync). Gerencial só tem PDF; Faturamento PDF+Excel.
+    ManagementReport = 6,
+    Billing = 7,
 }
