@@ -172,6 +172,11 @@ builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Exce
 builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.AtrasosExcelGenerator>();
 builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.AusenciasExcelGenerator>();
 builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.HistoryExcelGenerator>();
+// Admin/OS → Gerencial (PDF) e Faturamento (PDF + Excel). Payload vem de
+// IManagementReportService/IBillingService via ReportService.GenerateFromPayloadAsync.
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.ManagementReportPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.BillingPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.BillingExcelGenerator>();
 builder.Services.AddScoped<IReportService, ReportService>();
 
 builder.Services.AddScoped<IAuditService, AuditService>();

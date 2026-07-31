@@ -71,6 +71,7 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
   const [data, setData] = useState<ManagementReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+  const [exporting, setExporting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Últimos 5 meses relativos ao mês corrente do sistema
@@ -108,6 +109,20 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
     setTimeout(() => setToast(''), 3000);
   }
 
+  async function exportarPdf() {
+    if (exporting) return;
+    setExporting(true);
+    showToast('Gerando PDF…');
+    try {
+      await managementReportApi.downloadReport(year, month);
+      showToast('Relatório PDF gerado com sucesso!');
+    } catch {
+      showToast('Falha ao gerar o PDF. Tente novamente.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const topbarDate = formatLongDateBR(now);
 
   return (
@@ -125,7 +140,7 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
           </div>
         </div>
         <div className="ger-topbar-right">
-          <button className="ger-btn-export ger-btn-pdf" onClick={() => showToast('Relatório PDF gerado com sucesso!')} aria-label="Exportar PDF">
+          <button className="ger-btn-export ger-btn-pdf" onClick={() => exportarPdf()} disabled={exporting} aria-label="Exportar PDF">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
             <span className="ger-btn-label">Exportar PDF</span>
           </button>

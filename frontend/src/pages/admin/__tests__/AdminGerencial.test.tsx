@@ -11,6 +11,7 @@ import { AdminGerencial } from '../AdminGerencial';
 vi.mock('../../../api/managementReportApi', () => ({
   managementReportApi: {
     getReport: vi.fn(),
+    downloadReport: vi.fn(),
   },
 }));
 
@@ -118,6 +119,7 @@ describe('<AdminGerencial />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (managementReportApi.getReport as ReturnType<typeof vi.fn>).mockResolvedValue(mockReport);
+    (managementReportApi.downloadReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
   it('exibe título e subtítulo', async () => {
@@ -232,14 +234,17 @@ describe('<AdminGerencial />', () => {
     });
   });
 
-  it('mostra toast ao clicar em Exportar PDF', async () => {
+  it('baixa o PDF e mostra toast de sucesso ao clicar em Exportar PDF', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForReport();
 
     const btn = screen.getByRole('button', { name: /Exportar PDF/i });
     await user.click(btn);
-    expect(screen.getByText(/Relatório PDF gerado/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(managementReportApi.downloadReport).toHaveBeenCalledWith(expect.any(Number), expect.any(Number));
+      expect(screen.getByText(/Relatório PDF gerado/i)).toBeInTheDocument();
+    });
   });
 
   it('mostra toast ao clicar em Apresentação', async () => {

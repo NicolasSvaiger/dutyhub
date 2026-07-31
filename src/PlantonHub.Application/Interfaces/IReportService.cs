@@ -19,6 +19,16 @@ public interface IReportService
     long MaxOutputBytes { get; }
 
     Task<GeneratedReport> GenerateAsync(ReportRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Gera um relatório a partir de um payload já-agregado pelo chamador —
+    /// usado pelos relatórios do Admin/OS (Gerencial, Faturamento), cujo
+    /// payload vem de <c>IManagementReportService</c>/<c>IBillingService</c>
+    /// e não do <c>PrefeituraService</c>. Reusa a mesma seleção de gerador
+    /// (type × format), a guarda de tamanho e a montagem do filename.
+    /// </summary>
+    Task<GeneratedReport> GenerateFromPayloadAsync(
+        ReportRequest request, object payload, CancellationToken ct = default);
 }
 
 /// <summary>Resultado bruto pronto para <c>File(bytes, contentType, filename)</c>.</summary>

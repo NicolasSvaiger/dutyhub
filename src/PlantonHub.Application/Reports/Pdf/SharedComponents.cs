@@ -16,6 +16,30 @@ internal static class SharedComponents
     public const string BorderColor = "#E0EFEE";
 
     /// <summary>
+    /// Formata valor monetário no padrão pt-BR ("R$ 1.234,56") de forma
+    /// determinística — sem depender da cultura instalada no host (containers
+    /// podem rodar em modo globalization-invariant). Constrói via invariant e
+    /// troca os separadores.
+    /// </summary>
+    public static string MoneyBRL(decimal value)
+    {
+        var s = value.ToString("#,0.00", System.Globalization.CultureInfo.InvariantCulture); // "1,234.56"
+        s = s.Replace(",", "\u00A7").Replace(".", ",").Replace("\u00A7", ".");
+        return "R$ " + s;
+    }
+
+    /// <summary>Percentual pt-BR com 1 casa ("90,5%").</summary>
+    public static string Percent(double value)
+        => value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',') + "%";
+
+    /// <summary>Percentual pt-BR com 1 casa a partir de decimal.</summary>
+    public static string Percent(decimal value) => Percent((double)value);
+
+    /// <summary>Número decimal pt-BR com 1 casa ("12,5").</summary>
+    public static string Decimal1(decimal value)
+        => value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
+
+    /// <summary>
     /// Cabeçalho padrão: nome do relatório + data de geração + logo textual "24p7".
     /// </summary>
     public static void ComposeHeader(IContainer container, string title, DateTime generatedAt)
