@@ -5,19 +5,20 @@ namespace PlantonHub.IntegrationTests.Helpers;
 
 /// <summary>
 /// Helper para autenticar nos testes de integração via Cognito real.
-/// Usa AdminInitiateAuth (USER_PASSWORD_AUTH) — mesmo fluxo que o frontend
-/// faz via SDK, mas server-side pra não depender do browser.
+/// Usa InitiateAuth (USER_PASSWORD_AUTH) — mesmo fluxo de senha que o
+/// frontend faz via SDK, server-side pra não depender do browser.
+///
+/// Importante: o SPA client (dutyhub-spa) habilita ALLOW_USER_PASSWORD_AUTH
+/// e não tem secret, então InitiateAuth (não-admin) basta. AdminInitiateAuth
+/// exigiria ADMIN_USER_PASSWORD_AUTH, que só o backend client tem (e esse
+/// tem secret) — por isso o fluxo admin dava "Auth flow not enabled".
 ///
 /// Requer:
-///   - AWS credentials configuradas (via env/profile — CI usa IAM role)
-///   - Variáveis de ambiente: COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID
+///   - Variável de ambiente COGNITO_CLIENT_ID (SPA client, sem secret)
 ///   - Usuário já criado no User Pool (medico@plantonhub.com / Teste@123)
 /// </summary>
 public static class CognitoTestAuth
 {
-    private static readonly string UserPoolId =
-        Environment.GetEnvironmentVariable("COGNITO_USER_POOL_ID") ?? "us-east-1_0PARyV1xj";
-
     private static readonly string ClientId =
         Environment.GetEnvironmentVariable("COGNITO_CLIENT_ID") ?? "3g1hnk76ksd3cbt8aqlio0bb87";
 
@@ -32,11 +33,10 @@ public static class CognitoTestAuth
         using var client = new AmazonCognitoIdentityProviderClient(
             Amazon.RegionEndpoint.GetBySystemName(Region));
 
-        var request = new AdminInitiateAuthRequest
+        var request = new InitiateAuthRequest
         {
-            UserPoolId = UserPoolId,
             ClientId = ClientId,
-            AuthFlow = AuthFlowType.ADMIN_USER_PASSWORD_AUTH,
+            AuthFlow = AuthFlowType.USER_PASSWORD_AUTH,
             AuthParameters = new Dictionary<string, string>
             {
                 { "USERNAME", email },
@@ -44,7 +44,7 @@ public static class CognitoTestAuth
             },
         };
 
-        var response = await client.AdminInitiateAuthAsync(request);
+        var response = await client.InitiateAuthAsync(request);
 
         if (response.ChallengeName == ChallengeNameType.NEW_PASSWORD_REQUIRED)
         {
