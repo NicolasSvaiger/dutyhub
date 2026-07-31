@@ -352,9 +352,15 @@ public class InvalidDataRejectionPropertyTests
             });
     }
 
-    [Property(MaxTest = 100, Skip = "Password é opcional — auth via Cognito, sem validação local (Sprint 7E)")]
-    public Property ShortPassword_IsRejected_WithValidationError()
+    [Property(MaxTest = 100)]
+    public Property ShortPassword_IsAccepted_PasswordNotValidatedLocally()
     {
+        // Auth é via Cognito (Sprint 7E): o Password do CreateUserRequest é
+        // obsoleto/ignorado e NÃO é validado localmente (ver
+        // CreateUserRequestValidator — só há regra de Name e Email). Logo,
+        // uma senha curta não pode gerar erro de validação. Este teste trava
+        // essa decisão: se alguém readicionar uma RuleFor(x => x.Password),
+        // ele quebra e força uma escolha consciente.
         var shortPasswordGen = Gen.Elements("1234567", "abc", "short", "1", "12", "pass", "Ab1");
         var validNameGen = Gen.Elements("John", "Maria", "Carlos", "Ana");
         var validEmailGen = Gen.Elements(
@@ -375,14 +381,18 @@ public class InvalidDataRejectionPropertyTests
 
                 var result = _createUserValidator.Validate(request);
 
-                return (!result.IsValid &&
-                        result.Errors.Any(e => e.PropertyName == "Password")).ToProperty();
+                // Nome + email válidos e senha não validada → request válido,
+                // sem nenhum erro atribuído a "Password".
+                return (result.IsValid &&
+                        !result.Errors.Any(e => e.PropertyName == "Password")).ToProperty();
             });
     }
 
-    [Property(MaxTest = 100, Skip = "Password é opcional — auth via Cognito, sem validação local (Sprint 7E)")]
-    public Property EmptyPassword_IsRejected_WithValidationError()
+    [Property(MaxTest = 100)]
+    public Property EmptyPassword_IsAccepted_PasswordNotValidatedLocally()
     {
+        // Mesmo racional do teste de senha curta: senha vazia é aceita
+        // porque o Password não é validado localmente (auth via Cognito).
         var validNameGen = Gen.Elements("John", "Maria", "Carlos", "Ana");
         var validEmailGen = Gen.Elements(
             "user@example.com", "test@test.org", "admin@clinic.net");
@@ -401,8 +411,8 @@ public class InvalidDataRejectionPropertyTests
 
                 var result = _createUserValidator.Validate(request);
 
-                return (!result.IsValid &&
-                        result.Errors.Any(e => e.PropertyName == "Password")).ToProperty();
+                return (result.IsValid &&
+                        !result.Errors.Any(e => e.PropertyName == "Password")).ToProperty();
             });
     }
 
