@@ -16,6 +16,15 @@ public class UserResponse
     public string Email { get; set; } = string.Empty;
     public string? ProfessionalType { get; set; }
     public bool IsActive { get; set; }
+
+    /// <summary>
+    /// <c>true</c> quando o usuário foi convidado mas ainda não completou
+    /// o primeiro login (status <c>FORCE_CHANGE_PASSWORD</c> no Cognito).
+    /// Populado apenas nos endpoints de listagem (não no perfil /me).
+    /// O frontend renderiza como "Pendente" e habilita "Reenviar convite".
+    /// </summary>
+    public bool InvitePending { get; set; }
+
     public string? Cpf { get; set; }
     public string? Phone { get; set; }
     public string? RegistrationNumber { get; set; }

@@ -64,7 +64,11 @@ const mockContractRenewal = {
   publicOrganState: null,
   monthlyValue: 160000,
   startDate: '2023-07-01T00:00:00Z',
-  endDate: '2026-07-30T00:00:00Z',
+  // Futuro distante para o contrato NAO expirar com a passagem do tempo real
+  // (antes era 2026-07-30, uma data quase-futura que "apodreceu" e passou a
+  // marcar o contrato como Vencido, quebrando os testes de badge Renovação e
+  // do KPI "UPAs cobertas"). Mesmo padrao do mockContractActive (2099).
+  endDate: '2099-07-30T00:00:00Z',
   minSlaPercent: 85,
   status: 'Renewal',
   statusLabel: 'Renovação',

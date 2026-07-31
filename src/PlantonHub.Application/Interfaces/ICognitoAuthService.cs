@@ -63,6 +63,46 @@ public interface ICognitoAuthService
     /// mesmo, o Cognito só confirma sem efeito colateral.
     /// </summary>
     Task UpdateEmailAsync(string oldEmail, string newEmail);
+
+    /// <summary>
+    /// Indica se o convite de um usuário ainda está <b>pendente</b> — ou
+    /// seja, o usuário foi criado via <see cref="CreateInvitedUserAsync"/>
+    /// mas nunca completou o primeiro login (troca de senha do challenge
+    /// <c>NEW_PASSWORD_REQUIRED</c>). No Cognito isso corresponde ao
+    /// <c>UserStatus == FORCE_CHANGE_PASSWORD</c>. Quando o convidado faz
+    /// o primeiro acesso e define a senha, o status vira <c>CONFIRMED</c>
+    /// e este método passa a retornar <c>false</c>.
+    ///
+    /// Retorna <c>false</c> se o usuário não existe no Cognito (não há
+    /// convite pra estar pendente) — evita quebrar telas com usuários
+    /// legados/seed que só existem no Postgres.
+    /// </summary>
+    Task<bool> IsInvitePendingAsync(string email);
+
+    /// <summary>
+    /// Versão em lote de <see cref="IsInvitePendingAsync"/> para telas de
+    /// listagem — evita N chamadas <c>AdminGetUser</c>. Pagina
+    /// <c>ListUsers</c> do pool uma vez e devolve um mapa
+    /// <c>email (lowercase) → convite pendente?</c> restrito aos
+    /// <paramref name="emails"/> informados. Emails ausentes do pool não
+    /// aparecem no mapa (o chamador trata como não-pendente).
+    /// </summary>
+    Task<IReadOnlyDictionary<string, bool>> GetInvitePendingMapAsync(IEnumerable<string> emails);
+
+    /// <summary>
+    /// Reenvia o email de convite (welcome + nova senha temporária) para um
+    /// usuário que <b>ainda não aceitou</b> — via <c>AdminCreateUser</c> com
+    /// <c>MessageAction=RESEND</c>, que reseta a expiração da senha temp.
+    ///
+    /// Só é válido enquanto o usuário está em <c>FORCE_CHANGE_PASSWORD</c>.
+    /// Se o usuário já aceitou (status <c>CONFIRMED</c>), o Cognito lança
+    /// <c>UnsupportedUserStateException</c> — este método traduz para
+    /// <see cref="Exceptions.ConflictException"/>. Se o usuário não existe,
+    /// traduz para <see cref="Exceptions.NotFoundException"/>. O guard de
+    /// negócio ("só pendentes") fica na camada de serviço, mas este método
+    /// é defensivo por conta própria.
+    /// </summary>
+    Task ResendInviteAsync(string email);
 }
 
 public record CognitoAuthResult(

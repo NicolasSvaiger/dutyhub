@@ -73,4 +73,11 @@ public interface IGestorService
     /// acesso a qualquer portal). Deleção de conta é fluxo separado.
     /// </summary>
     Task RemoveAsync(Guid userId);
+
+    /// <summary>
+    /// Reenvia o email de convite a um gestor cujo convite ainda está
+    /// pendente (nunca completou o primeiro login). Somente AdminGlobal.
+    /// Lança <c>ConflictException</c> se o gestor já aceitou.
+    /// </summary>
+    Task ResendInviteAsync(Guid userId);
 }

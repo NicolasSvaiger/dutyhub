@@ -41,10 +41,10 @@ public class UserService : IUserService
         {
             // AdminGlobal: all admin users (AdminGlobal + AdminClinica)
             var users = await _userRepository.GetAllAsync();
-            return users
+            var filtered = users
                 .Where(u => (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r =>
-                    r.Role == RoleType.AdminGlobal || r.Role == RoleType.AdminClinica))
-                .Select(MapToResponse);
+                    r.Role == RoleType.AdminGlobal || r.Role == RoleType.AdminClinica));
+            return await MapWithInviteStatusAsync(filtered);
         }
         else
         {
@@ -53,11 +53,11 @@ public class UserService : IUserService
             if (authorizedClinicIds.Count == 0) return Enumerable.Empty<UserResponse>();
 
             var users = await _userRepository.GetAllAsync();
-            return users
+            var filtered = users
                 .Where(u => (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r =>
                     (r.Role == RoleType.AdminClinica) &&
-                    authorizedClinicIds.Contains(r.ClinicId)))
-                .Select(MapToResponse);
+                    authorizedClinicIds.Contains(r.ClinicId)));
+            return await MapWithInviteStatusAsync(filtered);
         }
     }
 
@@ -79,18 +79,18 @@ public class UserService : IUserService
         if (isAdminGlobal)
         {
             var users = await _userRepository.GetAllAsync();
-            return users.Select(MapToResponse);
+            return await MapWithInviteStatusAsync(users);
         }
         else
         {
             // Return only professionals — exclude AdminGlobal and AdminClinica of other orgs
             var users = await _userRepository.GetAllAsync();
-            return users
+            var filtered = users
                 .Where(u => u.ProfessionalType == Domain.Enums.ProfessionalType.Medico ||
                             u.ProfessionalType == Domain.Enums.ProfessionalType.Enfermeiro ||
                             (u.UserClinicRoles ?? new List<UserClinicRole>()).Any(r =>
-                                r.Role == RoleType.Medico || r.Role == RoleType.Enfermeiro))
-                .Select(MapToResponse);
+                                r.Role == RoleType.Medico || r.Role == RoleType.Enfermeiro));
+            return await MapWithInviteStatusAsync(filtered);
         }
     }
 
@@ -353,6 +353,81 @@ public class UserService : IUserService
         await _cacheService.RemoveByPrefixAsync("users:");
 
         return MapToResponse(user);
+    }
+
+    /// <summary>
+    /// Reenvia o email de convite para um usuário que ainda não aceitou
+    /// (nunca completou o primeiro login). Guard de negócio: só reenvia
+    /// pra convites pendentes — se o usuário já ativou a conta, retorna
+    /// 409. Mesma autorização de criação/edição: AdminGlobal irrestrito,
+    /// AdminClinica só pra usuários das suas clínicas.
+    /// </summary>
+    public async Task ResendInviteAsync(Guid userId)
+    {
+        var roles = _tenantService.GetCurrentRoles();
+        var isAdminGlobal = _tenantService.IsAdminGlobal();
+        var isAdminClinica = roles.Contains(RoleType.AdminClinica.ToString(), StringComparer.OrdinalIgnoreCase);
+
+        if (!isAdminGlobal && !isAdminClinica)
+        {
+            throw new ForbiddenException("Only AdminGlobal or AdminClinica can resend invites.");
+        }
+
+        if (!isAdminGlobal && !await _tenantService.CanOperateOnUserAsync(userId))
+        {
+            throw new ForbiddenException("AdminClinica can only resend invites for users of their authorized clinics.");
+        }
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user is null)
+        {
+            throw new NotFoundException($"User with id '{userId}' not found.");
+        }
+
+        // Só reenvia se o convite ainda está pendente. Se já aceitou,
+        // ConflictException → 409 (o Cognito também recusaria via
+        // UnsupportedUserStateException, mas checamos antes pra dar uma
+        // mensagem clara sem depender do erro do provedor).
+        if (!await _cognitoAuthService.IsInvitePendingAsync(user.Email))
+        {
+            throw new ConflictException("O usuário já aceitou o convite; não é possível reenviar.");
+        }
+
+        await _cognitoAuthService.ResendInviteAsync(user.Email);
+    }
+
+    /// <summary>
+    /// Mapeia os usuários e popula <see cref="UserResponse.InvitePending"/>
+    /// em lote a partir do Cognito (uma passada de <c>ListUsers</c> em vez
+    /// de N <c>AdminGetUser</c>). Degrada gracefully: se o Cognito estiver
+    /// indisponível, a listagem ainda volta — só sem o selo de pendente,
+    /// melhor que quebrar a tela do admin.
+    /// </summary>
+    private async Task<List<UserResponse>> MapWithInviteStatusAsync(IEnumerable<User> users)
+    {
+        var list = users.Select(MapToResponse).ToList();
+        if (list.Count == 0) return list;
+
+        try
+        {
+            var map = await _cognitoAuthService.GetInvitePendingMapAsync(list.Select(u => u.Email));
+            if (map is not null)
+            {
+                foreach (var u in list)
+                {
+                    if (map.TryGetValue(u.Email.Trim().ToLowerInvariant(), out var pending))
+                    {
+                        u.InvitePending = pending;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // best-effort — não bloqueia a listagem por falha no Cognito
+        }
+
+        return list;
     }
 
     private static UserResponse MapToResponse(User user)

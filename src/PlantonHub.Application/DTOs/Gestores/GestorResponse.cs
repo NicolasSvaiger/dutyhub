@@ -21,6 +21,14 @@ public class GestorResponse
     public string PublicOrganName { get; set; } = string.Empty;
     public string? PublicOrganAcronym { get; set; }
     public bool IsActive { get; set; }
+
+    /// <summary>
+    /// <c>true</c> quando o gestor foi convidado mas ainda não completou o
+    /// primeiro login (status <c>FORCE_CHANGE_PASSWORD</c> no Cognito).
+    /// Populado nas listagens/detalhe. Habilita "Reenviar convite".
+    /// </summary>
+    public bool InvitePending { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime AssignedAt { get; set; }
 }

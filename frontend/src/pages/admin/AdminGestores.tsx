@@ -66,6 +66,7 @@ interface GestorView {
   contractNumber: string;
   clinics: string[];
   isActive: boolean;
+  status: 'Ativo' | 'Inativo' | 'Pendente';
 }
 
 interface Props { onBack: () => void; dark: boolean; onToggleTheme: () => void; onOpenSidebar?: () => void; }
@@ -158,6 +159,9 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
       contractNumber: contract?.contractNumber ?? '—',
       clinics: (contract?.clinics ?? []).map(c => c.name),
       isActive: g.isActive,
+      // Inativo tem precedência; senão, convite pendente (nunca logou) →
+      // Pendente; caso contrário Ativo.
+      status: (g.isActive === false ? 'Inativo' : g.invitePending ? 'Pendente' : 'Ativo') as GestorView['status'],
     };
   }), [gestoresData, contracts]);
 
@@ -167,8 +171,9 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
     if (search && !g.name.toLowerCase().includes(search.toLowerCase()) &&
         !g.email.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterOrgao && g.orgao !== filterOrgao) return false;
-    if (filterStatus === 'ativo' && !g.isActive) return false;
-    if (filterStatus === 'inativo' && g.isActive) return false;
+    if (filterStatus === 'ativo' && g.status !== 'Ativo') return false;
+    if (filterStatus === 'inativo' && g.status !== 'Inativo') return false;
+    if (filterStatus === 'pendente' && g.status !== 'Pendente') return false;
     return true;
   }), [gestores, search, filterOrgao, filterStatus]);
 
@@ -251,6 +256,22 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
     }
   }
 
+  async function reenviarConvite(gestor: GestorView) {
+    if (!isAdminGlobal) return;
+    try {
+      await gestoresApi.resendInvite(gestor.id);
+      showToast(`Convite reenviado para ${gestor.email}.`);
+    } catch (err: unknown) {
+      // 409 = gestor já aceitou o convite (não é mais pendente).
+      const raw = err instanceof Error ? err.message : '';
+      if (raw.includes('409') || raw.toLowerCase().includes('conflict')) {
+        showToast('O gestor já aceitou o convite.', true);
+      } else {
+        showToast('Falha ao reenviar convite.', true);
+      }
+    }
+  }
+
   const ThemeIcon = dark
     ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
     : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
@@ -319,6 +340,7 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
             options={[
               { value: '', label: 'Todos os status' },
               { value: 'ativo', label: 'Ativo' },
+              { value: 'pendente', label: 'Convite pendente' },
               { value: 'inativo', label: 'Inativo' },
             ]}
           />
@@ -371,8 +393,8 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
                       <span className="gest-access-badge gest-access-full">Acesso completo</span>
                     </td>
                     <td className="center">
-                      <span className={`gest-badge ${g.isActive ? 'gest-badge-ativo' : 'gest-badge-inativo'}`}>
-                        {g.isActive ? 'Ativo' : 'Inativo'}
+                      <span className={`gest-badge ${g.status === 'Ativo' ? 'gest-badge-ativo' : g.status === 'Pendente' ? 'gest-badge-pendente' : 'gest-badge-inativo'}`}>
+                        {g.status}
                       </span>
                     </td>
                     <td className="center">
@@ -381,6 +403,12 @@ export function AdminGestores({ onBack: _onBack, dark, onToggleTheme, onOpenSide
                         <button className="gest-act-btn" title="Ver detalhes" onClick={() => showToast(`Detalhes de ${g.name} — em breve`)}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
+                        {/* Reenviar convite — só AdminGlobal e só se pendente (nunca logou). */}
+                        {isAdminGlobal && g.status === 'Pendente' && (
+                          <button className="gest-act-btn gest-act-warn" title="Reenviar convite" onClick={() => reenviarConvite(g)}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                          </button>
+                        )}
                         {/* Toggle status + revogar — só AdminGlobal (cadastro exclusivo 24p7).
                             Editar granular fica pra sprint futura — hoje só liga/desliga acesso. */}
                         {isAdminGlobal && (
@@ -532,6 +560,7 @@ const GESTORES_CSS = `
 #adm-root .gest-badge { display:inline-flex; font-size:.65rem; font-weight:800; padding:.25rem .7rem; border-radius:20px; white-space:nowrap; }
 #adm-root .gest-badge-ativo { background:var(--green-light); color:#16a34a; }
 #adm-root .gest-badge-inativo { background:var(--red-light); color:#dc2626; }
+#adm-root .gest-badge-pendente { background:var(--yellow-light); color:#b45309; }
 #adm-root .gest-access-badge { display:inline-flex; font-size:.65rem; font-weight:800; padding:.25rem .7rem; border-radius:20px; white-space:nowrap; }
 #adm-root .gest-access-full { background:var(--indigo-light); color:var(--indigo); }
 #adm-root .gest-access-read { background:var(--purple-light); color:var(--purple); }
@@ -543,6 +572,7 @@ const GESTORES_CSS = `
 #adm-root .gest-act-btn { width:30px; height:30px; border-radius:8px; border:1.5px solid var(--border); background:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--muted); transition:all .15s; }
 #adm-root .gest-act-btn:hover { border-color:var(--indigo); color:var(--indigo); background:var(--indigo-light); }
 #adm-root .gest-act-danger:hover { border-color:var(--red); color:var(--red); background:var(--red-light); }
+#adm-root .gest-act-warn:hover { border-color:var(--yellow); color:#b45309; background:var(--yellow-light); }
 #adm-root .gest-pagination { padding:.9rem 1.4rem; border-top:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
 #adm-root .gest-pag-info { font-size:.72rem; font-weight:600; color:var(--muted); }
 #adm-root .gest-toast { position:fixed; bottom:2rem; right:2rem; background:#1a1f36; color:#fff; border-radius:12px; padding:.9rem 1.4rem; font-size:.82rem; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,.2); transform:translateY(80px); opacity:0; transition:transform .3s ease,opacity .3s ease; z-index:200; }

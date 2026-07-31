@@ -122,4 +122,21 @@ public class AdminGestoresController : ControllerBase
         await _gestorService.RemoveAsync(id);
         return NoContent();
     }
+
+    /// <summary>
+    /// Reenvia o email de convite a um gestor cujo convite ainda está
+    /// pendente (nunca completou o primeiro login). Retorna 409 se o
+    /// gestor já aceitou. Somente AdminGlobal.
+    /// </summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpPost("{id:guid}/resend-invite")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResendInvite(Guid id)
+    {
+        await _gestorService.ResendInviteAsync(id);
+        return NoContent();
+    }
 }

@@ -56,7 +56,9 @@ public class GestorService : IGestorService
         if (publicOrganId.HasValue)
         {
             var roles = await _rolesRepository.GetByOrganIdAsync(publicOrganId.Value);
-            return roles.Select(MapToResponse).ToList();
+            var filtered = roles.Select(MapToResponse).ToList();
+            await PopulateInviteStatusAsync(filtered);
+            return filtered;
         }
 
         // Sem filtro: listar todos. Buscar os users com PublicOrgan
@@ -70,6 +72,7 @@ public class GestorService : IGestorService
             var roles = await _rolesRepository.GetByOrganIdAsync(organ.Id);
             all.AddRange(roles.Select(MapToResponse));
         }
+        await PopulateInviteStatusAsync(all);
         return all;
     }
 
@@ -79,7 +82,12 @@ public class GestorService : IGestorService
 
         var roles = await _rolesRepository.GetByUserIdAsync(userId);
         var role = roles.FirstOrDefault();
-        return role is null ? null : MapToResponse(role);
+        if (role is null) return null;
+
+        var response = MapToResponse(role);
+        try { response.InvitePending = await _cognitoAuthService.IsInvitePendingAsync(response.Email); }
+        catch { /* best-effort — não bloqueia o detalhe por falha no Cognito */ }
+        return response;
     }
 
     // ── Escrita (só AdminGlobal) ───────────────────────────────────────
@@ -169,6 +177,9 @@ public class GestorService : IGestorService
             PublicOrganName = organ.Name,
             PublicOrganAcronym = organ.Acronym,
             IsActive = user.IsActive,
+            // Acabou de ser criado via convite Cognito → sempre pendente
+            // (aguardando o primeiro login). Setado direto, sem round-trip.
+            InvitePending = true,
             CreatedAt = user.CreatedAt,
             AssignedAt = now,
         };
@@ -247,7 +258,68 @@ public class GestorService : IGestorService
         // User em si é preservado (LGPD — audit trail mantém referências).
     }
 
+    /// <summary>
+    /// Reenvia o email de convite a um gestor cujo convite ainda está
+    /// pendente (nunca completou o primeiro login). Só AdminGlobal, mesma
+    /// regra de escrita do cadastro. Lança <c>ConflictException</c> (409)
+    /// se o gestor já aceitou o convite.
+    /// </summary>
+    public async Task ResendInviteAsync(Guid userId)
+    {
+        EnsureCanWrite();
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user is null)
+        {
+            throw new NotFoundException($"Gestor com id '{userId}' não encontrado.");
+        }
+
+        // Confirma que o user é de fato um gestor — evita usar esse
+        // endpoint pra reenviar convite de médico/admin por engano.
+        var roles = (await _rolesRepository.GetByUserIdAsync(userId)).ToList();
+        if (roles.Count == 0)
+        {
+            throw new NotFoundException($"Gestor com id '{userId}' não encontrado.");
+        }
+
+        if (!await _cognitoAuthService.IsInvitePendingAsync(user.Email))
+        {
+            throw new ConflictException("O gestor já aceitou o convite; não é possível reenviar.");
+        }
+
+        await _cognitoAuthService.ResendInviteAsync(user.Email);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Popula <see cref="GestorResponse.InvitePending"/> em lote a partir
+    /// do Cognito (uma passada de <c>ListUsers</c>). Degrada gracefully se
+    /// o Cognito estiver indisponível — a listagem volta sem o selo.
+    /// </summary>
+    private async Task PopulateInviteStatusAsync(IReadOnlyList<GestorResponse> gestores)
+    {
+        if (gestores.Count == 0) return;
+
+        try
+        {
+            var map = await _cognitoAuthService.GetInvitePendingMapAsync(gestores.Select(g => g.Email));
+            if (map is not null)
+            {
+                foreach (var g in gestores)
+                {
+                    if (map.TryGetValue(g.Email.Trim().ToLowerInvariant(), out var pending))
+                    {
+                        g.InvitePending = pending;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // best-effort — não bloqueia a listagem por falha no Cognito
+        }
+    }
 
     private void EnsureCanRead()
     {

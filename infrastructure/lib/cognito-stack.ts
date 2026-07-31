@@ -150,11 +150,13 @@ export class CognitoStack extends cdk.Stack {
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL, cognito.OAuthScope.PROFILE],
         callbackUrls: [
           "https://app.laulab.com.br/callback",
+          "https://app.24p7.med.br/callback",
           "http://localhost:3000/callback",
           "http://localhost:5173/callback",
         ],
         logoutUrls: [
           "https://app.laulab.com.br/login",
+          "https://app.24p7.med.br/login",
           "http://localhost:3000/login",
           "http://localhost:5173/login",
         ],

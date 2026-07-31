@@ -57,6 +57,16 @@ interface ApiStackProps extends cdk.StackProps {
    */
   corsAllowedOrigins: string;
   /**
+   * Semicolon-separated hosts allowed by ASP.NET Core's host filtering
+   * (config key `AllowedHosts`). appsettings.Production.json restricts this
+   * to the laulab hosts, so any request with a different Host header (e.g.
+   * api.24p7.med.br) is rejected with HTTP 400 before reaching the app.
+   * Passing it here as an env var overrides that baseline so every active
+   * domain (laulab + 24p7) is accepted. Env var name is the bare
+   * `AllowedHosts` (top-level config key, no `__` nesting).
+   */
+  allowedHosts: string;
+  /**
    * ARN of the plaintext (non-JSON) secret shared between this backend and
    * CognitoStack's CreateAuthChallenge Lambda — see the long comment atop
    * CognitoAuthService.cs. Read via `Cognito:CustomAuthSecret`
@@ -126,6 +136,10 @@ export class ApiStack extends cdk.Stack {
           "cognito-idp:AdminSetUserPassword",
           "cognito-idp:AdminDeleteUser",
           "cognito-idp:AdminUpdateUserAttributes",
+          // ListUsers: usado pelo GetInvitePendingMapAsync pra resolver o
+          // status "convite pendente" (FORCE_CHANGE_PASSWORD) em lote nas
+          // listagens do Admin OS, sem N chamadas AdminGetUser.
+          "cognito-idp:ListUsers",
         ],
         resources: [
           `arn:aws:cognito-idp:${this.region}:${this.account}:userpool/*`,
@@ -344,6 +358,7 @@ export class ApiStack extends cdk.Stack {
               { name: "ConnectionStrings__DefaultConnection", value: dbConnectionString },
               { name: "ConnectionStrings__Redis", value: props.redisConnectionString },
               { name: "Cors__AllowedOrigins", value: props.corsAllowedOrigins },
+              { name: "AllowedHosts", value: props.allowedHosts },
             ],
           },
         },

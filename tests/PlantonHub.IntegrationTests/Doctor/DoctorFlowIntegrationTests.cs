@@ -131,7 +131,7 @@ public class DoctorFlowIntegrationTests : IAsyncLifetime
     // ─────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Login_ForMultiClinicMedico_ReturnsTokenWithNameEmailAndClinicIds()
+    public void Login_ForMultiClinicMedico_ReturnsTokenWithNameEmailAndClinicIds()
     {
         // Authenticate via real Cognito and verify the token contains expected claims
         var token = _medicoToken;

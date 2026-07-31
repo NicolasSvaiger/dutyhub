@@ -34,6 +34,14 @@ export const usersApi = {
     const { data } = await axiosInstance.patch<User>(`/users/${userId}/toggle-status`);
     return data;
   },
+
+  /**
+   * Reenvia o email de convite a um usuário com convite pendente (nunca
+   * completou o 1º login). Backend retorna 409 se o usuário já aceitou.
+   */
+  resendInvite: async (userId: string): Promise<void> => {
+    await axiosInstance.post(`/users/${userId}/resend-invite`);
+  },
 };
 
 export default usersApi;

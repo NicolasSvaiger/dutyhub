@@ -4,6 +4,7 @@ using Amazon.CognitoIdentityProvider;
 using Amazon.CognitoIdentityProvider.Model;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using PlantonHub.Application.Exceptions;
 using PlantonHub.Application.Interfaces;
 
 namespace PlantonHub.Infrastructure.Services;
@@ -266,6 +267,121 @@ public class CognitoAuthService : ICognitoAuthService
             // Usuário não existe no Cognito (ex.: seed local sem migração).
             // Não bloqueia a atualização no Postgres — loga e segue.
             _logger.LogWarning("Cognito user not found for email update: {OldEmail}", oldEmail);
+        }
+    }
+
+    public async Task<bool> IsInvitePendingAsync(string email)
+    {
+        using var client = new AmazonCognitoIdentityProviderClient(
+            Amazon.RegionEndpoint.GetBySystemName(_region));
+
+        try
+        {
+            var response = await client.AdminGetUserAsync(new AdminGetUserRequest
+            {
+                UserPoolId = _userPoolId,
+                Username = email,
+            });
+
+            // FORCE_CHANGE_PASSWORD = criado com senha temp e nunca
+            // completou o 1º login (troca de senha). É o sinal exato de
+            // "convite não aceito".
+            return response.UserStatus == UserStatusType.FORCE_CHANGE_PASSWORD;
+        }
+        catch (UserNotFoundException)
+        {
+            // Sem usuário no Cognito não há convite pra estar pendente
+            // (ex.: seed local sem migração). Trata como não-pendente.
+            return false;
+        }
+    }
+
+    public async Task<IReadOnlyDictionary<string, bool>> GetInvitePendingMapAsync(IEnumerable<string> emails)
+    {
+        var wanted = emails
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Select(e => e.Trim().ToLowerInvariant())
+            .ToHashSet();
+
+        var map = new Dictionary<string, bool>();
+        if (wanted.Count == 0)
+        {
+            return map;
+        }
+
+        using var client = new AmazonCognitoIdentityProviderClient(
+            Amazon.RegionEndpoint.GetBySystemName(_region));
+
+        // Pagina o pool inteiro uma vez e cruza com os emails pedidos.
+        // Barato pra escala atual (dezenas/poucas centenas de usuários) e
+        // evita N chamadas AdminGetUser. Um teto de páginas protege contra
+        // um pool inesperadamente grande — no pior caso alguns usuários
+        // ficam de fora do mapa e são tratados como não-pendentes.
+        const int maxPages = 50; // 50 * 60 = 3000 usuários
+        string? paginationToken = null;
+        var pages = 0;
+
+        do
+        {
+            var response = await client.ListUsersAsync(new ListUsersRequest
+            {
+                UserPoolId = _userPoolId,
+                Limit = 60,
+                PaginationToken = paginationToken,
+                AttributesToGet = new List<string> { "email" },
+            });
+
+            foreach (var user in response.Users)
+            {
+                var emailAttr = user.Attributes
+                    .FirstOrDefault(a => a.Name == "email")?.Value
+                    ?.Trim().ToLowerInvariant();
+
+                if (emailAttr is null || !wanted.Contains(emailAttr))
+                {
+                    continue;
+                }
+
+                map[emailAttr] = user.UserStatus == UserStatusType.FORCE_CHANGE_PASSWORD;
+            }
+
+            paginationToken = response.PaginationToken;
+            pages++;
+        }
+        while (!string.IsNullOrEmpty(paginationToken) && pages < maxPages && map.Count < wanted.Count);
+
+        return map;
+    }
+
+    public async Task ResendInviteAsync(string email)
+    {
+        using var client = new AmazonCognitoIdentityProviderClient(
+            Amazon.RegionEndpoint.GetBySystemName(_region));
+
+        try
+        {
+            await client.AdminCreateUserAsync(new AdminCreateUserRequest
+            {
+                UserPoolId = _userPoolId,
+                Username = email,
+                // RESEND reenvia o convite e reseta a expiração da senha
+                // temporária. Só é válido enquanto o usuário está em
+                // FORCE_CHANGE_PASSWORD (ainda não aceitou).
+                MessageAction = MessageActionType.RESEND,
+                DesiredDeliveryMediums = new List<string> { "EMAIL" },
+            });
+
+            _logger.LogInformation("Resent Cognito invite: {Email}", email);
+        }
+        catch (UnsupportedUserStateException)
+        {
+            // Usuário já aceitou o convite (CONFIRMED) — reenvio não faz
+            // sentido. Traduz pra 409 na API.
+            throw new ConflictException("O usuário já aceitou o convite; não é possível reenviar.");
+        }
+        catch (UserNotFoundException)
+        {
+            throw new NotFoundException($"Usuário '{email}' não encontrado no provedor de identidade.");
         }
     }
 

@@ -17,6 +17,9 @@ export interface GestorResponse {
   publicOrganName: string;
   publicOrganAcronym?: string | null;
   isActive: boolean;
+  /** true quando o gestor foi convidado mas nunca completou o 1º login
+   * (FORCE_CHANGE_PASSWORD no Cognito). Renderiza "Pendente" + reenvio. */
+  invitePending?: boolean;
   createdAt: string;
   assignedAt: string;
 }
@@ -90,6 +93,14 @@ export const gestoresApi = {
    */
   remove: async (id: string): Promise<void> => {
     await axiosInstance.delete(`/admin/gestores/${id}`);
+  },
+
+  /**
+   * Reenvia o email de convite a um gestor com convite pendente (nunca
+   * completou o 1º login). Backend retorna 409 se já aceitou. AdminGlobal.
+   */
+  resendInvite: async (id: string): Promise<void> => {
+    await axiosInstance.post(`/admin/gestores/${id}/resend-invite`);
   },
 };
 

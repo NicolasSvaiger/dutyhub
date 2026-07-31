@@ -141,8 +141,10 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
         email: u.email || '',
         dept: perfil === 'Admin Master' ? '24p7' : 'Organização de Saúde',
         perfil,
-        status: u.isActive === false ? 'Inativo' : 'Ativo' as StatusBadge,
-        ultimo: formatLastAccess(u.createdAt),
+        // Pendente = convidado mas nunca completou o 1º login (Cognito
+        // FORCE_CHANGE_PASSWORD). Inativo tem precedência sobre pendente.
+        status: (u.isActive === false ? 'Inativo' : u.invitePending ? 'Pendente' : 'Ativo') as StatusBadge,
+        ultimo: formatLastAccess(u.invitePending ? null : u.createdAt),
         cor: CORES[i % CORES.length],
       };
     });
@@ -259,6 +261,17 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
       // mostra a mensagem específica em vez do genérico "Erro ao alterar status".
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       showToast(msg || 'Erro ao alterar status', true);
+    }
+  }
+
+  async function reenviarConvite(u: UsuarioOSView) {
+    try {
+      await usersApi.resendInvite(u.id);
+      showToast(`Convite reenviado para ${u.email}.`);
+    } catch (err: unknown) {
+      // 409 = usuário já aceitou o convite (não é mais pendente).
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Erro ao reenviar convite', true);
     }
   }
 
@@ -390,13 +403,18 @@ export function AdminUsuariosOS({ onBack: _onBack, dark, onToggleTheme, onOpenSi
                     <td><span className="uos-last-access">{u.ultimo}</span></td>
                     <td className="center">
                       <div className="uos-actions-cell">
+                        {u.status === 'Pendente' && (
+                          <button className="uos-act-btn warn" title="Reenviar convite" onClick={() => reenviarConvite(u)}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                          </button>
+                        )}
                         <button className="uos-act-btn" title="Editar" onClick={() => openEditDrawer(u)}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                         </button>
-                        <button className={`uos-act-btn ${u.status === 'Ativo' ? 'danger' : 'success'}`}
-                          title={u.status === 'Ativo' ? 'Suspender' : 'Reativar'}
+                        <button className={`uos-act-btn ${u.status !== 'Inativo' ? 'danger' : 'success'}`}
+                          title={u.status !== 'Inativo' ? 'Suspender' : 'Reativar'}
                           onClick={() => toggleStatus(u)}>
-                          {u.status === 'Ativo' ? (
+                          {u.status !== 'Inativo' ? (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
                           ) : (
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -582,6 +600,8 @@ const USUARIOS_CSS = `
 #adm-root .uos-act-btn.danger:hover { background:#ef4444; color:#fff; }
 #adm-root .uos-act-btn.success { background:#dcfce7; color:#22c55e; }
 #adm-root .uos-act-btn.success:hover { background:#22c55e; color:#fff; }
+#adm-root .uos-act-btn.warn { background:#fef3c7; color:#f59e0b; }
+#adm-root .uos-act-btn.warn:hover { background:#f59e0b; color:#fff; }
 
 #adm-root .uos-toast { position:fixed; bottom:2rem; right:2rem; background:var(--surface); border:1.5px solid #22c55e; border-radius:12px; padding:.85rem 1.2rem; font-size:.85rem; font-weight:700; color:var(--text); box-shadow:0 8px 24px rgba(0,0,0,.12); z-index:200; animation:uos-slideIn .3s ease; }
 #adm-root .uos-toast.error { border-color:#ef4444; color:#ef4444; }

@@ -142,4 +142,22 @@ public class UsersController : ControllerBase
         return user is null ? NotFound() : Ok(user);
     }
 
+    /// <summary>
+    /// Reenviar o email de convite a um usuário cujo convite ainda está
+    /// pendente (nunca completou o primeiro login). Retorna 409 se o
+    /// usuário já aceitou o convite. AdminClinica só pode reenviar para
+    /// usuários das suas clínicas autorizadas.
+    /// </summary>
+    [Authorize(Policy = "AdminClinica")]
+    [HttpPost("{id:guid}/resend-invite")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ResendInvite(Guid id)
+    {
+        await _userService.ResendInviteAsync(id);
+        return NoContent();
+    }
+
 }

@@ -38,6 +38,10 @@ export interface User {
   name: string;
   professionalType?: string | null;
   isActive: boolean;
+  /** true quando o usuário foi convidado mas nunca completou o primeiro
+   * login (status FORCE_CHANGE_PASSWORD no Cognito). Vem populado só nas
+   * listagens do admin — renderiza como "Pendente" e habilita reenvio. */
+  invitePending?: boolean;
   cpf?: string | null;
   phone?: string | null;
   registrationNumber?: string | null;
