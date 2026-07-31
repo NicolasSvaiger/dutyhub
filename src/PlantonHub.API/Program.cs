@@ -177,6 +177,10 @@ builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Exce
 builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.ManagementReportPdfGenerator>();
 builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.BillingPdfGenerator>();
 builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.BillingExcelGenerator>();
+// Apresentação do Gerencial (PDF slides) + Auditoria (PDF + Excel).
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.ManagementPresentationPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Pdf.AuditLogPdfGenerator>();
+builder.Services.AddScoped<IReportGenerator, PlantonHub.Application.Reports.Excel.AuditLogExcelGenerator>();
 builder.Services.AddScoped<IReportService, ReportService>();
 
 builder.Services.AddScoped<IAuditService, AuditService>();

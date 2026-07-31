@@ -12,6 +12,7 @@ vi.mock('../../../api/auditApi', () => ({
   auditApi: {
     getLogs: vi.fn(),
     getSummary: vi.fn(),
+    downloadReport: vi.fn(),
   },
 }));
 
@@ -155,6 +156,7 @@ describe('<AdminAuditoria />', () => {
     vi.clearAllMocks();
     (auditApi.getSummary as ReturnType<typeof vi.fn>).mockResolvedValue(mockSummary);
     (auditApi.getLogs as ReturnType<typeof vi.fn>).mockResolvedValue(mockPage);
+    (auditApi.downloadReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   });
 
   it('exibe título e subtítulo', async () => {
@@ -303,20 +305,26 @@ describe('<AdminAuditoria />', () => {
     });
   });
 
-  it('mostra toast ao clicar em Exportar Excel', async () => {
+  it('baixa os logs em Excel e mostra toast ao clicar em Exportar Excel', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForLoaded();
     await user.click(screen.getByRole('button', { name: /Exportar Excel/i }));
-    expect(screen.getByText(/exportados em Excel/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(auditApi.downloadReport).toHaveBeenCalledWith('xlsx', expect.any(Object));
+      expect(screen.getByText(/exportados em Excel/i)).toBeInTheDocument();
+    });
   });
 
-  it('mostra toast ao clicar em Exportar PDF', async () => {
+  it('baixa os logs em PDF e mostra toast ao clicar em Exportar PDF', async () => {
     const user = userEvent.setup();
     renderPage();
     await waitForLoaded();
     await user.click(screen.getByRole('button', { name: /Exportar PDF/i }));
-    expect(screen.getByText(/exportados em PDF/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(auditApi.downloadReport).toHaveBeenCalledWith('pdf', expect.any(Object));
+      expect(screen.getByText(/exportados em PDF/i)).toBeInTheDocument();
+    });
   });
 
   it('chama onToggleTheme ao clicar no botão de tema', async () => {

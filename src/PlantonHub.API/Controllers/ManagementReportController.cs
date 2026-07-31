@@ -68,4 +68,36 @@ public class ManagementReportController : ControllerBase
         var fileName = $"relatorio-gerencial-{report.Year:D4}-{report.Month:D2}{ext}";
         return File(generated.Bytes, generated.ContentType, fileName);
     }
+
+    /// <summary>
+    /// Exporta o relatório gerencial em modo apresentação (PDF paisagem, estilo
+    /// slides) para projetar em reunião. Mesmo payload/escopo do export normal.
+    /// </summary>
+    [Authorize(Policy = "AdminGlobal")]
+    [HttpGet("export/presentation")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ExportPresentation(
+        [FromQuery] int? year = null,
+        [FromQuery] int? month = null,
+        CancellationToken ct = default)
+    {
+        var report = await _service.GetReportAsync(year, month);
+
+        var periodStart = new DateTime(report.Year, report.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var request = new ReportRequest
+        {
+            Type = ReportType.ManagementPresentation,
+            Format = ReportFormat.Pdf,
+            From = periodStart,
+            To = periodStart.AddMonths(1).AddDays(-1),
+        };
+
+        var generated = await _reportService.GenerateFromPayloadAsync(request, report, ct);
+        var ext = Path.GetExtension(generated.FileName);
+        var fileName = $"apresentacao-gerencial-{report.Year:D4}-{report.Month:D2}{ext}";
+        return File(generated.Bytes, generated.ContentType, fileName);
+    }
 }

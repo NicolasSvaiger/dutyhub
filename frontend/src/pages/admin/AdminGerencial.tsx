@@ -123,6 +123,20 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
     }
   }
 
+  async function exportarApresentacao() {
+    if (exporting) return;
+    setExporting(true);
+    showToast('Gerando apresentação…');
+    try {
+      await managementReportApi.downloadPresentation(year, month);
+      showToast('Apresentação gerada com sucesso!');
+    } catch {
+      showToast('Falha ao gerar a apresentação. Tente novamente.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const topbarDate = formatLongDateBR(now);
 
   return (
@@ -144,7 +158,7 @@ export function AdminGerencial({ onBack: _onBack, dark, onToggleTheme, onOpenSid
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
             <span className="ger-btn-label">Exportar PDF</span>
           </button>
-          <button className="ger-btn-export ger-btn-ppt" onClick={() => showToast('Apresentação gerada com sucesso!')} aria-label="Apresentação">
+          <button className="ger-btn-export ger-btn-ppt" onClick={() => exportarApresentacao()} disabled={exporting} aria-label="Apresentação">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
             <span className="ger-btn-label">Apresentação</span>
           </button>
