@@ -10,6 +10,13 @@ public class User
     public string PasswordHash { get; set; } = string.Empty;
     public ProfessionalType? ProfessionalType { get; set; }
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Situação do cadastro. Auto-cadastro (mobile) nasce <c>Pendente</c> com
+    /// <c>IsActive=false</c>; a aprovação da OS torna <c>Ativo</c>/<c>IsActive=true</c>.
+    /// Convive com <see cref="IsActive"/> (Pendente já é barrado onde IsActive é usado).
+    /// </summary>
+    public UserStatus Status { get; set; } = UserStatus.Ativo;
     public string? Cpf { get; set; }
     public string? Phone { get; set; }
     public string? RegistrationNumber { get; set; } // CRM or COREN

@@ -17,6 +17,9 @@ public class UserResponse
     public string? ProfessionalType { get; set; }
     public bool IsActive { get; set; }
 
+    /// <summary>Situação do cadastro: "Pendente", "Ativo" ou "Inativo".</summary>
+    public string Status { get; set; } = "Ativo";
+
     /// <summary>
     /// <c>true</c> quando o usuário foi convidado mas ainda não completou
     /// o primeiro login (status <c>FORCE_CHANGE_PASSWORD</c> no Cognito).

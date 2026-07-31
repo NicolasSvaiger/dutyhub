@@ -437,10 +437,20 @@
   animation: tvPulseSmall 1.2s ease infinite;
 }
 
+/* Cluster à direita do header: botão de sair (hover) + relógio, sem sobrepor. */
+.tvHeaderRight {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .tvExit {
+  /* Fica à ESQUERDA do relógio (não mais por cima dele). Absoluto para não
+     reservar espaço quando escondido; revelado só no hover do painel. */
   position: absolute;
-  top: 1.2rem;
-  right: 2.4rem;
+  right: calc(100% + 1.2rem);
+  top: 50%;
+  transform: translateY(-50%);
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #f0fdfc;
@@ -450,6 +460,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
   z-index: 10;
   opacity: 0;
   transition: opacity 0.2s;

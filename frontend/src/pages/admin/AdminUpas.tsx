@@ -149,6 +149,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
   const [fAddress, setFAddress] = useState('');
   const [fNeighborhood, setFNeighborhood] = useState('');
   const [fCity, setFCity] = useState('');
+  const [fState, setFState] = useState('');
   const [fZip, setFZip] = useState('');
   const [fCapacity, setFCapacity] = useState('');
   const [fDoctorsPerShift, setFDoctorsPerShift] = useState('');
@@ -177,6 +178,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
     setFAddress(clinic.address || '');
     setFNeighborhood(clinic.neighborhood || '');
     setFCity(clinic.city || '');
+    setFState(clinic.state || '');
     setFZip(clinic.zipCode ? maskCep(clinic.zipCode) : '');
     setFCapacity(clinic.capacity?.toString() || '');
     setFDoctorsPerShift(clinic.doctorsPerShift?.toString() || '');
@@ -242,7 +244,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
 
   function resetForm() {
     setFName(''); setFPhone(''); setFAddress(''); setFNeighborhood('');
-    setFCity(''); setFZip(''); setFCapacity(''); setFDoctorsPerShift('');
+    setFCity(''); setFState(''); setFZip(''); setFCapacity(''); setFDoctorsPerShift('');
     setFRadius('150'); setFLat(''); setFLon(''); setFHasNursing(false); setFIsActive(true);
     setFContractId('');
     setFTurnos(DEFAULT_TURNOS); setFTurnosEnf(DEFAULT_TURNOS_ENF);
@@ -277,6 +279,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
     if (result.logradouro) setFAddress(result.logradouro);
     if (result.bairro) setFNeighborhood(result.bairro);
     if (result.localidade) setFCity(result.localidade);
+    if (result.uf) setFState(result.uf);
     showToast(`Endereço preenchido via CEP!`);
   }
 
@@ -305,6 +308,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
         city: fCity.trim() || null,
         neighborhood: fNeighborhood.trim() || null,
         zipCode: fZip.replace(/\D/g, '') || null,
+        state: fState.trim().toUpperCase() || null,
         capacity: fCapacity ? parseInt(fCapacity) : null,
         doctorsPerShift: fDoctorsPerShift ? parseInt(fDoctorsPerShift) : null,
         allowedRadiusMeters: fRadius ? parseFloat(fRadius) : null,
@@ -436,7 +440,7 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="upa-card-nome">{clinic.name}</div>
-                      <div className="upa-card-orgao">{[clinic.city, clinic.phone].filter(Boolean).join(' · ') || '—'}</div>
+                      <div className="upa-card-orgao">{[[clinic.city, clinic.state].filter(Boolean).join('/'), clinic.phone].filter(Boolean).join(' · ') || '—'}</div>
                     </div>
                     <span className={`upa-badge ${clinic.isActive ? 'upa-badge-ativo' : 'upa-badge-inativo'}`}>
                       {clinic.isActive ? 'Ativa' : 'Inativa'}
@@ -565,9 +569,10 @@ export function AdminUpas({ onBack: _onBack, dark, onToggleTheme, onOpenSidebar 
             <div className="upa-form-row full">
               <div className="upa-field"><label>Logradouro</label><input type="text" placeholder="Ex: Rua das Flores, 210" value={fAddress} onChange={e => setFAddress(e.target.value)} /></div>
             </div>
-            <div className="upa-form-row">
+            <div className="upa-form-row tri">
               <div className="upa-field"><label>Bairro</label><input type="text" placeholder="Bairro" value={fNeighborhood} onChange={e => setFNeighborhood(e.target.value)} /></div>
               <div className="upa-field"><label>Cidade</label><input type="text" placeholder="São Paulo" value={fCity} onChange={e => setFCity(e.target.value)} /></div>
+              <div className="upa-field"><label>UF</label><input type="text" placeholder="SP" value={fState} onChange={e => setFState(e.target.value.toUpperCase().slice(0, 2))} maxLength={2} /></div>
             </div>
           </div>
 

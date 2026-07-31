@@ -22,6 +22,7 @@ public class AuthControllerFaceLoginTests
     private readonly Mock<ICognitoAuthService> _cognitoAuth = new();
     private readonly Mock<IUserRepository> _userRepo = new();
     private readonly Mock<IAuditService> _auditService = new();
+    private readonly Mock<IRegistrationService> _registrationService = new();
 
     private AuthController CreateController(ClaimsPrincipal? user = null)
     {
@@ -33,7 +34,8 @@ public class AuthControllerFaceLoginTests
             _deviceRegistration.Object,
             _cognitoAuth.Object,
             _userRepo.Object,
-            _auditService.Object);
+            _auditService.Object,
+            _registrationService.Object);
 
         controller.ControllerContext = new ControllerContext
         {

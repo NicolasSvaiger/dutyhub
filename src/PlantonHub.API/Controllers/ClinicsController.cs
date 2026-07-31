@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using PlantonHub.Application.DTOs.Clinics;
 using PlantonHub.Application.Interfaces;
 namespace PlantonHub.API.Controllers;
@@ -104,6 +105,22 @@ public class ClinicsController : ControllerBase
             return BadRequest(new { message = "Longitude inválida (deve estar entre -180 e 180)." });
 
         var clinics = await _clinicService.GetNearestAsync(latitude, longitude, limit);
+        return Ok(clinics);
+    }
+
+    /// <summary>
+    /// Lista pública de UPAs ativas com coordenadas — usada pelo auto-cadastro
+    /// (mobile) para o matching por raio, feito no app. Anônimo, campos mínimos,
+    /// com rate limit por IP.
+    /// </summary>
+    [AllowAnonymous]
+    [EnableRateLimiting("PublicClinics")]
+    [HttpGet("public")]
+    [ProducesResponseType(typeof(IEnumerable<PublicClinicResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> GetPublic()
+    {
+        var clinics = await _clinicService.GetPublicAsync();
         return Ok(clinics);
     }
 }

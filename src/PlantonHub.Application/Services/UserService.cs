@@ -160,6 +160,7 @@ public class UserService : IUserService
             PasswordHash = "$2a$11$" + Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             ProfessionalType = request.ProfessionalType,
             IsActive = true,
+            Status = UserStatus.Ativo,
             Cpf = request.Cpf,
             Phone = request.Phone,
             RegistrationNumber = request.RegistrationNumber,
@@ -300,7 +301,9 @@ public class UserService : IUserService
             UserId = userId,
             ClinicId = request.ClinicId,
             Role = request.Role,
-            AssignedAt = DateTime.UtcNow
+            AssignedAt = DateTime.UtcNow,
+            Status = VinculoStatus.Aprovado,
+            Source = VinculoSource.Manual
         };
 
         await _userRepository.AddClinicRoleAsync(clinicRole);
@@ -439,6 +442,7 @@ public class UserService : IUserService
             Email = user.Email,
             ProfessionalType = user.ProfessionalType?.ToString(),
             IsActive = user.IsActive,
+            Status = user.Status.ToString(),
             Cpf = user.Cpf,
             Phone = user.Phone,
             RegistrationNumber = user.RegistrationNumber,

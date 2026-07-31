@@ -127,6 +127,8 @@ public class ClinicRepository : IClinicRepository
                 ClinicId = clinicId,
                 Role = role,
                 AssignedAt = DateTime.UtcNow,
+                Status = VinculoStatus.Aprovado,
+                Source = VinculoSource.Manual,
             });
             await _context.SaveChangesAsync();
         }

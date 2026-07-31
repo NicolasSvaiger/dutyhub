@@ -85,15 +85,6 @@ export function PrefeituraTvMode() {
 
   return (
     <div className={styles.tvRoot}>
-      <button
-        type="button"
-        className={styles.tvExit}
-        onClick={() => navigate('/prefeitura', { replace: true })}
-        aria-label={t('prefeitura.tv.exit')}
-      >
-        ✕ {t('prefeitura.tv.exit')}
-      </button>
-
       <header className={styles.tvHeader}>
         <div className={styles.tvBrand}>
           <div>
@@ -105,9 +96,19 @@ export function PrefeituraTvMode() {
           <div className={styles.tvHeaderTitle}>{t('prefeitura.tv.headerTitle')}</div>
           <div className={styles.tvHeaderSub}>{t('prefeitura.tv.headerSub')}</div>
         </div>
-        <div className={styles.tvClock}>
-          <div className={styles.tvTime}>{timeStr}</div>
-          <div className={styles.tvDate}>{dateStr}</div>
+        <div className={styles.tvHeaderRight}>
+          <button
+            type="button"
+            className={styles.tvExit}
+            onClick={() => navigate('/prefeitura', { replace: true })}
+            aria-label={t('prefeitura.tv.exit')}
+          >
+            ✕ {t('prefeitura.tv.exit')}
+          </button>
+          <div className={styles.tvClock}>
+            <div className={styles.tvTime}>{timeStr}</div>
+            <div className={styles.tvDate}>{dateStr}</div>
+          </div>
         </div>
       </header>
 

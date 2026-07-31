@@ -17,7 +17,7 @@ interface MedicoView {
   especialidade: string;
   upas: string[];
   biometria: 'Cadastrada' | 'Pendente';
-  status: 'Ativo' | 'Inativo' | 'Pendente';
+  status: 'Ativo' | 'Inativo' | 'Pendente' | 'AguardandoAprovacao';
   cor: string;
 }
 
@@ -150,9 +150,12 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
           especialidade: tipo === 'Enfermeiro' ? '—' : (u.specialty || '—'),
           upas,
           biometria: 'Pendente' as const,
-          // Inativo tem precedência; senão, convite pendente (nunca logou)
-          // → Pendente; caso contrário Ativo.
-          status: (u.isActive === false || inactiveUsers.has(u.id))
+          // Aguardando aprovação (auto-cadastro mobile) tem precedência;
+          // depois Inativo; depois convite pendente (nunca logou) → Pendente;
+          // caso contrário Ativo.
+          status: u.status === 'Pendente'
+            ? 'AguardandoAprovacao' as const
+            : (u.isActive === false || inactiveUsers.has(u.id))
             ? 'Inativo' as const
             : u.invitePending ? 'Pendente' as const : 'Ativo' as const,
           cor: CORES[i % CORES.length],
@@ -336,6 +339,32 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
     }
   }
 
+  // Auto-cadastro (mobile): aprovar ativa o profissional + Cognito + vínculos.
+  async function aprovarCadastro(userId: string, nome: string) {
+    try {
+      await usersApi.approve(userId);
+      const refreshed = await usersApi.getAll();
+      setUsers(Array.isArray(refreshed) ? refreshed : []);
+      showToast(`${nome} aprovado! Cadastro ativado.`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Erro ao aprovar cadastro.', true);
+    }
+  }
+
+  // Auto-cadastro (mobile): rejeitar marca Inativo e remove a biometria (LGPD).
+  async function rejeitarCadastro(userId: string, nome: string) {
+    try {
+      await usersApi.reject(userId);
+      const refreshed = await usersApi.getAll();
+      setUsers(Array.isArray(refreshed) ? refreshed : []);
+      showToast(`Cadastro de ${nome} rejeitado.`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      showToast(msg || 'Erro ao rejeitar cadastro.', true);
+    }
+  }
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: MEDICOS_CSS }} />
@@ -387,7 +416,7 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
           </div>
           <CustomSelect value={filterTipo} onChange={setFilterTipo} options={[{ value: '', label: 'Médicos e enfermeiros' }, { value: 'Médico', label: 'Somente médicos' }, { value: 'Enfermeiro', label: 'Somente enfermeiros' }]} />
           <CustomSelect value={filterBio} onChange={setFilterBio} options={[{ value: '', label: 'Todas as biometrias' }, { value: 'Cadastrada', label: 'Biometria ativa' }, { value: 'Pendente', label: 'Biometria pendente' }]} />
-          <CustomSelect value={filterStatus} onChange={setFilterStatus} options={[{ value: '', label: 'Todos os status' }, { value: 'Ativo', label: 'Ativo' }, { value: 'Pendente', label: 'Convite pendente' }, { value: 'Inativo', label: 'Inativo' }]} />
+          <CustomSelect value={filterStatus} onChange={setFilterStatus} options={[{ value: '', label: 'Todos os status' }, { value: 'AguardandoAprovacao', label: 'Aguardando aprovação' }, { value: 'Ativo', label: 'Ativo' }, { value: 'Pendente', label: 'Convite pendente' }, { value: 'Inativo', label: 'Inativo' }]} />
         </div>
 
         {/* Tabela */}
@@ -427,27 +456,43 @@ export function AdminMedicos({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
                     <td style={{ color: 'var(--muted)', fontWeight: 700 }}>{m.especialidade}</td>
                     <td><div className="med-upas-mini">{m.upas.map(u => <span key={u} className="med-upa-chip">{u}</span>)}</div></td>
                     <td className="center"><span className={`med-bio-badge ${m.biometria === 'Cadastrada' ? 'med-bio-ok' : 'med-bio-pendente'}`}>{m.biometria === 'Cadastrada' ? '✓ Cadastrada' : '⏳ Pendente'}</span></td>
-                    <td className="center"><span className={`med-badge ${m.status === 'Ativo' ? 'med-badge-ativo' : m.status === 'Pendente' ? 'med-badge-pendente' : 'med-badge-inativo'}`}>{m.status}</span></td>
+                    <td className="center"><span className={`med-badge ${m.status === 'Ativo' ? 'med-badge-ativo' : m.status === 'AguardandoAprovacao' ? 'med-badge-aguardando' : m.status === 'Pendente' ? 'med-badge-pendente' : 'med-badge-inativo'}`}>{m.status === 'AguardandoAprovacao' ? 'Aguardando aprovação' : m.status}</span></td>
                     <td className="center">
                       <div className="med-actions-cell">
-                        {m.status === 'Pendente' && (
-                          <button className="med-act-btn med-resend" title="Reenviar convite" onClick={() => reenviarConvite(m.id, m.nome)}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                          </button>
+                        {m.status === 'AguardandoAprovacao' ? (
+                          <>
+                            <button className="med-act-btn med-activate" title="Aprovar cadastro" onClick={() => aprovarCadastro(m.id, m.nome)}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            </button>
+                            <button className="med-act-btn med-danger" title="Rejeitar cadastro" onClick={() => rejeitarCadastro(m.id, m.nome)}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                            <button className="med-act-btn" title="Revisar dados" onClick={() => openDrawer(m.id)}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {m.status === 'Pendente' && (
+                              <button className="med-act-btn med-resend" title="Reenviar convite" onClick={() => reenviarConvite(m.id, m.nome)}>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              </button>
+                            )}
+                            <button className="med-act-btn" title="Editar" onClick={() => openDrawer(m.id)}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <button className="med-act-btn med-bio-btn" title="Biometria" onClick={() => { openDrawer(m.id); setTimeout(() => setDrawerStep(3), 50); }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            </button>
+                            <button className={`med-act-btn ${m.status !== 'Inativo' ? 'med-danger' : 'med-activate'}`} title={m.status !== 'Inativo' ? 'Inativar' : 'Reativar'} onClick={() => toggleUserStatus(m.id, m.nome)}>
+                              {m.status !== 'Inativo' ? (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                              ) : (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                              )}
+                            </button>
+                          </>
                         )}
-                        <button className="med-act-btn" title="Editar" onClick={() => openDrawer(m.id)}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </button>
-                        <button className="med-act-btn med-bio-btn" title="Biometria" onClick={() => { openDrawer(m.id); setTimeout(() => setDrawerStep(3), 50); }}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                        </button>
-                        <button className={`med-act-btn ${m.status !== 'Inativo' ? 'med-danger' : 'med-activate'}`} title={m.status !== 'Inativo' ? 'Inativar' : 'Reativar'} onClick={() => toggleUserStatus(m.id, m.nome)}>
-                          {m.status !== 'Inativo' ? (
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-                          ) : (
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                          )}
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -663,6 +708,8 @@ const MEDICOS_CSS = `
 #adm-root .med-badge-ativo { background:var(--green-light); color:#16a34a; }
 #adm-root .med-badge-inativo { background:var(--red-light); color:#dc2626; }
 #adm-root .med-badge-pendente { background:var(--yellow-light); color:#b45309; }
+#adm-root .med-badge-aguardando { background:#ffedd5; color:#c2410c; }
+#adm-root.dark .med-badge-aguardando { background:rgba(249,115,22,.15); color:#fdba74; }
 #adm-root .med-badge-medico { background:var(--teal-light); color:#0d6d68; }
 #adm-root .med-badge-enfermeiro { background:var(--purple-light); color:#6d28d9; }
 #adm-root .med-bio-badge { display:inline-flex; align-items:center; gap:.35rem; font-size:.68rem; font-weight:800; padding:.3rem .75rem; border-radius:20px; white-space:nowrap; }

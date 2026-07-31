@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using PlantonHub.Application.DTOs.Auth;
+using PlantonHub.Application.DTOs.Registration;
 using PlantonHub.Application.Interfaces;
 using PlantonHub.Domain.Entities;
 using PlantonHub.Domain.Interfaces;
@@ -23,6 +24,7 @@ public class AuthController : ControllerBase
     private readonly ICognitoAuthService _cognitoAuthService;
     private readonly IUserRepository _userRepository;
     private readonly IAuditService _auditService;
+    private readonly IRegistrationService _registrationService;
 
     public AuthController(
         ITokenBlacklistService tokenBlacklistService,
@@ -32,7 +34,8 @@ public class AuthController : ControllerBase
         IDeviceRegistrationRepository deviceRegistrationRepository,
         ICognitoAuthService cognitoAuthService,
         IUserRepository userRepository,
-        IAuditService auditService)
+        IAuditService auditService,
+        IRegistrationService registrationService)
     {
         _tokenBlacklistService = tokenBlacklistService;
         _tenantService = tenantService;
@@ -42,6 +45,7 @@ public class AuthController : ControllerBase
         _cognitoAuthService = cognitoAuthService;
         _userRepository = userRepository;
         _auditService = auditService;
+        _registrationService = registrationService;
     }
 
     /// <summary>
@@ -140,6 +144,27 @@ public class AuthController : ControllerBase
             Email = user.Email,
             Name = user.Name,
         });
+    }
+
+    /// <summary>
+    /// Auto-cadastro de profissional (app mobile). Anônimo, com rate limit por IP.
+    /// Cria o profissional em estado Pendente (não loga nem é escalável), grava os
+    /// vínculos com as UPAs escolhidas por raio e abre um alerta para a OS aprovar.
+    /// Biometria é OPCIONAL por enquanto (a validação vai migrar para a Techmag);
+    /// a identidade no Cognito só é provisionada na aprovação.
+    /// </summary>
+    [HttpPost("register")]
+    [AllowAnonymous]
+    [EnableRateLimiting("Register")]
+    [ProducesResponseType(typeof(SelfRegisterResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> Register([FromBody] SelfRegisterRequest request)
+    {
+        var result = await _registrationService.SelfRegisterAsync(request);
+        return StatusCode(StatusCodes.Status201Created, result);
     }
 
     /// <summary>

@@ -42,6 +42,16 @@ export const usersApi = {
   resendInvite: async (userId: string): Promise<void> => {
     await axiosInstance.post(`/users/${userId}/resend-invite`);
   },
+
+  /** Aprova um auto-cadastro pendente (ativa + Cognito + vínculos Aprovado). */
+  approve: async (userId: string): Promise<void> => {
+    await axiosInstance.post(`/users/${userId}/approve`);
+  },
+
+  /** Rejeita um auto-cadastro pendente (marca Inativo + remove biometria). */
+  reject: async (userId: string, reason?: string): Promise<void> => {
+    await axiosInstance.post(`/users/${userId}/reject`, reason ? { reason } : {});
+  },
 };
 
 export default usersApi;

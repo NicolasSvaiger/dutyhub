@@ -85,6 +85,7 @@ public class ClinicService : IClinicService
             City = request.City,
             Neighborhood = request.Neighborhood,
             ZipCode = request.ZipCode,
+            State = request.State,
             ContractId = request.ContractId,
             CreatedAt = DateTime.UtcNow
         };
@@ -122,6 +123,7 @@ public class ClinicService : IClinicService
         clinic.City = request.City;
         clinic.Neighborhood = request.Neighborhood;
         clinic.ZipCode = request.ZipCode;
+        clinic.State = request.State;
         clinic.ContractId = request.ContractId;
 
         await _clinicRepository.UpdateAsync(clinic);
@@ -217,6 +219,26 @@ public class ClinicService : IClinicService
             .ToList();
     }
 
+    public async Task<IEnumerable<PublicClinicResponse>> GetPublicAsync()
+    {
+        // Anônimo: só UPAs ativas E com coordenadas (as únicas que o app
+        // consegue casar por raio). Campos mínimos, sem dados sensíveis.
+        var clinics = await _clinicRepository.GetAllAsync();
+        return clinics
+            .Where(c => c.IsActive && c.Latitude.HasValue && c.Longitude.HasValue)
+            .OrderBy(c => c.Name)
+            .Select(c => new PublicClinicResponse
+            {
+                Id = c.Id,
+                Name = c.Name,
+                City = c.City,
+                State = c.State,
+                Latitude = c.Latitude,
+                Longitude = c.Longitude,
+            })
+            .ToList();
+    }
+
     /// <summary>
     /// When a clinic is added or linked to a contract, automatically propagate
     /// AdminClinica roles from existing clinics in that contract to the new clinic.
@@ -256,6 +278,7 @@ public class ClinicService : IClinicService
             City = clinic.City,
             Neighborhood = clinic.Neighborhood,
             ZipCode = clinic.ZipCode,
+            State = clinic.State,
             ContractId = clinic.ContractId,
             ShiftTemplates = (clinic.ShiftTemplates ?? new List<ClinicShiftTemplate>())
                 .OrderBy(t => t.ProfessionalType).ThenBy(t => t.DisplayOrder)

@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance';
-import type { Clinic, User, Shift } from '../types';
+import type { Clinic, User, Shift, Contract } from '../types';
 import type { NotificationItem } from './notificationsApi';
 
 /** KPIs para o dashboard admin */
@@ -26,17 +26,21 @@ export const adminApi = {
    * Usa os endpoints existentes (clinics, users, shifts, notifications).
    */
   getDashboardSummary: async (): Promise<AdminDashboardSummary> => {
-    const [clinicsRes, usersRes, shiftsRes, alertsRes] = await Promise.all([
+    const [clinicsRes, usersRes, shiftsRes, alertsRes, contractsRes] = await Promise.all([
       axiosInstance.get<Clinic[]>('/clinics'),
       axiosInstance.get<User[]>('/users'),
       axiosInstance.get<Shift[]>('/shifts'),
       axiosInstance.get<NotificationItem[]>('/notifications'),
+      // Resiliente: se /contracts falhar, o KPI de contratos cai para 0 sem
+      // derrubar o resto do dashboard.
+      axiosInstance.get<Contract[]>('/contracts').catch(() => ({ data: [] as Contract[] })),
     ]);
 
     const clinics = clinicsRes.data;
     const users = usersRes.data;
     const shifts = shiftsRes.data;
     const alerts = alertsRes.data;
+    const contracts = contractsRes.data;
 
     // Filtra médicos (role Medico em qualquer clínica)
     const doctors = users.filter(u =>
@@ -52,7 +56,9 @@ export const adminApi = {
     const pendingAlerts = alerts.filter(a => !a.isRead);
 
     const kpis: AdminDashboardKpis = {
-      activeContracts: clinics.filter(c => c.isActive).length,
+      // "Contratos ativos" = contratos com status Active (não a contagem de
+      // UPAs, que era o bug). Escopado por perfil pelo backend em /contracts.
+      activeContracts: contracts.filter(c => c.status === 'Active').length,
       registeredDoctors: doctors.length,
       shiftsToday: shiftsToday.length,
       shiftsConfirmedToday: shiftsConfirmedToday.length,

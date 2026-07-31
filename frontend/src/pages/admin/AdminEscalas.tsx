@@ -38,6 +38,9 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
   const [modalContext, setModalContext] = useState<{ turno: string; date: string; profType: 'Medico' | 'Enfermeiro' } | null>(null);
   const [modalSelectedDoc, setModalSelectedDoc] = useState<string | null>(null);
   const [modalTipo, setModalTipo] = useState<'fixo' | 'rotativo'>('fixo');
+  // Toggle "Somente desta UPA": quando ligado, o modal e o painel mostram
+  // apenas profissionais vinculados (UserClinicRole) à UPA selecionada.
+  const [somenteDestaUpa, setSomenteDestaUpa] = useState(true);
 
   useEffect(() => {
     Promise.all([clinicsApi.getAll(), usersApi.getAll(), shiftsApi.getAll()])
@@ -118,14 +121,41 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
     });
   }, [shifts, selectedClinic, weekDays]);
 
-  // Doctors (professionals only)
+  // Doctors (professionals only) — apenas ativos podem ser escalados.
   const doctors = useMemo(() => {
     return users.filter(u => {
+      if (!u.isActive) return false; // não oferecer profissionais inativos na escala
       const pt = u.professionalType;
       const roles = u.roles || [];
       return pt === 'Medico' || pt === 'Enfermeiro' || roles.some((r: { role: string }) => r.role === 'Medico' || r.role === 'Enfermeiro');
     });
   }, [users]);
+
+  // Classificação única médico × enfermeiro. Centraliza a regra pra garantir
+  // que enfermeiro só apareça na escala de enfermagem e médico na médica — a
+  // separação por tipo que precisa continuar valendo (era duplicada antes).
+  function professionalKind(doc: User): 'Enfermeiro' | 'Medico' {
+    const isEnfermeiro = doc.professionalType === 'Enfermeiro'
+      || (doc.roles || []).some(r => r.role === 'Enfermeiro');
+    return isEnfermeiro ? 'Enfermeiro' : 'Medico';
+  }
+
+  // Um profissional está "vinculado" à UPA quando possui algum UserClinicRole
+  // (as "UPAs autorizadas") com o clinicId da UPA selecionada. É o mesmo
+  // vínculo que, no futuro, o auto-cadastro por raio vai popular.
+  function isLinkedToClinic(doc: User): boolean {
+    return !!selectedClinic && (doc.roles || []).some(r => r.clinicId === selectedClinic);
+  }
+
+  // Aplica a visão do toggle "Somente desta UPA": vinculados primeiro e,
+  // quando ligado, esconde quem não tem vínculo com a UPA selecionada.
+  function applyVinculoView(list: User[]): User[] {
+    return list
+      .map(d => ({ d, linked: isLinkedToClinic(d) }))
+      .filter(x => !somenteDestaUpa || x.linked)
+      .sort((a, b) => Number(b.linked) - Number(a.linked))
+      .map(x => x.d);
+  }
 
   // Week summary — conta apenas shifts reais (não "Plantão Livre")
   const summary = useMemo(() => {
@@ -194,17 +224,21 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
     }
 
     // Separar profissionais por tipo
-    const medicos = doctors.filter(d => {
-      const pt = d.professionalType;
-      const roles = d.roles || [];
-      const isEnfermeiro = pt === 'Enfermeiro' || roles.some((r: { role: string }) => r.role === 'Enfermeiro');
-      return !isEnfermeiro;
-    });
-    const enfermeiros = doctors.filter(d => {
-      const pt = d.professionalType;
-      const roles = d.roles || [];
-      return pt === 'Enfermeiro' || roles.some((r: { role: string }) => r.role === 'Enfermeiro');
-    });
+    const medicos = doctors.filter(d => professionalKind(d) === 'Medico');
+    const enfermeiros = doctors.filter(d => professionalKind(d) === 'Enfermeiro');
+
+    // Respeita o toggle "Somente desta UPA": a auto-escala só usa quem tem
+    // vínculo com a UPA. Sem isso o gerador poderia escalar alguém de outra
+    // praça (ex.: enfermeiro do Acre numa UPA de São Paulo).
+    const medicosPool = somenteDestaUpa ? medicos.filter(isLinkedToClinic) : medicos;
+    const enfermeirosPool = somenteDestaUpa ? enfermeiros.filter(isLinkedToClinic) : enfermeiros;
+
+    if (medicosPool.length === 0 && enfermeirosPool.length === 0) {
+      showToast(somenteDestaUpa
+        ? 'Nenhum profissional vinculado a esta UPA. Vincule profissionais ou desligue "Somente desta UPA".'
+        : 'Cadastre profissionais primeiro.');
+      return;
+    }
 
     let count = 0;
 
@@ -222,12 +256,12 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
         // Get already assigned doctor IDs in this cell
         const assignedIds = new Set(existing.flatMap(s => (s.assignments || []).map(a => a.userId)));
         // Only fill if there's no one yet
-        if (existing.length === 0 && medicos.length > 0) {
+        if (existing.length === 0 && medicosPool.length > 0) {
           // Pick a doctor not already assigned today in any turno
           const dayShifts = weekShifts.filter(s => (s.date || '').split('T')[0] === dateStr && !s.title.toLowerCase().includes('enferm'));
           const dayAssigned = new Set(dayShifts.flatMap(s => (s.assignments || []).map(a => a.userId)));
-          const available = medicos.filter(m => !dayAssigned.has(m.id) && !assignedIds.has(m.id));
-          const doc = available.length > 0 ? available[medIdx % available.length] : medicos[medIdx % medicos.length];
+          const available = medicosPool.filter(m => !dayAssigned.has(m.id) && !assignedIds.has(m.id));
+          const doc = available.length > 0 ? available[medIdx % available.length] : medicosPool[medIdx % medicosPool.length];
           // Don't add if this doctor is already in this exact slot
           if (!assignedIds.has(doc.id)) {
             try {
@@ -242,7 +276,7 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
     }
 
     // Gerar escala de enfermagem (se a UPA usa)
-    if (hasNursing && enfermeiros.length > 0) {
+    if (hasNursing && enfermeirosPool.length > 0) {
       let enfIdx = 0;
       for (const day of weekDays) {
         const dateStr = day.toISOString().split('T')[0];
@@ -255,7 +289,7 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
           });
           const assignedIds = new Set(existing.flatMap(s => (s.assignments || []).map(a => a.userId)));
           if (existing.length === 0) {
-            const available = enfermeiros.filter(e => !assignedIds.has(e.id));
+            const available = enfermeirosPool.filter(e => !assignedIds.has(e.id));
             const enf = available.length > 0 ? available[enfIdx % available.length] : null;
             if (enf) {
               try {
@@ -276,6 +310,7 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
   }
 
   const dateStr = formatLongDateBR(new Date());
+  const poolDoctors = applyVinculoView(doctors);
 
   return (
     <>
@@ -487,22 +522,29 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
             <div className="esc-panel-card">
               <div className="esc-panel-header">
                 <div className="esc-panel-title">Profissionais disponíveis</div>
-                <span className="esc-panel-badge">{doctors.length} disponíveis</span>
+                <span className="esc-panel-badge">{poolDoctors.length} {somenteDestaUpa ? 'desta UPA' : 'no total'}</span>
+              </div>
+              <div className="esc-vinc-toggle" onClick={() => setSomenteDestaUpa(v => !v)} role="switch" aria-checked={somenteDestaUpa} title='Alterna entre "Somente desta UPA" e "Mostrar todos"'>
+                <div className={`esc-switch-track ${somenteDestaUpa ? 'on' : ''}`}><div className="esc-switch-thumb" /></div>
+                <span className="esc-switch-label">{somenteDestaUpa ? 'Somente desta UPA' : 'Mostrar todos'}</span>
               </div>
               <div className="esc-med-pool">
-                {doctors.slice(0, 8).map((doc, i) => (
-                  <div key={doc.id} className="esc-pool-item">
-                    <div className="esc-pool-avatar" style={{ background: CORES[i % CORES.length] }}>
-                      {doc.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+                {poolDoctors.slice(0, 8).map((doc, i) => {
+                  const linked = isLinkedToClinic(doc);
+                  return (
+                    <div key={doc.id} className="esc-pool-item">
+                      <div className="esc-pool-avatar" style={{ background: CORES[i % CORES.length] }}>
+                        {doc.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div className="esc-pool-name">{doc.name}</div>
+                        <div className="esc-pool-info">{doc.registrationNumber || (doc.professionalType === 'Enfermeiro' ? 'COREN' : 'CRM')}</div>
+                      </div>
+                      <span className={`esc-vinc ${linked ? 'in' : 'out'}`}>{linked ? 'Desta UPA' : 'Outra praça'}</span>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div className="esc-pool-name">{doc.name}</div>
-                      <div className="esc-pool-info">{doc.registrationNumber || (doc.professionalType === 'Enfermeiro' ? 'COREN' : 'CRM')}</div>
-                    </div>
-                    <div className="esc-pool-status disponivel" />
-                  </div>
-                ))}
-                {doctors.length === 0 && <div style={{ padding: '.8rem', fontSize: '.75rem', color: 'var(--muted)' }}>Nenhum profissional cadastrado</div>}
+                  );
+                })}
+                {poolDoctors.length === 0 && <div style={{ padding: '.8rem', fontSize: '.75rem', color: 'var(--muted)' }}>{doctors.length === 0 ? 'Nenhum profissional cadastrado' : 'Nenhum profissional vinculado a esta UPA'}</div>}
               </div>
             </div>
 
@@ -540,15 +582,16 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
               <button className={`esc-tipo-btn ${modalTipo === 'fixo' ? 'active fixo' : ''}`} onClick={() => setModalTipo('fixo')}>Plantão fixo</button>
               <button className={`esc-tipo-btn ${modalTipo === 'rotativo' ? 'active rot' : ''}`} onClick={() => setModalTipo('rotativo')}>Rotativo</button>
             </div>
+            <div className="esc-vinc-toggle esc-vinc-toggle-modal" onClick={() => setSomenteDestaUpa(v => !v)} role="switch" aria-checked={somenteDestaUpa}>
+              <div className={`esc-switch-track ${somenteDestaUpa ? 'on' : ''}`}><div className="esc-switch-thumb" /></div>
+              <span className="esc-switch-label">{somenteDestaUpa ? 'Somente desta UPA' : 'Mostrar todos'}</span>
+            </div>
             <div className="esc-modal-list">
-              {doctors
-                .filter(doc => {
-                  // Filtrar por tipo profissional
-                  const wantType = modalContext?.profType || 'Medico';
-                  const docType = doc.professionalType || ((doc.roles || []).some((r: { role: string }) => r.role === 'Enfermeiro') ? 'Enfermeiro' : 'Medico');
-                  return docType === wantType;
-                })
+              {applyVinculoView(
+                doctors.filter(doc => professionalKind(doc) === (modalContext?.profType || 'Medico'))
+              )
                 .map((doc, i) => {
+                const linked = isLinkedToClinic(doc);
                 // Check if doctor is already assigned in this cell
                 const isAssigned = modalContext ? weekShifts.some(s => {
                   const sd = (s.date || '').split('T')[0];
@@ -569,11 +612,12 @@ export function AdminEscalas({ onBack: _onBack, dark, onToggleTheme, onOpenSideb
                       {doc.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     <div className="esc-modal-item-name">{doc.name}</div>
+                    {!linked && <span className="esc-vinc out" style={{ marginRight: '.5rem' }}>Outra praça</span>}
                     <div className="esc-modal-item-info">{isAssigned ? 'Já escalado' : (doc.registrationNumber || 'CRM')}</div>
                   </div>
                 );
               })}
-              {doctors.filter(doc => { const wt = modalContext?.profType || 'Medico'; const dt = doc.professionalType || ((doc.roles || []).some((r: { role: string }) => r.role === 'Enfermeiro') ? 'Enfermeiro' : 'Medico'); return dt === wt; }).length === 0 && <div style={{ padding: '1rem', color: 'var(--muted)', fontSize: '.78rem' }}>Nenhum {modalContext?.profType === 'Enfermeiro' ? 'enfermeiro' : 'médico'} disponível</div>}
+              {applyVinculoView(doctors.filter(doc => professionalKind(doc) === (modalContext?.profType || 'Medico'))).length === 0 && <div style={{ padding: '1rem', color: 'var(--muted)', fontSize: '.78rem' }}>{somenteDestaUpa ? `Nenhum ${modalContext?.profType === 'Enfermeiro' ? 'enfermeiro' : 'médico'} vinculado a esta UPA — use "Mostrar todos".` : `Nenhum ${modalContext?.profType === 'Enfermeiro' ? 'enfermeiro' : 'médico'} disponível`}</div>}
             </div>
             <div className="esc-modal-btns">
               <button className="esc-btn-cancel" onClick={() => setModalOpen(false)}>Cancelar</button>
@@ -707,6 +751,22 @@ const ESCALAS_CSS = `
 #adm-root .esc-pool-info { font-size:.62rem; font-weight:600; color:var(--muted); }
 #adm-root .esc-pool-status { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
 #adm-root .esc-pool-status.disponivel { background:var(--green); }
+
+/* Toggle "Somente desta UPA" + badges de vínculo */
+#adm-root .esc-vinc-toggle { display:flex; align-items:center; gap:.5rem; padding:.55rem 1.2rem; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+#adm-root .esc-vinc-toggle-modal { padding:.1rem 0 1rem; border-bottom:none; }
+#adm-root .esc-switch-track { width:34px; height:20px; border-radius:20px; background:var(--border); position:relative; transition:background .15s; flex-shrink:0; }
+#adm-root .esc-switch-track.on { background:var(--indigo); }
+#adm-root .esc-switch-thumb { position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .15s; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+#adm-root .esc-switch-track.on .esc-switch-thumb { transform:translateX(14px); }
+#adm-root .esc-switch-label { font-size:.72rem; font-weight:800; color:var(--text); }
+#adm-root .esc-vinc { font-size:.58rem; font-weight:800; padding:.15rem .45rem; border-radius:7px; white-space:nowrap; flex-shrink:0; text-transform:uppercase; letter-spacing:.02em; }
+#adm-root .esc-vinc.in { background:var(--green-light); color:#16a34a; }
+#adm-root .esc-vinc.out { background:var(--yellow-light); color:#92400e; }
+#adm-root.dark .esc-vinc-toggle { border-bottom-color:rgba(255,255,255,.06); }
+#adm-root.dark .esc-switch-track { background:rgba(255,255,255,.15); }
+#adm-root.dark .esc-vinc.in { background:rgba(34,197,94,.12); color:#86efac; }
+#adm-root.dark .esc-vinc.out { background:rgba(245,158,11,.12); color:#fcd34d; }
 
 /* Legend */
 #adm-root .esc-legend-body { padding:.9rem 1.2rem; display:flex; flex-direction:column; gap:.5rem; }
