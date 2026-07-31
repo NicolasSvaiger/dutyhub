@@ -37,7 +37,11 @@ export class DatabaseStack extends cdk.Stack {
       }),
       allocatedStorage: 20,
       maxAllocatedStorage: 200,
-      multiAz: true,
+      // Single-AZ: reduz custo (~metade da instancia + sem transferencia
+      // inter-AZ) e volta a ser elegivel ao free tier. Trade-off: sem
+      // failover automatico (HA). Decisao consciente no estagio atual
+      // (creditos AWS). Reversivel: basta voltar para true + deploy.
+      multiAz: false,
       publiclyAccessible: false,
       storageEncrypted: true,
       backupRetention: cdk.Duration.days(30),

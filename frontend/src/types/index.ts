@@ -38,6 +38,9 @@ export interface User {
   name: string;
   professionalType?: string | null;
   isActive: boolean;
+  /** Situação do cadastro: "Pendente" (auto-cadastro mobile aguardando
+   * aprovação da OS), "Ativo" ou "Inativo". Diferente de invitePending. */
+  status?: string;
   /** true quando o usuário foi convidado mas nunca completou o primeiro
    * login (status FORCE_CHANGE_PASSWORD no Cognito). Vem populado só nas
    * listagens do admin — renderiza como "Pendente" e habilita reenvio. */
@@ -85,6 +88,7 @@ export interface Clinic {
   city?: string | null;
   neighborhood?: string | null;
   zipCode?: string | null;
+  state?: string | null;
 
   // Contract link
   contractId?: string | null;
@@ -179,6 +183,7 @@ export interface CreateClinicRequest {
   city?: string | null;
   neighborhood?: string | null;
   zipCode?: string | null;
+  state?: string | null;
   contractId?: string | null;
 }
 
@@ -196,6 +201,7 @@ export interface UpdateClinicRequest {
   city?: string | null;
   neighborhood?: string | null;
   zipCode?: string | null;
+  state?: string | null;
   contractId?: string | null;
 }
 

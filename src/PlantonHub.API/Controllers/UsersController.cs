@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PlantonHub.Application.DTOs.Registration;
 using PlantonHub.Application.DTOs.Users;
 using PlantonHub.Application.Interfaces;
 
@@ -10,10 +11,12 @@ namespace PlantonHub.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly IRegistrationService _registrationService;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IRegistrationService registrationService)
     {
         _userService = userService;
+        _registrationService = registrationService;
     }
 
     /// <summary>
@@ -157,6 +160,40 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> ResendInvite(Guid id)
     {
         await _userService.ResendInviteAsync(id);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Aprova um auto-cadastro pendente: ativa o profissional (Status=Ativo /
+    /// IsActive=true), aprova os vínculos e provisiona o Cognito (habilita
+    /// face-login). AdminClinica só aprova cadastros das suas UPAs autorizadas;
+    /// AdminGlobal aprova qualquer um.
+    /// </summary>
+    [Authorize(Policy = "AdminClinica")]
+    [HttpPost("{id:guid}/approve")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Approve(Guid id)
+    {
+        await _registrationService.ApproveAsync(id);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Rejeita um auto-cadastro pendente: marca Inativo e remove a biometria
+    /// (LGPD). Mesma autorização do approve.
+    /// </summary>
+    [Authorize(Policy = "AdminClinica")]
+    [HttpPost("{id:guid}/reject")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Reject(Guid id, [FromBody] RejectRegistrationRequest? request)
+    {
+        await _registrationService.RejectAsync(id, request?.Reason);
         return NoContent();
     }
 

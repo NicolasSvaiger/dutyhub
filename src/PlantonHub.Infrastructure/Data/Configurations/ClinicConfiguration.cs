@@ -32,6 +32,9 @@ public class ClinicConfiguration : IEntityTypeConfiguration<Clinic>
         builder.Property(c => c.ZipCode)
             .HasMaxLength(10);
 
+        builder.Property(c => c.State)
+            .HasMaxLength(2);
+
         // ContractId is configured via ContractConfiguration (SetNull on contract delete)
 
         builder.HasMany(c => c.UserClinicRoles)

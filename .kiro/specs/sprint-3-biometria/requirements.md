@@ -6,6 +6,16 @@
 
 ---
 
+> **STATUS (decisão): resolvida via app mobile (Flutter).** A biometria/reconhecimento
+> facial roda no app Flutter — backend já tem o fluxo CUSTOM_AUTH (face-login) no
+> `CognitoAuthService`, config de Azure Face nas Configurações e o contrato em
+> `docs/flutter-biometric-api.md`. No **web**, o check-in mantém
+> `biometricValidated = false` por design (não há WebAuthn/oval no web). Os itens
+> abaixo referentes ao web (overlay de biometria no check-in, WebAuthn como MFA) NÃO
+> serão implementados no frontend web — ficam a cargo do app mobile.
+
+---
+
 ## Objetivo
 
 Implementar validação biométrica no momento do check-in/check-out, conforme o mock original (tela com oval + animação). Duas camadas: WebAuthn (device biometric) como baseline + UI visual do mock.

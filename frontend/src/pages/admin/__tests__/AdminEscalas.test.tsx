@@ -231,7 +231,9 @@ describe('AdminEscalas', () => {
     renderEscalas();
     await waitFor(() => {
       expect(screen.getByText('Profissionais disponíveis')).toBeInTheDocument();
-      expect(screen.getByText('3 disponíveis')).toBeInTheDocument();
+      // Badge agora reflete o toggle "Somente desta UPA" (ligado por padrão);
+      // os 3 profissionais têm vínculo com a UPA c1, então contam como "desta UPA".
+      expect(screen.getByText('3 desta UPA')).toBeInTheDocument();
     });
   });
 

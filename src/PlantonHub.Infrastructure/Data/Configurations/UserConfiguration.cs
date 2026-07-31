@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using PlantonHub.Domain.Entities;
+using PlantonHub.Domain.Enums;
 
 namespace PlantonHub.Infrastructure.Data.Configurations;
 
@@ -31,6 +32,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(u => u.PasswordHash)
             .IsRequired();
+
+        // Situação do cadastro (Pendente/Ativo/Inativo). Default Ativo cobre as
+        // linhas existentes na migração; o auto-cadastro grava Pendente.
+        builder.Property(u => u.Status)
+            .HasDefaultValue(UserStatus.Ativo);
 
         builder.HasMany(u => u.UserClinicRoles)
             .WithOne(ucr => ucr.User)

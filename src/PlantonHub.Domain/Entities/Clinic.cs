@@ -45,6 +45,9 @@ public class Clinic
     /// <summary>Brazilian postal code (CEP), digits only or formatted.</summary>
     public string? ZipCode { get; set; }
 
+    /// <summary>State abbreviation / UF where the unit is located, e.g. "SP".</summary>
+    public string? State { get; set; }
+
     /// <summary>
     /// Contract that covers this clinic.
     /// Null means the clinic is not yet linked to any contract.

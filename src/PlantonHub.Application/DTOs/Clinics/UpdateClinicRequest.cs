@@ -21,5 +21,6 @@ public class UpdateClinicRequest
     public string? City { get; set; }
     public string? Neighborhood { get; set; }
     public string? ZipCode { get; set; }
+    public string? State { get; set; }
     public Guid? ContractId { get; set; }
 }
